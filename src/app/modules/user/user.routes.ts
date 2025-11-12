@@ -1,7 +1,6 @@
 import express, { NextFunction, Request, Response } from 'express';
 import { USER_ROLES } from '../../../enums/user';
 import { UserController } from './user.controller';
-import { createUserZodValidationSchema } from './user.validation';
 import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import fileUploadHandler from '../../middlewares/fileUploaderHandler';
@@ -10,7 +9,6 @@ const router = express.Router();
 
 router.route('/')
     .post(
-        validateRequest(createUserZodValidationSchema),
         UserController.createUser
     )
     .get(
@@ -32,5 +30,7 @@ router.route('/')
         },
         UserController.updateProfile
     );
+
+    
 
 export const UserRoutes = router;

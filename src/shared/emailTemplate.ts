@@ -12,7 +12,7 @@ const createAccount = (values: ICreateAccount) => {
                     <img src="https://i.postimg.cc/6pgNvKhD/logo.png" alt="Servi Logo" style="display: block; margin: 0 auto 20px; width:150px" />
 
                     <!-- Greeting -->
-                    <h2 style="color: #D0A933; font-size: 24px; margin-bottom: 20px;">Hey, ${values.name}!</h2>
+                    <h2 style="color: #D0A933; font-size: 24px; margin-bottom: 20px;">Hey, !</h2>
 
                     <!-- Verification Instructions -->
                     <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Thank you for signing up for Servi. Please verify your email address to activate your account.</p>

@@ -1,72 +1,92 @@
 import { IUser } from "./user.interface";
-import { JwtPayload } from 'jsonwebtoken';
+import { JwtPayload } from "jsonwebtoken";
 import { User } from "./user.model";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiErrors";
 import generateOTP from "../../../util/generateOTP";
 import unlinkFile from "../../../shared/unlinkFile";
 import sendSMS from "../../../shared/sendSMS";
+import { emailHelper } from "../../../helpers/emailHelper";
 
 const createUserToDB = async (payload: Partial<IUser>): Promise<IUser> => {
+  // ✅ Adjusted to match nested structure (email.value and phone.value)
+  const isExistUser = await User.findOne({
+    "email.value": payload.email?.value,
+    "phone.value": payload.phone?.value,
+  });
 
-    const isExistUser = await User.findOne({ phone: payload.phone, email : payload.email });
-    if (isExistUser) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'User already exists');
-    }
+  if (isExistUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User already exists");
+  }
 
-    const createUser = await User.create(payload);
-    if (!createUser) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Failed to create user');
-    }
+  // ✅ Create user
+  const createdUser = await User.create(payload);
+  if (!createdUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Failed to create user");
+  }
 
-    // Generate OTP
-    const otp = generateOTP();
-    const authentication = {
-        oneTimeCode: otp, 
-        expireAt: new Date(Date.now() + 5 * 60 * 1000)
-    };
+  // ✅ Generate OTP for authentication
+  const otp = generateOTP();
+  const authentication = {
+    purpose: "email_verify",
+    channel: "email",
+    oneTimeCode: otp,
+    expireAt: new Date(Date.now() + 5 * 60 * 1000),
+  };
 
-    await sendSMS(payload.phone as string, otp.toString());
+  console.log("OTP:", otp);
 
-    await User.findOneAndUpdate(
-        { _id: createUser._id },
-        { $set: { authentication } }
-    );
+  // Optionally send OTP
+  // if (payload.phone?.value) await sendSMS(payload.phone.value, otp.toString());
+  // if (payload.email?.value) await emailHelper.sendEmail(payload.email.value, otp);
 
-    return createUser;
+  // ✅ Update user authentication info
+  await User.findByIdAndUpdate(createdUser._id, {
+    $set: { authentication },
+  });
+
+  return createdUser;
 };
 
-const getUserProfileFromDB = async (user: JwtPayload): Promise<Partial<IUser>> => {
-    const { id } = user;
-    const isExistUser: any = await User.isExistUserById(id);
-    if (!isExistUser) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-    }
-    return isExistUser;
+const getUserProfileFromDB = async (
+  user: JwtPayload
+): Promise<Partial<IUser>> => {
+  const { id } = user;
+
+  const isExistUser = await User.isExistUserById(id);
+  if (!isExistUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
+
+  return isExistUser;
 };
 
-const updateProfileToDB = async (user: JwtPayload, payload: Partial<IUser>): Promise<Partial<IUser | null>> => {
-    const { id } = user;
-    const isExistUser = await User.isExistUserById(id);
-    if (!isExistUser) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-    }
+const updateProfileToDB = async (
+  user: JwtPayload,
+  payload: Partial<IUser>
+): Promise<Partial<IUser | null>> => {
+  const { id } = user;
 
-    //unlink file here
-    if (payload.profile && isExistUser.profile) {
-        unlinkFile(isExistUser.profile);
-    }
+  const isExistUser = await User.isExistUserById(id);
+  if (!isExistUser) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
+  }
 
-    const updateDoc = await User.findOneAndUpdate(
-        { _id: id },
-        payload,
-        { new: true }
-    );
-    return updateDoc;
+  // ✅ Fix for profilePicture field name
+  if (payload.profilePicture && isExistUser.profilePicture) {
+    unlinkFile(isExistUser.profilePicture);
+  }
+
+  // ✅ Update user document safely
+  const updatedUser = await User.findByIdAndUpdate(id, payload, {
+    new: true,
+  });
+
+  return updatedUser;
 };
 
 export const UserService = {
-    createUserToDB,
-    getUserProfileFromDB,
-    updateProfileToDB
+  createUserToDB,
+  getUserProfileFromDB,
+  updateProfileToDB,
 };
