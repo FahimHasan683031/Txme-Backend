@@ -33,6 +33,8 @@ export interface IUser extends Document {
   isPhoneVerified?: boolean;
   maritalStatus?: string;
   authentication?: IAuthenticationProps;
+  idDocuments?: string[];
+  addressDocuments?: string[]; 
 }
 
 export type UserModal = {

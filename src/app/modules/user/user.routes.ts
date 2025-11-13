@@ -8,9 +8,6 @@ import { getSingleFilePath } from '../../../shared/getFilePath';
 const router = express.Router();
 
 router.route('/')
-    .post(
-        UserController.createUser
-    )
     .get(
         auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, USER_ROLES.SUPER_ADMIN),
         UserController.getUserProfile

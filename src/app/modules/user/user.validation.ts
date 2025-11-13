@@ -2,6 +2,13 @@
 import { z } from "zod";
 import { USER_ROLES } from "../../../enums/user";
 
+// login validation
+export const loginZod = z.object({
+  body: z.object({
+    email: z.string().email(),
+  }),
+});
+
 // Send OTP to email
 export const sendEmailOtpZod = z.object({
   body: z.object({
@@ -18,6 +25,7 @@ export const sendPhoneOtpZod = z.object({
   }),
 });
 
+
 // Send OTP for password reset
 export const sendPasswordResetOtpZod = z.object({
   body: z.object({
@@ -30,6 +38,18 @@ export const sendNumberChangeOtpZod = z.object({
   body: z.object({
     oldPhone: z.string(),
     newPhone: z.string(),
+  }),
+});
+
+export const resendOtpSchema = z.object({
+  body: z.object({
+    identifier: z.string()
+    .min(1, "identifier number is required")
+    .refine((value) => {
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      const isPhone = /^\+?[1-9]\d{1,14}$/.test(value.replace(/\s/g, ''));
+      return isEmail || isPhone;
+    }, "Please provide a valid email or phone number"),
   }),
 });
 
@@ -51,6 +71,8 @@ export const verifyOtpZod = z.object({
 
 export const completeProfileZod = z.object({
   body: z.object({
+    idDocuments: z.array(z.string()).optional(),
+    addressDocuments: z.array(z.string()).optional(),
     fullName: z.string().optional(),
     dateOfBirth: z.string().optional(), // send as ISO string
     gender: z.string().optional(),
@@ -66,5 +88,5 @@ export const completeProfileZod = z.object({
       })
       .optional(),
     maritalStatus: z.string().optional(),
-  }),
+  }).strict(), 
 });

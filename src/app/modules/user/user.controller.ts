@@ -4,17 +4,6 @@ import { UserService } from './user.service';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 
-// register user
-const createUser = catchAsync( async (req: Request, res: Response, next: NextFunction) => {
-    const { ...userData } = req.body;
-    await UserService.createUserToDB(userData);
-
-    sendResponse(res, {
-        success: true,
-        statusCode: StatusCodes.OK,
-        message: 'Your account has been successfully created. Verify Your Phone By OTP. Check your Phone',
-    })
-});
 
 // retrieved user profile
 const getUserProfile = catchAsync(async (req: Request, res: Response) => {
@@ -42,7 +31,6 @@ const updateProfile = catchAsync( async (req: Request, res: Response, next: Next
 });
 
 export const UserController = { 
-    createUser,
     getUserProfile, 
     updateProfile
 };

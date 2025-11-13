@@ -43,6 +43,18 @@ const userSchema = new Schema<IUser>(
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
     maritalStatus: { type: String },
+    idDocuments: [
+      {
+        type: String,
+        required: false,
+      }
+    ],
+    addressDocuments: [
+      {
+        type: String,
+        required: false,
+      }
+    ],
     authentication: {
       purpose: {
         type: String,
@@ -67,7 +79,9 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-
+// Explicit indexes for reliability
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 
 // ✅ Keep your existing statics & pre hook as-is
 
