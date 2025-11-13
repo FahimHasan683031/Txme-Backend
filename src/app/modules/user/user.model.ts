@@ -9,12 +9,15 @@ import config from "../../../config";
 const userSchema = new Schema<IUser>(
   {
     email: {
-      value: { type: String, required: true, unique: true },
-      isVerified: { type: Boolean },
+      type: String,
+      required: true,
+      unique: true,
     },
     phone: {
-      value: { type: String, required: false, unique: true, sparse: true },
-      isVerified: { type: Boolean },
+      type: String,
+      required: false,
+      unique: true,
+      sparse: true,
     },
     fullName: { type: String },
     dateOfBirth: { type: Date },
@@ -37,6 +40,8 @@ const userSchema = new Schema<IUser>(
       },
       value: { type: String, required: false },
     },
+    isEmailVerified: { type: Boolean, default: false },
+    isPhoneVerified: { type: Boolean, default: false },
     maritalStatus: { type: String },
     authentication: {
       purpose: {
@@ -62,9 +67,7 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Explicit indexes for reliability
-userSchema.index({ "email.value": 1 }, { unique: true });
-userSchema.index({ "phone.value": 1 }, { unique: true, sparse: true });
+
 
 // ✅ Keep your existing statics & pre hook as-is
 
@@ -75,7 +78,7 @@ userSchema.statics.isExistUserById = async (id: string) => {
 };
 
 userSchema.statics.isExistUserByEmail = async (email: string) => {
-  const isExist = await User.findOne({ "email.value": email });
+  const isExist = await User.findOne({ email: email });
   return isExist;
 };
 
@@ -87,20 +90,22 @@ userSchema.statics.isMatchPassword = async (
   return await bcrypt.compare(password, hashPassword);
 };
 
-//check user
+//check duplicate email before saving - ONLY FOR NEW USERS
 userSchema.pre("save", async function (next) {
-  const emailValue = this?.email?.value;
-  
-  if (emailValue) {
-    const existingUser = await User.findOne({
-      "email.value": emailValue,
-      _id: { $ne: this._id },
-    });
-console.log("emailValue", emailValue);
-    if (existingUser) {
-      return next(
-        new ApiError(StatusCodes.BAD_REQUEST, "Email already exist!")
-      );
+  // Only check for duplicates when creating a NEW user
+  if (this.isNew) {
+    const email = this.email;
+    
+    if (email) {
+      const existingUser = await User.findOne({
+        email: email
+      });
+      console.log("existingUser", existingUser);
+      if (existingUser) {
+        return next(
+          new ApiError(StatusCodes.BAD_REQUEST, "Email already exists!")
+        );
+      }
     }
   }
   next();

@@ -22,10 +22,10 @@ const loginAdminFromDB = async (payload: ILoginData) => {
   }
 
   //check verified and status
-  if (!isExistUser.verified) {
+  if (!isExistUser.isEmailVerified) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Please verify your account, then try to login again"
+      "Please verify your email, then try to login again"
     );
   }
 
@@ -70,9 +70,12 @@ const loginUserFromDB = async (payload: ILoginData) => {
 
   console.log(existingUser);
 
-  // if (!existingUser?.verified) {
-  //     throw new ApiError(StatusCodes.BAD_REQUEST, "Please verify your account, then try to login again");
-  // }
+  if (!existingUser?.isPhoneVerified) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Please verify your phone number, then try to login again"
+    );
+  }
 
   if (!existingUser) {
     return { register: true, verify: false };
@@ -81,6 +84,8 @@ const loginUserFromDB = async (payload: ILoginData) => {
   // Generate OTP
   const otp = generateOTP();
   const authentication = {
+    purpose: "login_otp",
+    channel: "phone",
     oneTimeCode: otp,
     expireAt: new Date(Date.now() + 5 * 60 * 1000),
   };
@@ -103,69 +108,60 @@ const verifyPhoneToDB = async (payload: IVerifyEmail) => {
   if (!oneTimeCode) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Please give the otp, check your Phone we send a code"
+      "Please provide the OTP, check your phone we sent a code"
     );
   }
 
   if (isExistUser.authentication?.oneTimeCode !== oneTimeCode) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "You provided wrong otp");
+    throw new ApiError(StatusCodes.BAD_REQUEST, "You provided wrong OTP");
   }
 
   const date = new Date();
   if (date > isExistUser.authentication?.expireAt) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Otp already expired, Please try again"
+      "OTP has expired, please try again"
     );
   }
 
-  if (isExistUser.isDeleted) {
-    await User.findOneAndDelete({ phone });
-    const data = null;
-    const message = "Your Account deleted Successfully.";
-    return { data, message };
-  }
+  // Update phone verification status
+  await User.findOneAndUpdate(
+    { _id: isExistUser._id },
+    { 
+      isPhoneVerified: true, 
+      authentication: null 
+    }
+  );
 
-  if (isExistUser.verified === true || isExistUser.verified === false) {
-    await User.findOneAndUpdate(
-      { _id: isExistUser._id },
-      { verified: true, authentication: { oneTimeCode: null, expireAt: null } }
-    );
-
-    //create token
-    const accessToken = jwtHelper.createToken(
-      {
-        id: isExistUser._id,
-        role: isExistUser.role,
-        subscribe: isExistUser.subscribe,
-        phone: isExistUser.phone,
-      },
-      config.jwt.jwt_secret as Secret,
-      config.jwt.jwt_expire_in as string
-    );
-
-    //create token
-    const refreshToken = jwtHelper.createToken(
-      {
-        id: isExistUser._id,
-        role: isExistUser.role,
-        subscribe: isExistUser.subscribe,
-        phone: isExistUser.phone,
-      },
-      config.jwt.jwtRefreshSecret as Secret,
-      config.jwt.jwtRefreshExpiresIn as string
-    );
-
-    const data = {
-      accessToken,
+  // Create tokens
+  const accessToken = await jwtHelper.createToken(
+    {
+      id: isExistUser._id,
       role: isExistUser.role,
-      subscribe: isExistUser.subscribe,
-      refreshToken,
-    };
-    const message = "Phone Number verified successfully.";
+      phone: isExistUser.phone,
+    },
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_expire_in as string
+  );
 
-    return { data, message };
-  }
+  const refreshToken = await jwtHelper.createToken(
+    {
+      id: isExistUser._id,
+      role: isExistUser.role,
+      phone: isExistUser.phone,
+    },
+    config.jwt.jwtRefreshSecret as Secret,
+    config.jwt.jwtRefreshExpiresIn as string
+  );
+
+  const data = {
+    accessToken,
+    role: isExistUser.role,
+    refreshToken,
+  };
+  const message = "Phone number verified successfully.";
+
+  return { data, message };
 };
 
 const newAccessTokenToUser = async (token: string) => {
@@ -184,8 +180,8 @@ const newAccessTokenToUser = async (token: string) => {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Unauthorized access");
   }
 
-  //create token
-  const accessToken = jwtHelper.createToken(
+  // Create token
+  const accessToken = await jwtHelper.createToken(
     { id: isExistUser._id, role: isExistUser.role, phone: isExistUser.phone },
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string
@@ -195,29 +191,31 @@ const newAccessTokenToUser = async (token: string) => {
 };
 
 const resendVerificationOTPToDB = async (phone: string) => {
-  // Find the user by ID
+  // Find the user by phone
   const existingUser: (IUser & { _id: mongoose.Types.ObjectId }) | null =
     await User.findOne({ phone }).lean();
 
   if (!existingUser) {
     throw new ApiError(
       StatusCodes.NOT_FOUND,
-      "User with this email does not exist!"
+      "User with this phone number does not exist!"
     );
   }
 
-  if (existingUser?.verified) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User is already verified!");
+  if (existingUser?.isPhoneVerified) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Phone number is already verified!");
   }
 
   // Generate OTP
   const otp = generateOTP();
   const authentication = {
+    purpose: "phone_verify",
+    channel: "phone",
     oneTimeCode: otp,
     expireAt: new Date(Date.now() + 5 * 60 * 1000),
   };
 
-  await sendSMS(phone as string, otp.toString());
+  await sendSMS(phone, otp.toString());
 
   await User.updateOne({ _id: existingUser._id }, { $set: { authentication } });
 };
@@ -225,7 +223,7 @@ const resendVerificationOTPToDB = async (phone: string) => {
 // delete user
 const deleteUserFromDB = async (user: JwtPayload, phone: string) => {
   // Validate phone number
-  if (!validPhoneNumberCheck(phone as string)) {
+  if (!validPhoneNumberCheck(phone)) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "Invalid phone number. Please enter a valid number to receive an OTP."
@@ -240,39 +238,38 @@ const deleteUserFromDB = async (user: JwtPayload, phone: string) => {
   // Generate OTP
   const otp = generateOTP();
   const authentication = {
+    purpose: "phone_verify",
+    channel: "phone",
     oneTimeCode: otp,
     expireAt: new Date(Date.now() + 5 * 60 * 1000),
   };
 
-  await sendSMS(phone as string, otp.toString());
+  await sendSMS(phone, otp.toString());
 
   await User.updateOne(
     { _id: isExistUser?._id },
-    { $set: { authentication, isDeleted: true } }
+    { $set: { authentication } }
   );
-  return "Send the Verification OTP to your Phone Number. Kindly verify for the Delete account";
+  
+  return "Verification OTP sent to your phone number. Kindly verify to delete your account";
 };
 
 const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
   const otp = generateOTP();
   const expireAt = new Date(Date.now() + 5 * 60 * 1000);
 
-  let user = await User.findOne({ "email.value": data.email });
-  if (!user) {
-    user = await User.create({
-      email: { value: data.email, isVerified: false },
-      role: data.role,
-    });
-  }
-
-  user.authentication = {
-    purpose: "email_verify",
-    channel: "email",
-    oneTimeCode: otp,
-    expireAt,
-  };
-
-  await user.save();
+  // Simply create new user with OTP
+  const user = await User.create({
+    email: data.email,
+    role: data.role,
+    isEmailVerified: false,
+    authentication: {
+      purpose: "email_verify",
+      channel: "email",
+      oneTimeCode: otp,
+      expireAt,
+    }
+  });
 
   const emailContent = emailTemplate.createAccount({
     email: data.email,
@@ -284,32 +281,38 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
   return { userId: user._id, email: data.email };
 };
 
-const sendPhoneOtp = async (phone: string) => {
+const sendPhoneOtp = async (payload: { phone: string; id: string }) => {
   const otp = generateOTP();
   const expireAt = new Date(Date.now() + 5 * 60 * 1000);
 
-  let user = await User.findOne({ "phone.value": phone });
+  // First find the user
+  const user = await User.findById(payload.id);
   if (!user) {
-    user = await User.create({
-      phone: { value: phone, isVerified: false },
-    });
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
   }
 
+  // Update user fields
+  user.phone = payload.phone;
   user.authentication = {
     purpose: "phone_verify",
     channel: "phone",
     oneTimeCode: otp,
     expireAt,
   };
+  user.isPhoneVerified = false;
 
+  // Save the user (this will trigger validations)
   await user.save();
-  await sendSMS(phone, otp.toString());
 
-  return { userId: user._id, phone };
+  // Send SMS after saving user
+  await sendSMS(payload.phone, otp.toString());
+
+  return { userId: user._id, phone: payload.phone };
 };
 
+
 const sendPasswordResetOtp = async (email: string) => {
-  const user = await User.findOne({ "email.value": email });
+  const user = await User.findOne({ email });
   if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
   const otp = generateOTP();
@@ -329,7 +332,7 @@ const sendPasswordResetOtp = async (email: string) => {
 };
 
 const sendNumberChangeOtp = async (oldPhone: string, newPhone: string) => {
-  const user = await User.findOne({ "phone.value": oldPhone });
+  const user = await User.findOne({ phone: oldPhone });
   if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "Old phone not found");
 
   const otp = generateOTP();
@@ -358,10 +361,7 @@ const verifyOtp = async (payload: {
 }) => {
   const { purpose, channel, identifier, oneTimeCode } = payload;
 
-  const query =
-    channel === "email"
-      ? { "email.value": identifier }
-      : { "phone.value": identifier };
+  const query = channel === "email" ? { email: identifier } : { phone: identifier };
 
   const user = await User.findOne(query).select("+authentication");
   if (!user || !user.authentication) {
@@ -380,15 +380,15 @@ const verifyOtp = async (payload: {
     throw new ApiError(StatusCodes.BAD_REQUEST, "OTP expired");
 
   // ✅ Mark verified according to purpose
-  if (purpose === "email_verify") user.email.isVerified = true;
-  if (purpose === "phone_verify") user.phone.isVerified = true;
+  if (purpose === "email_verify") user.isEmailVerified = true;
+  if (purpose === "phone_verify") user.isPhoneVerified = true;
 
-  // clear authentication
+  // Clear authentication
   user.authentication = undefined as any;
   await user.save();
 
   return {
-    message: `${purpose} verified successfully`,
+    message: `${purpose.replace('_', ' ')} verified successfully`,
     data: { userId: user._id },
   };
 };

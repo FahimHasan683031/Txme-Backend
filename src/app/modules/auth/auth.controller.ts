@@ -85,7 +85,7 @@ const sendEmailOtp = catchAsync(async (req: Request, res: Response) => {
 });
 
 const sendPhoneOtp = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthService.sendPhoneOtp(req.body.phone);
+  const result = await AuthService.sendPhoneOtp(req.body);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

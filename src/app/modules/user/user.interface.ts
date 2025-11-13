@@ -14,14 +14,8 @@ interface IAuthenticationProps {
 }
 
 export interface IUser extends Document {
-  email: {
-    value: string;
-    isVerified: boolean;
-  };
-  phone?: {
-    value: string;
-    isVerified: boolean;
-  };
+  email: string;
+  phone?: string;
   fullName?: string;
   dateOfBirth?: Date;
   role?: USER_ROLES;
@@ -35,6 +29,8 @@ export interface IUser extends Document {
     type: "nid" | "passport";
     value: string;
   };
+  isEmailVerified?: boolean;
+  isPhoneVerified?: boolean;
   maritalStatus?: string;
   authentication?: IAuthenticationProps;
 }
