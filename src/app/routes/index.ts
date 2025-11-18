@@ -10,11 +10,13 @@ import { MessageRoutes } from '../modules/message/message.routes';
 import { ReviewRoutes } from '../modules/review/review.routes';
 import { NotificationRoutes } from '../modules/notification/notification.routes';
 import { SupportRoutes } from '../modules/support/support.routes';
+import { ServiceRoutes } from '../modules/service/service.route';
 const router = express.Router();
 
 const apiRoutes = [
     { path: "/user", route: UserRoutes },
     { path: "/auth", route: AuthRoutes },
+    { path: "/service", route: ServiceRoutes },
     { path: "/plan", route: PlanRoutes },
     { path: "/subscription", route: SubscriptionRoutes },
     { path: "/category", route: CategoryRoutes },

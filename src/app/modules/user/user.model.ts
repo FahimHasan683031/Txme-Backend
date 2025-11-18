@@ -30,7 +30,11 @@ const userSchema = new Schema<IUser>(
     nationality: { type: String },
     countryOfResidence: { type: String },
     profilePicture: { type: String },
-    residentialAddress: { type: String },
+    residentialAddress: {
+      address: { type: String, required: false },
+      latitude: { type: Number, required: false },
+      longitude: { type: Number, required: false },
+    },
     postalAddress: { type: String },
     identification: {
       type: {
@@ -55,6 +59,11 @@ const userSchema = new Schema<IUser>(
         required: false,
       }
     ],
+    status: {
+      type: String,
+      enum: ["pending", "active", "rejected", "suspended", "blocked", "deleted"],
+      default: "pending"
+    },
     authentication: {
       purpose: {
         type: String,
@@ -79,11 +88,13 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Explicit indexes for reliability
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ phone: 1 }, { unique: true, sparse: true });
+// ✅ Index for residentialAddress coordinates
+userSchema.index({ 
+  "residentialAddress.latitude": 1, 
+  "residentialAddress.longitude": 1 
+});
 
-// ✅ Keep your existing statics & pre hook as-is
+// ✅ ALL OTHER STATICS AND HOOKS REMAIN EXACTLY SAME
 
 //exist user check
 userSchema.statics.isExistUserById = async (id: string) => {

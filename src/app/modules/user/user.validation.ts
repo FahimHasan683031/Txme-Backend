@@ -2,6 +2,16 @@
 import { z } from "zod";
 import { USER_ROLES } from "../../../enums/user";
 
+// Add status enum for validation
+export const USER_STATUS = {
+  PENDING: "pending",
+  ACTIVE: "active", 
+  REJECTED: "rejected",
+  SUSPENDED: "suspended",
+  BLOCKED: "blocked",
+  DELETED: "deleted"
+} as const;
+
 // login validation
 export const loginZod = z.object({
   body: z.object({
@@ -13,7 +23,7 @@ export const loginZod = z.object({
 export const sendEmailOtpZod = z.object({
   body: z.object({
     email: z.string().email(),
-    role: z.enum([USER_ROLES.ADMIN, USER_ROLES.CUSTOMER,USER_ROLES.VENDOR,USER_ROLES.GUEST]),
+    role: z.enum([USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, USER_ROLES.GUEST]),
   }),
 });
 
@@ -24,7 +34,6 @@ export const sendPhoneOtpZod = z.object({
     id: z.string(),
   }),
 });
-
 
 // Send OTP for password reset
 export const sendPasswordResetOtpZod = z.object({
@@ -44,12 +53,12 @@ export const sendNumberChangeOtpZod = z.object({
 export const resendOtpSchema = z.object({
   body: z.object({
     identifier: z.string()
-    .min(1, "identifier number is required")
-    .refine((value) => {
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-      const isPhone = /^\+?[1-9]\d{1,14}$/.test(value.replace(/\s/g, ''));
-      return isEmail || isPhone;
-    }, "Please provide a valid email or phone number"),
+      .min(1, "identifier number is required")
+      .refine((value) => {
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+        const isPhone = /^\+?[1-9]\d{1,14}$/.test(value.replace(/\s/g, ''));
+        return isEmail || isPhone;
+      }, "Please provide a valid email or phone number"),
   }),
 });
 
@@ -74,12 +83,16 @@ export const completeProfileZod = z.object({
     idDocuments: z.array(z.string()).optional(),
     addressDocuments: z.array(z.string()).optional(),
     fullName: z.string().optional(),
-    dateOfBirth: z.string().optional(), // send as ISO string
+    dateOfBirth: z.string().optional(),
     gender: z.string().optional(),
     nationality: z.string().optional(),
     countryOfResidence: z.string().optional(),
     profilePicture: z.string().optional(),
-    residentialAddress: z.string().optional(),
+    residentialAddress: z.object({
+      address: z.string().min(1, "Address is required"),
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+    }).optional(),
     postalAddress: z.string().optional(),
     identification: z
       .object({
@@ -88,5 +101,27 @@ export const completeProfileZod = z.object({
       })
       .optional(),
     maritalStatus: z.string().optional(),
+    status: z.enum([
+      "pending", 
+      "active", 
+      "rejected", 
+      "suspended", 
+      "blocked", 
+      "deleted"
+    ]).optional(),
   }).strict(), 
+});
+
+// ✅ New schema for updating user status (admin only)
+export const updateUserStatusZod = z.object({
+  body: z.object({
+    status: z.enum([
+      "pending", 
+      "active", 
+      "rejected", 
+      "suspended", 
+      "deleted"
+    ]),
+    reason: z.string().optional(), // Optional reason for status change
+  }),
 });

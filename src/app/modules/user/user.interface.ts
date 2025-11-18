@@ -23,7 +23,11 @@ export interface IUser extends Document {
   nationality?: string;
   profilePicture?: string;
   countryOfResidence?: string;
-  residentialAddress?: string;
+  residentialAddress?: {
+    address: string;
+    latitude: number;
+    longitude: number;
+  };
   postalAddress?: string;
   identification?: {
     type: "nid" | "passport";
@@ -34,7 +38,8 @@ export interface IUser extends Document {
   maritalStatus?: string;
   authentication?: IAuthenticationProps;
   idDocuments?: string[];
-  addressDocuments?: string[]; 
+  addressDocuments?: string[];
+  status?: "pending" | "active" | "rejected" | "suspended" | "blocked" | "deleted";
 }
 
 export type UserModal = {

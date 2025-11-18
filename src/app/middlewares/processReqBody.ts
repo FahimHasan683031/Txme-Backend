@@ -12,18 +12,20 @@ type IFolderName =
   | 'documents'
   | 'idDocuments'
   | 'addressDocuments'
+  | 'serviceimage' 
 
 interface ProcessedFiles {
   [key: string]: string | string[] | undefined
 }
 
-// ✅ Updated upload fields
+// ✅ Updated upload fields - serviceimage added
 const uploadFields = [
   { name: 'image', maxCount: 1 },
   { name: 'media', maxCount: 3 },
   { name: 'documents', maxCount: 3 },
   { name: 'idDocuments', maxCount: 3 },
   { name: 'addressDocuments', maxCount: 3 },
+  { name: 'serviceimage', maxCount: 1 }, // 
 ] as const
 
 export const fileAndBodyProcessorUsingDiskStorage = () => {
@@ -76,6 +78,7 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
           'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         ],
+        serviceimage: ['image/jpeg', 'image/png', 'image/jpg'],
       };
 
       const fieldType = file.fieldname as IFolderName;
@@ -138,7 +141,7 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
 
                 // Only optimize images (not PDFs or documents)
                 if (
-                  ['image', 'idDocuments', 'addressDocuments'].includes(fieldName) &&
+                  ['image', 'idDocuments', 'addressDocuments', 'serviceimage'].includes(fieldName) &&
                   file.mimetype.startsWith('image/')
                 ) {
                   const fullPath = path.join(uploadsDir, fieldName, file.filename);
@@ -172,6 +175,7 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
             processedFiles[fieldName] = maxCount > 1 ? paths : paths[0];
           }),
         );
+        console.log("processedFiles", processedFiles);
 
         // Merge processed files into request body
         req.body = {
@@ -181,6 +185,7 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
           ...(processedFiles.addressDocuments && { addressDocuments: processedFiles.addressDocuments }),
           ...(processedFiles.documents && { documents: processedFiles.documents }),
           ...(processedFiles.media && { media: processedFiles.media }),
+          ...(processedFiles.serviceimage && { image: processedFiles.serviceimage }), 
         };
 
         next();
