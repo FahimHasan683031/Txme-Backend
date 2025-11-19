@@ -6,6 +6,32 @@ import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import config from "../../../config";
 
+// Provider Profile Sub-document Schema
+const providerProfileSchema = new Schema(
+  {
+    serviceCategory: { 
+      type: [String], 
+      required: true 
+    },
+    workingHours: {
+      startTime: { type: String, required: true },
+      endTime: { type: String, required: true },     
+      duration: { type: Number, required: true, default: 120 }, 
+      workingDays: [{ 
+        type: String, 
+        required: true
+      }], // ["sun", "mon", "wed"]
+    },
+    pricePerSlot: { type: Number, required: true },
+    certifications: [{ type: String }],
+    bio: { type: String },
+    experience: { type: Number },
+    skills: [{ type: String }],
+  },
+  { _id: false, timestamps: false }
+);
+
+// Main User Schema
 const userSchema = new Schema<IUser>(
   {
     email: {
@@ -64,6 +90,14 @@ const userSchema = new Schema<IUser>(
       enum: ["pending", "active", "rejected", "suspended", "blocked", "deleted"],
       default: "pending"
     },
+    
+    // ✅ Embedded Provider Profile - Optional
+    providerProfile: {
+      type: providerProfileSchema,
+      required: false,
+      default: null
+    },
+    
     authentication: {
       purpose: {
         type: String,
@@ -88,15 +122,39 @@ const userSchema = new Schema<IUser>(
   }
 );
 
+
+userSchema.pre("save", function(next) {
+  if (this.providerProfile) {
+    const profile = this.providerProfile;
+    
+    if (!profile.serviceCategory || profile.serviceCategory.length === 0) {
+      return next(new ApiError(StatusCodes.BAD_REQUEST, "At least one service category is required for providers"));
+    }
+    
+    if (!profile.workingHours?.startTime || !profile.workingHours?.endTime || 
+        !profile.workingHours?.duration || !profile.workingHours?.workingDays?.length) {
+      return next(new ApiError(StatusCodes.BAD_REQUEST, "Complete working hours information is required for providers"));
+    }
+    
+    if (!profile.pricePerSlot) {
+      return next(new ApiError(StatusCodes.BAD_REQUEST, "Price per slot is required for providers"));
+    }
+  }
+  next();
+});
+
 // ✅ Index for residentialAddress coordinates
 userSchema.index({ 
   "residentialAddress.latitude": 1, 
   "residentialAddress.longitude": 1 
 });
 
-// ✅ ALL OTHER STATICS AND HOOKS REMAIN EXACTLY SAME
+// ✅ Index for provider profile searches
+userSchema.index({ 
+  "providerProfile.serviceCategory": 1,
+});
 
-//exist user check
+// ALL OTHER STATICS AND HOOKS REMAIN EXACTLY SAME
 userSchema.statics.isExistUserById = async (id: string) => {
   const isExist = await User.findById(id);
   return isExist;
@@ -107,7 +165,6 @@ userSchema.statics.isExistUserByEmail = async (email: string) => {
   return isExist;
 };
 
-//is match password
 userSchema.statics.isMatchPassword = async (
   password: string,
   hashPassword: string
@@ -115,9 +172,7 @@ userSchema.statics.isMatchPassword = async (
   return await bcrypt.compare(password, hashPassword);
 };
 
-//check duplicate email before saving - ONLY FOR NEW USERS
 userSchema.pre("save", async function (next) {
-  // Only check for duplicates when creating a NEW user
   if (this.isNew) {
     const email = this.email;
     

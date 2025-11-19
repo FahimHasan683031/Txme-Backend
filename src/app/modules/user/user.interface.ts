@@ -13,6 +13,23 @@ interface IAuthenticationProps {
   expireAt: Date;
 }
 
+interface IWorkingHours {
+  startTime: string;
+  endTime: string;
+  duration: number;
+  workingDays: string[];
+}
+
+interface IProviderProfile {
+  serviceCategory: string[];
+  workingHours: IWorkingHours;
+  pricePerSlot: number;
+  certifications?: string[];
+  bio?: string;
+  experience?: number;
+  skills?: string[];
+}
+
 export interface IUser extends Document {
   email: string;
   phone?: string;
@@ -40,6 +57,7 @@ export interface IUser extends Document {
   idDocuments?: string[];
   addressDocuments?: string[];
   status?: "pending" | "active" | "rejected" | "suspended" | "blocked" | "deleted";
+  providerProfile?: IProviderProfile;
 }
 
 export type UserModal = {

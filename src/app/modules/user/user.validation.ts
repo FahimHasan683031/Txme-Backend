@@ -97,7 +97,7 @@ export const completeProfileZod = z.object({
     identification: z
       .object({
         type: z.enum(["nid", "passport"]),
-        value: z.string(),
+        value: z.string().min(1, "Identification value is required"),
       })
       .optional(),
     maritalStatus: z.string().optional(),
@@ -109,6 +109,21 @@ export const completeProfileZod = z.object({
       "blocked", 
       "deleted"
     ]).optional(),
+    // ✅ Provider profile validation added here
+    providerProfile: z.object({
+      serviceCategory: z.array(z.string()).optional(),
+      workingHours: z.object({
+        startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
+        endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
+        duration: z.number().positive("Duration must be positive").optional(),
+        workingDays: z.array(z.string()).optional(),
+      }),
+      pricePerSlot: z.number().positive("Price must be positive").optional(),
+      certifications: z.array(z.string()).optional(),
+      bio: z.string().optional(),
+      experience: z.number().min(0, "Experience cannot be negative").optional(),
+      skills: z.array(z.string()).optional(),
+    }).optional(),
   }).strict(), 
 });
 
