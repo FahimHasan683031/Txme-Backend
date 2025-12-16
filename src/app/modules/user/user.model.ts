@@ -9,18 +9,20 @@ import config from "../../../config";
 // Provider Profile Sub-document Schema
 const providerProfileSchema = new Schema(
   {
-    serviceCategory: { 
-      type: [String], 
-      required: true 
+    serviceCategory: {
+      type: [String],
+      required: true,
     },
     workingHours: {
       startTime: { type: String, required: true },
-      endTime: { type: String, required: true },     
-      duration: { type: Number, required: true, default: 120 }, 
-      workingDays: [{ 
-        type: String, 
-        required: true
-      }], // ["sun", "mon", "wed"]
+      endTime: { type: String, required: true },
+      duration: { type: Number, required: true, default: 120 },
+      workingDays: [
+        {
+          type: String,
+          required: true,
+        },
+      ],
     },
     pricePerSlot: { type: Number, required: true },
     certifications: [{ type: String }],
@@ -73,31 +75,41 @@ const userSchema = new Schema<IUser>(
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
     maritalStatus: { type: String },
+    biometricEnabled: {
+      type: Boolean,
+      default: false,
+    },
     idDocuments: [
       {
         type: String,
         required: false,
-      }
+      },
     ],
     addressDocuments: [
       {
         type: String,
         required: false,
-      }
+      },
     ],
     status: {
       type: String,
-      enum: ["pending", "active", "rejected", "suspended", "blocked", "deleted"],
-      default: "pending"
+      enum: [
+        "pending",
+        "active",
+        "rejected",
+        "suspended",
+        "blocked",
+        "deleted",
+      ],
+      default: "pending",
     },
-    
-    // ✅ Embedded Provider Profile - Optional
+
     providerProfile: {
       type: providerProfileSchema,
       required: false,
-      default: null
+      default: null,
     },
-    
+
     authentication: {
       purpose: {
         type: String,
@@ -122,35 +134,53 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-
-userSchema.pre("save", function(next) {
+userSchema.pre("save", function (next) {
   if (this.providerProfile) {
     const profile = this.providerProfile;
-    
+
     if (!profile.serviceCategory || profile.serviceCategory.length === 0) {
-      return next(new ApiError(StatusCodes.BAD_REQUEST, "At least one service category is required for providers"));
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "At least one service category is required for providers"
+        )
+      );
     }
-    
-    if (!profile.workingHours?.startTime || !profile.workingHours?.endTime || 
-        !profile.workingHours?.duration || !profile.workingHours?.workingDays?.length) {
-      return next(new ApiError(StatusCodes.BAD_REQUEST, "Complete working hours information is required for providers"));
+
+    if (
+      !profile.workingHours?.startTime ||
+      !profile.workingHours?.endTime ||
+      !profile.workingHours?.duration ||
+      !profile.workingHours?.workingDays?.length
+    ) {
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Complete working hours information is required for providers"
+        )
+      );
     }
-    
+
     if (!profile.pricePerSlot) {
-      return next(new ApiError(StatusCodes.BAD_REQUEST, "Price per slot is required for providers"));
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Price per slot is required for providers"
+        )
+      );
     }
   }
   next();
 });
 
 // ✅ Index for residentialAddress coordinates
-userSchema.index({ 
-  "residentialAddress.latitude": 1, 
-  "residentialAddress.longitude": 1 
+userSchema.index({
+  "residentialAddress.latitude": 1,
+  "residentialAddress.longitude": 1,
 });
 
 // ✅ Index for provider profile searches
-userSchema.index({ 
+userSchema.index({
   "providerProfile.serviceCategory": 1,
 });
 
@@ -175,10 +205,10 @@ userSchema.statics.isMatchPassword = async (
 userSchema.pre("save", async function (next) {
   if (this.isNew) {
     const email = this.email;
-    
+
     if (email) {
       const existingUser = await User.findOne({
-        email: email
+        email: email,
       });
       console.log("existingUser", existingUser);
       if (existingUser) {

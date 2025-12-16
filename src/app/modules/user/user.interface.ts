@@ -11,6 +11,7 @@ interface IAuthenticationProps {
   channel: "email" | "phone";
   oneTimeCode: number;
   expireAt: Date;
+  
 }
 
 interface IWorkingHours {
@@ -56,6 +57,7 @@ export interface IUser extends Document {
   authentication?: IAuthenticationProps;
   idDocuments?: string[];
   addressDocuments?: string[];
+  biometricEnabled?: boolean;
   status?: "pending" | "active" | "rejected" | "suspended" | "blocked" | "deleted";
   providerProfile?: IProviderProfile;
 }

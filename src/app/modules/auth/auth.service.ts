@@ -14,8 +14,6 @@ import { USER_ROLES } from "../../../enums/user";
 import { emailHelper } from "../../../helpers/emailHelper";
 import { emailTemplate } from "../../../shared/emailTemplate";
 
-
-
 const loginUserFromDB = async (payload: ILoginData) => {
   const { email } = payload;
 
@@ -26,7 +24,10 @@ const loginUserFromDB = async (payload: ILoginData) => {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Please enter a valid email address");
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Please enter a valid email address"
+    );
   }
 
   // Find user by email
@@ -36,10 +37,10 @@ const loginUserFromDB = async (payload: ILoginData) => {
 
   // If user doesn't exist
   if (!existingUser) {
-    return { 
-      register: true, 
+    return {
+      register: true,
       verify: false,
-      message: "User not found. Please register first." 
+      message: "User not found. Please register first.",
     };
   }
 
@@ -53,11 +54,8 @@ const loginUserFromDB = async (payload: ILoginData) => {
   };
 
   // Update user with OTP
-  await User.updateOne(
-    { _id: existingUser._id }, 
-    { $set: { authentication } }
-  );
-
+  await User.updateOne({ _id: existingUser._id }, { $set: { authentication } });
+  console.log("LOGIN-OTP:", otp);
   // Send OTP via email
   const emailContent = {
     to: email,
@@ -70,15 +68,17 @@ const loginUserFromDB = async (payload: ILoginData) => {
         <p>This OTP will expire in 5 minutes.</p>
         <p>If you didn't request this, please ignore this email.</p>
       </div>
-    `
+    `,
   };
 
-  await emailHelper.sendEmail(emailContent);
+  setTimeout(() => {
+    emailHelper.sendEmail(emailContent);
+  }, 0);
 
-  return { 
+  return {
     success: true,
     message: "Login OTP sent to your email",
-    userId: existingUser._id
+    userId: existingUser._id,
   };
 };
 
@@ -134,11 +134,8 @@ const deleteUserFromDB = async (user: JwtPayload, phone: string) => {
 
   await sendSMS(phone, otp.toString());
 
-  await User.updateOne(
-    { _id: isExistUser?._id },
-    { $set: { authentication } }
-  );
-  
+  await User.updateOne({ _id: isExistUser?._id }, { $set: { authentication } });
+
   return "Verification OTP sent to your phone number. Kindly verify to delete your account";
 };
 
@@ -156,7 +153,7 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
       channel: "email",
       oneTimeCode: otp,
       expireAt,
-    }
+    },
   });
 
   const emailContent = emailTemplate.createAccount({
@@ -164,7 +161,9 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
     otp,
   });
 
-  await emailHelper.sendEmail(emailContent);
+  setTimeout(() => {
+    emailHelper.sendEmail(emailContent);
+  }, 0);
 
   return { userId: user._id, email: data.email };
 };
@@ -197,7 +196,6 @@ const sendPhoneOtp = async (payload: { phone: string; id: string }) => {
 
   return { userId: user._id, phone: payload.phone };
 };
-
 
 const sendPasswordResetOtp = async (email: string) => {
   const user = await User.findOne({ email });
@@ -245,7 +243,8 @@ const verifyOtp = async (payload: {
 }) => {
   const { purpose, channel, identifier, oneTimeCode } = payload;
 
-  const query = channel === "email" ? { email: identifier } : { phone: identifier };
+  const query =
+    channel === "email" ? { email: identifier } : { phone: identifier };
 
   const user = await User.findOne(query).select("+authentication");
   if (!user || !user.authentication) {
@@ -276,19 +275,19 @@ const verifyOtp = async (payload: {
   if (purpose === "login_otp" || purpose === "email_verify") {
     const [accessToken, refreshToken] = await Promise.all([
       jwtHelper.createToken(
-        { 
-          id: user._id, 
-          role: user.role, 
-          email: user.email 
+        {
+          id: user._id,
+          role: user.role,
+          email: user.email,
         },
         config.jwt.jwt_secret as Secret,
         config.jwt.jwt_expire_in as string
       ),
       jwtHelper.createToken(
-        { 
-          id: user._id, 
-          role: user.role, 
-          email: user.email 
+        {
+          id: user._id,
+          role: user.role,
+          email: user.email,
         },
         config.jwt.jwtRefreshSecret as Secret,
         config.jwt.jwtRefreshExpiresIn as string
@@ -297,29 +296,182 @@ const verifyOtp = async (payload: {
 
     tokens = { accessToken, refreshToken };
   }
-
+  const userInfo = {
+    email: user.email,
+    phone: user.phone,
+    fullName: user.fullName,
+    profilePicture: user.profilePicture,
+    role: user.role,
+  };
   return {
     success: true,
-    message: `${purpose.replace('_', ' ')} verified successfully`,
-    data: { 
+    message: `${purpose.replace("_", " ")} verified successfully`,
+    data: {
       userId: user._id,
-      ...(tokens && { tokens }) // Include tokens for login_otp AND email_verify
+      userInfo,
+      ...(tokens && { tokens }),
     },
   };
 };
 
 const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
-
   console.log(user, payload);
 
   const userFromDB = await User.findById(user.id);
   if (!userFromDB) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
- 
+
   const res = await User.findByIdAndUpdate(user.id, payload, { new: true });
 
-
-  return {res};
+  return { res };
 };
+
+const resendOtp = async (identifier: unknown) => {
+  if (typeof identifier !== "string") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Identifier must be an email or phone number"
+    );
+  }
+
+  const value = identifier.trim();
+
+  if (!value) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Identifier is required");
+  }
+
+  const isEmail =
+    value.includes("@") &&
+    value.includes(".") &&
+    value.indexOf("@") < value.lastIndexOf(".");
+
+  const numericValue = value.replace(/\s/g, "");
+  const isPhone =
+    !isEmail &&
+    Number.isInteger(Number(numericValue)) &&
+    numericValue.length >= 8 &&
+    numericValue.length <= 15;
+
+  if (!isEmail && !isPhone) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Invalid email or phone number"
+    );
+  }
+
+  /**
+   * 3️⃣ Build query
+   */
+  const query = isEmail
+    ? { email: value.toLowerCase() }
+    : { phone: numericValue };
+
+  /**
+   * 4️⃣ Find user
+   */
+  const user = await User.findOne(query).select("+authentication");
+
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  if (!user.authentication) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "No OTP request found for this user"
+    );
+  }
+
+  const { purpose, channel } = user.authentication;
+
+  /**
+   * 5️⃣ Generate & update OTP
+   */
+  const newOtp = generateOTP();
+  console.log({ newOtp });
+
+  user.authentication.oneTimeCode = newOtp;
+  user.authentication.expireAt = new Date(Date.now() + 5 * 60 * 1000);
+
+  await user.save();
+
+  /**
+   * 6️⃣ Send OTP
+   */
+  if (channel === "email") {
+    setTimeout(() => {
+      emailHelper.sendEmail({
+        to: user.email!,
+        subject: purpose.replace(/_/g, " ").toUpperCase(),
+        html: `
+          <div>
+            <h3>${purpose.replace(/_/g, " ").toUpperCase()}</h3>
+            <p>Your OTP is:</p>
+            <h2 style="color:#2563eb">${newOtp}</h2>
+            <p>Valid for 5 minutes.</p>
+          </div>
+        `,
+      });
+    }, 0);
+  } else {
+    await sendSMS(numericValue, `Your OTP is ${newOtp}. Valid for 5 minutes.`);
+  }
+
+  /**
+   * 7️⃣ Response
+   */
+  return {
+    success: true,
+    message: `New OTP sent via ${channel}`,
+    purpose,
+    channel,
+  };
+};
+
+const enableBiometric = async (user: JwtPayload) => {
+  const userFromDB = await User.findById(user.id);
+
+  if (!userFromDB) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  userFromDB.biometricEnabled = true;
+  await userFromDB.save();
+
+  return { biometricEnabled: true };
+};
+
+const biometricLogin = async (refreshToken: string) => {
+  if (!refreshToken) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Refresh token required");
+  }
+
+  const decoded = jwtHelper.verifyToken(
+    refreshToken,
+    config.jwt.jwtRefreshSecret as Secret
+  );
+
+  const user = await User.findById(decoded.id);
+
+  if (!user) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "User not found");
+  }
+
+  if (!user.biometricEnabled) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "Biometric login is not enabled for this user"
+    );
+  }
+
+  const accessToken = await jwtHelper.createToken(
+    { id: user._id, role: user.role, email: user.email },
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_expire_in as string
+  );
+
+  return { accessToken };
+};
+
 
 export const AuthService = {
   loginUserFromDB,
@@ -330,5 +482,8 @@ export const AuthService = {
   sendPasswordResetOtp,
   sendNumberChangeOtp,
   verifyOtp,
-  completeProfile
+  completeProfile,
+  resendOtp,
+  enableBiometric,
+  biometricLogin,
 };

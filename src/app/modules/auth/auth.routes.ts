@@ -60,10 +60,31 @@ router.patch(
   AuthController.completeProfile
 );
 
+// Resend OTP
+router.post(
+  "/resend-otp",
+  validateRequest(resendOtpSchema),
+  AuthController.resendOtp
+);
+
+
+
 router.delete(
   "/delete-account",
   auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
   AuthController.deleteUser
 );
+
+router.post(
+  "/enable-biometric",
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  AuthController.enableBiometric
+);
+
+router.post(
+  "/biometric-login",
+  AuthController.biometricLogin
+);
+
 
 export const AuthRoutes = router;

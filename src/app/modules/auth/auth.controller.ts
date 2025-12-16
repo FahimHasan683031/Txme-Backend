@@ -108,6 +108,36 @@ const completeProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const resendOtp = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthService.resendOtp(req.body.identifier);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "OTP resent successfully",
+    data: result,
+  });
+});
+
+const enableBiometric = catchAsync(async (req, res) => {
+  const result = await AuthService.enableBiometric(req.user);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Biometric enabled successfully",
+    data: result,
+  });
+});
+
+const biometricLogin = catchAsync(async (req, res) => {
+  const result = await AuthService.biometricLogin(req.body.refreshToken);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Biometric login successful",
+    data: result,
+  });
+});
+
 
 
 export const AuthController = {
@@ -119,5 +149,8 @@ export const AuthController = {
   loginUser,
   refreshToken,
   deleteUser,
-  completeProfile
+  completeProfile,
+  resendOtp,
+  enableBiometric,
+  biometricLogin,
 };

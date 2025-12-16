@@ -73,7 +73,7 @@ export const verifyOtpZod = z.object({
       "number_change",
     ]),
     channel: z.enum(["email", "phone"]),
-    identifier: z.string(), // email or phone
+    identifier: z.string(), 
     oneTimeCode: z.union([z.string(), z.number()]).transform((v) => Number(v)),
   }),
 });
@@ -137,6 +137,19 @@ export const updateUserStatusZod = z.object({
       "suspended", 
       "deleted"
     ]),
-    reason: z.string().optional(), // Optional reason for status change
+    reason: z.string().optional(), 
   }),
+});
+
+
+export const resendOtpZod = z.object({
+  body: z.object({
+    identifier: z.string()
+      .min(1, "Email or phone number is required")
+      .refine((value) => {
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+        const isPhone = /^\+?[1-9]\d{1,14}$/.test(value.replace(/\s/g, ''));
+        return isEmail || isPhone;
+      }, "Please provide a valid email or phone number"),
+  })
 });

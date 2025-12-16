@@ -30,6 +30,7 @@ const updateProfile = catchAsync( async (req: Request, res: Response, next: Next
     });
 });
 
+
 export const UserController = { 
     getUserProfile, 
     updateProfile
