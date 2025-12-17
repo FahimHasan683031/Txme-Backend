@@ -3,12 +3,11 @@ import { JwtPayload, Secret } from "jsonwebtoken";
 import config from "../../../config";
 import ApiError from "../../../errors/ApiErrors";
 import { jwtHelper } from "../../../helpers/jwtHelper";
-import { ILoginData, IVerifyEmail } from "../../../types/auth";
+import { ILoginData } from "../../../types/auth";
 import generateOTP from "../../../util/generateOTP";
 import { User } from "../user/user.model";
 import { IUser } from "../user/user.interface";
 import { validPhoneNumberCheck } from "../../../util/validPhoneNumberCheck";
-import mongoose from "mongoose";
 import sendSMS from "../../../shared/sendSMS";
 import { USER_ROLES } from "../../../enums/user";
 import { emailHelper } from "../../../helpers/emailHelper";
@@ -56,20 +55,11 @@ const loginUserFromDB = async (payload: ILoginData) => {
   // Update user with OTP
   await User.updateOne({ _id: existingUser._id }, { $set: { authentication } });
   console.log("LOGIN-OTP:", otp);
-  // Send OTP via email
-  const emailContent = {
-    to: email,
-    subject: "Your Login OTP",
-    html: `
-      <div>
-        <h3>Login Verification</h3>
-        <p>Your one-time password for login is:</p>
-        <h2 style="color: #2563eb; font-size: 32px; letter-spacing: 5px;">${otp}</h2>
-        <p>This OTP will expire in 5 minutes.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-      </div>
-    `,
-  };
+  // send login otp email
+  const emailContent = emailTemplate.loginOtp({
+    email,
+    otp,
+  });
 
   setTimeout(() => {
     emailHelper.sendEmail(emailContent);
@@ -252,7 +242,9 @@ const verifyOtp = async (payload: {
   }
 
   const auth = user.authentication;
-
+  if (!auth.purpose) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "OTP not found");
+  }
   if (auth.purpose !== purpose)
     throw new ApiError(StatusCodes.BAD_REQUEST, "OTP purpose mismatch");
   if (auth.channel !== channel)
@@ -297,6 +289,7 @@ const verifyOtp = async (payload: {
     tokens = { accessToken, refreshToken };
   }
   const userInfo = {
+    userId: user._id,
     email: user.email,
     phone: user.phone,
     fullName: user.fullName,
@@ -307,7 +300,6 @@ const verifyOtp = async (payload: {
     success: true,
     message: `${purpose.replace("_", " ")} verified successfully`,
     data: {
-      userId: user._id,
       userInfo,
       ...(tokens && { tokens }),
     },
@@ -358,16 +350,10 @@ const resendOtp = async (identifier: unknown) => {
     );
   }
 
-  /**
-   * 3️⃣ Build query
-   */
   const query = isEmail
     ? { email: value.toLowerCase() }
     : { phone: numericValue };
 
-  /**
-   * 4️⃣ Find user
-   */
   const user = await User.findOne(query).select("+authentication");
 
   if (!user) {
@@ -383,9 +369,6 @@ const resendOtp = async (identifier: unknown) => {
 
   const { purpose, channel } = user.authentication;
 
-  /**
-   * 5️⃣ Generate & update OTP
-   */
   const newOtp = generateOTP();
   console.log({ newOtp });
 
@@ -394,31 +377,20 @@ const resendOtp = async (identifier: unknown) => {
 
   await user.save();
 
-  /**
-   * 6️⃣ Send OTP
-   */
   if (channel === "email") {
     setTimeout(() => {
-      emailHelper.sendEmail({
-        to: user.email!,
-        subject: purpose.replace(/_/g, " ").toUpperCase(),
-        html: `
-          <div>
-            <h3>${purpose.replace(/_/g, " ").toUpperCase()}</h3>
-            <p>Your OTP is:</p>
-            <h2 style="color:#2563eb">${newOtp}</h2>
-            <p>Valid for 5 minutes.</p>
-          </div>
-        `,
-      });
+      emailHelper.sendEmail(
+        emailTemplate.resendOtpEmail({
+          email: user.email!,
+          otp: newOtp,
+          purpose,
+        })
+      );
     }, 0);
   } else {
     await sendSMS(numericValue, `Your OTP is ${newOtp}. Valid for 5 minutes.`);
   }
 
-  /**
-   * 7️⃣ Response
-   */
   return {
     success: true,
     message: `New OTP sent via ${channel}`,
@@ -462,6 +434,14 @@ const biometricLogin = async (refreshToken: string) => {
       "Biometric login is not enabled for this user"
     );
   }
+  const userInfo = {
+    userId: user._id,
+    email: user.email,
+    phone: user.phone,
+    fullName: user.fullName,
+    profilePicture: user.profilePicture,
+    role: user.role,
+  };
 
   const accessToken = await jwtHelper.createToken(
     { id: user._id, role: user.role, email: user.email },
@@ -469,9 +449,8 @@ const biometricLogin = async (refreshToken: string) => {
     config.jwt.jwt_expire_in as string
   );
 
-  return { accessToken };
+  return { accessToken, userInfo };
 };
-
 
 export const AuthService = {
   loginUserFromDB,

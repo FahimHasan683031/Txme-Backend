@@ -17,14 +17,14 @@ interface IAuthenticationProps {
 interface IWorkingHours {
   startTime: string;
   endTime: string;
-  duration: number;
+  duration?: number;
   workingDays: string[];
 }
 
 interface IProviderProfile {
   serviceCategory: string[];
   workingHours: IWorkingHours;
-  pricePerSlot: number;
+  pricePerSlot?: number;
   certifications?: string[];
   bio?: string;
   experience?: number;

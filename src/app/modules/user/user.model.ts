@@ -106,8 +106,7 @@ const userSchema = new Schema<IUser>(
 
     providerProfile: {
       type: providerProfileSchema,
-      required: false,
-      default: null,
+      required: false
     },
 
     authentication: {
