@@ -1,6 +1,6 @@
 import { User } from "../user/user.model";
-import { Booking } from "../booking/booking.model";
 import { generateDailySlots } from "../../../util/generateDailySlots";
+import { Appointment } from "../appointment/appointment.model";
 
 export const getProviderCalendar = async (providerId: string, date: string) => {
     console.log(providerId, date);
@@ -29,7 +29,7 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
     let slots = generateDailySlots(workingHours, date); 
 
     // find booked slots for that date
-    const bookings = await Booking.find({
+    const appointments = await Appointment.find({
         provider: providerId,
         date: requestedDate,
         status: { $in: ["confirmed", "pending"] }
@@ -37,12 +37,12 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
 
     // merge availability
     const finalSlots = slots.map(slot => {
-        const isBooked = bookings.some(booking => {
-            // Convert booking times to comparable format
-            const bookingStart = formatTime(booking.startTime);
-            const bookingEnd = formatTime(booking.endTime);
+        const isBooked = appointments.some(appointment => {
+            // Convert appointment times to comparable format
+            const appointmentStart = formatTime(appointment.startTime);     
+            const appointmentEnd = formatTime(appointment.endTime);
             
-            return bookingStart === slot.startTime && bookingEnd === slot.endTime;
+            return appointmentStart === slot.startTime && appointmentEnd === slot.endTime;
         });
         
         return {

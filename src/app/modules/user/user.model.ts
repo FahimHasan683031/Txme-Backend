@@ -118,6 +118,7 @@ const userSchema = new Schema<IUser>(
           "login_otp",
           "password_reset",
           "number_change",
+          "biometric_enable",
         ],
       },
       channel: {

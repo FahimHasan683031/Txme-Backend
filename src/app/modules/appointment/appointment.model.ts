@@ -1,8 +1,8 @@
 import { Schema, model } from "mongoose";
-import { IBooking } from "./booking.type";
+import { IAppointment } from "./appointment.interface";
 
 
-const bookingSchema = new Schema<IBooking>(
+const AppointmentSchema = new Schema<IAppointment>(
   {
     customer: {
       type: Schema.Types.ObjectId,
@@ -23,21 +23,25 @@ const bookingSchema = new Schema<IBooking>(
       required: true,
     },
     startTime: {
-      type: String,
+      type: Date,
       required: true,
     },
     endTime: {
-      type: String,
+      type: Date,
       required: true,
     },
     status: {
       type: String,
-      enum: ["pending", "confirmed", "completed", "cancelled"],
+      enum: ["pending", "confirmed", "completed", "cancelled", "rejected", "awaiting_payment", "paid", "no_show"],
       default: "pending",
     },
-    price: {
+    totalWorkedTime: {
       type: Number,
-      required: true,
+      required: false,
+    },
+    totalCost: {
+      type: Number,
+      required: false,
     },
     address: {
       type: String,
@@ -49,10 +53,10 @@ const bookingSchema = new Schema<IBooking>(
   }
 );
 
-// Prevent double bookings
-bookingSchema.index(
+// Prevent double Appointments
+AppointmentSchema.index(
   { provider: 1, date: 1, startTime: 1, endTime: 1 },
   { unique: true }
 );
 
-export const Booking = model<IBooking>("Booking", bookingSchema);
+export const Appointment = model<IAppointment>("Appointment", AppointmentSchema);

@@ -47,7 +47,13 @@ const updateProfileToDB = async (
   return updatedUser;
 };
 
+const getSingleUser=async (id:string):Promise<IUser|null>=>{
+  const user=await User.findById(id);
+  return user;
+}
+
 export const UserService = {
   getUserProfileFromDB,
   updateProfileToDB,
+  getSingleUser
 };

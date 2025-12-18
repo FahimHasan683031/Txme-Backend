@@ -77,7 +77,6 @@ router.delete(
 
 router.post(
   "/enable-biometric",
-  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
   AuthController.enableBiometric
 );
 

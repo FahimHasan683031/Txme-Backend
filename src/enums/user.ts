@@ -1,7 +1,9 @@
 export enum USER_ROLES {
-    ADMIN = 'ADMIN',
-    SUPER_ADMIN = 'SUPER_ADMIN',
     CUSTOMER = 'CUSTOMER',
     VENDOR = 'PROVIDER',
-    GUEST = 'GUEST',
+}
+
+export enum ADMIN_ROLES {
+    SUPER_ADMIN = 'SUPER_ADMIN',
+    ADMIN = 'ADMIN',
 }

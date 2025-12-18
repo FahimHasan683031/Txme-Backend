@@ -1,4 +1,3 @@
-// src/util/generateDailySlots.ts
 export function generateDailySlots(
     workingHours: {
         startTime: string;
@@ -6,7 +5,7 @@ export function generateDailySlots(
         duration: number;
         workingDays: string[];
     }, 
-    date: string // date parameter add করুন
+    date: string 
 ) {
     const slots = [];
 

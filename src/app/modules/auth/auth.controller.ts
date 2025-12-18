@@ -118,8 +118,8 @@ const resendOtp = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const enableBiometric = catchAsync(async (req, res) => {
-  const result = await AuthService.enableBiometric(req.user);
+const enableBiometric = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthService.enableBiometric(req.body.email);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -129,7 +129,7 @@ const enableBiometric = catchAsync(async (req, res) => {
 });
 
 const biometricLogin = catchAsync(async (req, res) => {
-  const result = await AuthService.biometricLogin(req.body.refreshToken);
+  const result = await AuthService.biometricLogin(req.body.biometricToken);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

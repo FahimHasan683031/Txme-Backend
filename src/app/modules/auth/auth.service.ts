@@ -13,6 +13,8 @@ import { USER_ROLES } from "../../../enums/user";
 import { emailHelper } from "../../../helpers/emailHelper";
 import { emailTemplate } from "../../../shared/emailTemplate";
 
+
+// Login user from DB
 const loginUserFromDB = async (payload: ILoginData) => {
   const { email } = payload;
 
@@ -71,7 +73,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
     userId: existingUser._id,
   };
 };
-
+// Generate new access token
 const newAccessTokenToUser = async (token: string) => {
   // Check if the token is provided
   if (!token) {
@@ -128,7 +130,7 @@ const deleteUserFromDB = async (user: JwtPayload, phone: string) => {
 
   return "Verification OTP sent to your phone number. Kindly verify to delete your account";
 };
-
+// Send OTP for email verification
 const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
   const otp = generateOTP();
   const expireAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -157,7 +159,7 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
 
   return { userId: user._id, email: data.email };
 };
-
+// Send OTP to phone
 const sendPhoneOtp = async (payload: { phone: string; id: string }) => {
   const otp = generateOTP();
   const expireAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -186,7 +188,7 @@ const sendPhoneOtp = async (payload: { phone: string; id: string }) => {
 
   return { userId: user._id, phone: payload.phone };
 };
-
+// Send password reset OTP
 const sendPasswordResetOtp = async (email: string) => {
   const user = await User.findOne({ email });
   if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
@@ -207,6 +209,7 @@ const sendPasswordResetOtp = async (email: string) => {
   return { email };
 };
 
+// Send OTP for number change
 const sendNumberChangeOtp = async (oldPhone: string, newPhone: string) => {
   const user = await User.findOne({ phone: oldPhone });
   if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "Old phone not found");
@@ -225,6 +228,7 @@ const sendNumberChangeOtp = async (oldPhone: string, newPhone: string) => {
   return { oldPhone, newPhone };
 };
 
+// Verify OTP
 const verifyOtp = async (payload: {
   purpose: string;
   channel: "email" | "phone";
@@ -264,8 +268,9 @@ const verifyOtp = async (payload: {
 
   // ✅ Generate tokens for both login_otp AND email_verify purposes
   let tokens = null;
+  let userInfo = null;
   if (purpose === "login_otp" || purpose === "email_verify") {
-    const [accessToken, refreshToken] = await Promise.all([
+    const [accessToken, refreshToken, biometricToken] = await Promise.all([
       jwtHelper.createToken(
         {
           id: user._id,
@@ -284,28 +289,65 @@ const verifyOtp = async (payload: {
         config.jwt.jwtRefreshSecret as Secret,
         config.jwt.jwtRefreshExpiresIn as string
       ),
+      jwtHelper.createToken(
+        {
+          id: user._id,
+          role: user.role,
+          email: user.email,
+        },
+        config.jwt.jwtBiometricSecret as Secret,
+        config.jwt.jwtBiometricExpiresIn as string
+      ),
     ]);
 
-    tokens = { accessToken, refreshToken };
+    tokens = { accessToken, refreshToken, ...(purpose === "login_otp" && user.biometricEnabled && { biometricToken }) };
+    userInfo = {
+      userId: user._id,
+      email: user.email,
+      phone: user.phone,
+      fullName: user.fullName,
+      profilePicture: user.profilePicture,
+      role: user.role,
+    };
   }
-  const userInfo = {
-    userId: user._id,
-    email: user.email,
-    phone: user.phone,
-    fullName: user.fullName,
-    profilePicture: user.profilePicture,
-    role: user.role,
-  };
+
+  if(purpose === "biometric_enable"){
+   await User.findByIdAndUpdate(user.id, {
+    biometricEnabled: true,
+   })
+
+  const biometricToken = jwtHelper.createToken(
+        {
+          id: user._id,
+          role: user.role,
+          email: user.email,
+        },
+        config.jwt.jwtBiometricSecret as Secret,
+        config.jwt.jwtBiometricExpiresIn as string
+      );
+      tokens = { biometricToken };
+      userInfo = {
+      userId: user._id,
+      email: user.email,
+      phone: user.phone,
+      fullName: user.fullName,
+      profilePicture: user.profilePicture,
+      role: user.role,
+    };
+
+  }
+
   return {
     success: true,
     message: `${purpose.replace("_", " ")} verified successfully`,
     data: {
-      userInfo,
-      ...(tokens && { tokens }),
+      ...(userInfo && userInfo),
+      ...(tokens && tokens),
     },
   };
 };
 
+// Complete profile
 const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
   console.log(user, payload);
 
@@ -317,6 +359,7 @@ const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
   return { res };
 };
 
+// Resend OTP
 const resendOtp = async (identifier: unknown) => {
   if (typeof identifier !== "string") {
     throw new ApiError(
@@ -399,27 +442,57 @@ const resendOtp = async (identifier: unknown) => {
   };
 };
 
-const enableBiometric = async (user: JwtPayload) => {
-  const userFromDB = await User.findById(user.id);
+// Enable biometric login
+const enableBiometric = async (email: string) => {
+  const isExistUser = await User.findOne({ email });
 
-  if (!userFromDB) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  if (!isExistUser) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "You are not registered");
   }
 
-  userFromDB.biometricEnabled = true;
-  await userFromDB.save();
+  if (!isExistUser.isEmailVerified) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Please verify your email first"
+    );
+  }
 
-  return { biometricEnabled: true };
+  const otp = generateOTP();
+  const expireAt = new Date(Date.now() + 5 * 60 * 1000);
+
+  // Update user with OTP
+  await User.findOneAndUpdate(
+    { email },
+    {
+      authentication: {
+        purpose: "biometric_enable",
+        channel: "email",
+        oneTimeCode: otp,
+        expireAt,
+      },
+    }
+  );
+
+  const emailContent = emailTemplate.resendOtpEmail({
+    email: isExistUser.email!,
+    otp,
+    purpose: "biometric_enable",
+  });
+
+  setTimeout(() => {
+    emailHelper.sendEmail(emailContent);
+  }, 0);
 };
 
-const biometricLogin = async (refreshToken: string) => {
-  if (!refreshToken) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Refresh token required");
+// Biometric login
+const biometricLogin = async (biometricToken: string) => {
+  if (!biometricToken) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Biometric token required");
   }
 
   const decoded = jwtHelper.verifyToken(
-    refreshToken,
-    config.jwt.jwtRefreshSecret as Secret
+    biometricToken,
+    config.jwt.jwtBiometricSecret as Secret
   );
 
   const user = await User.findById(decoded.id);

@@ -28,7 +28,11 @@ router.route('/')
         UserController.updateProfile
     );
 
-    
+    // get single user
+    router.get('/:id',
+        // auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, USER_ROLES.SUPER_ADMIN),
+        UserController.getSingleUser
+    );
 
     
 

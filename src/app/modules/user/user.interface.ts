@@ -7,7 +7,8 @@ interface IAuthenticationProps {
     | "phone_verify"
     | "login_otp"
     | "password_reset"
-    | "number_change";
+    | "number_change"
+    | "biometric_enable";
   channel: "email" | "phone";
   oneTimeCode: number;
   expireAt: Date;
@@ -17,7 +18,7 @@ interface IAuthenticationProps {
 interface IWorkingHours {
   startTime: string;
   endTime: string;
-  duration?: number;
+  duration: number;
   workingDays: string[];
 }
 

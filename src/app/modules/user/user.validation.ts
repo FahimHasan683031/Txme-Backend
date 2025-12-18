@@ -23,7 +23,7 @@ export const loginZod = z.object({
 export const sendEmailOtpZod = z.object({
   body: z.object({
     email: z.string().email(),
-    role: z.enum([USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, USER_ROLES.GUEST]),
+    role: z.enum([ USER_ROLES.CUSTOMER, USER_ROLES.VENDOR]),
   }),
 });
 
@@ -71,6 +71,7 @@ export const verifyOtpZod = z.object({
       "login_otp",
       "password_reset",
       "number_change",
+      "biometric_enable",
     ]),
     channel: z.enum(["email", "phone"]),
     identifier: z.string(), 

@@ -12,7 +12,9 @@ export default{
         jwt_secret: process.env.JWT_SECRET,
         jwt_expire_in: process.env.JWT_EXPIRE_IN,
         jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
-        jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN
+        jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+        jwtBiometricSecret: process.env.JWT_BIOMETRIC_SECRET,
+        jwtBiometricExpiresIn: process.env.JWT_BIOMETRIC_EXPIRES_IN,
     },
     stripe:{
         stripeSecretKey:process.env.STRIPE_API_SECRET,
