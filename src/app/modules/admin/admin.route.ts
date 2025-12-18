@@ -8,9 +8,9 @@ const router = express.Router();
 
 // create admin
 router.post(
-  '/create-admin',
+  '/',
   auth(ADMIN_ROLES.SUPER_ADMIN),
-//   validateRequest(AdminValidation.createAdminZodSchema),
+  validateRequest(AdminValidation.createAdminZodSchema),
   AdminController.createAdmin
 );
 
@@ -18,19 +18,19 @@ router.post(
 
 router.post(
   '/login',
-//   validateRequest(AdminValidation.createLoginZodSchema),
+  validateRequest(AdminValidation.loginZodSchema),
   AdminController.loginAdmin
 );
 
 router.post(
   '/forget-password',
-//   validateRequest(AdminValidation.createForgetPasswordZodSchema),
+  validateRequest(AdminValidation.forgetPasswordZodSchema),
   AdminController.forgetPassword
 );
 
 router.post(
-  '/verify-email',
-//   validateRequest(AuthValidation.createVerifyEmailZodSchema),
+  '/verify-otp',
+  validateRequest(AdminValidation.verifyOTPZodSchema),
   AdminController.verifyEmail
 );
 
@@ -38,14 +38,14 @@ router.post(
 
 router.post(
   '/reset-password',
-//   validateRequest(AdminValidation.createResetPasswordZodSchema),
+  validateRequest(AdminValidation.resetPasswordZodSchema),
   AdminController.resetPassword
 );
 
 router.post(
   '/change-password',
   auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
-//   validateRequest(AdminValidation.createChangePasswordZodSchema),
+  validateRequest(AdminValidation.changePasswordZodSchema),
   AdminController.changePassword
 );
 

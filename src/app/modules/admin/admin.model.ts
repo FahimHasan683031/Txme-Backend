@@ -33,7 +33,7 @@ const AdminSchema = new mongoose.Schema<IAdmin>(
     },
     verified: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     authentication: {
       type: {
@@ -82,7 +82,7 @@ AdminSchema.pre("save", async function (next) {
   //check user
   const isExist = await Admin.findOne({ email: this.email });
   if (isExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Email already exist!");
+    throw new ApiError(StatusCodes.BAD_REQUEST, "A user already exist with this email!");
   }
 
   //password hash

@@ -11,6 +11,7 @@ import ApiError from '../../../errors/ApiErrors'
 import { Admin } from './admin.model'
 import generateOTP from '../../../util/generateOTP'
 import cryptoToken from '../../../util/cryptoToken'
+import { ADMIN_ROLES } from '../../../enums/user'
 
 
 // create admin
@@ -42,6 +43,18 @@ const loginAdminFromDB = async (payload: ILoginData) => {
       'You don’t have permission to access this content.It looks like your account has been deactivated.',
     )
   }
+  if(isExistUser.status === 'inactive'){
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'Your account is inactive. Please contact support to activate it.',
+    )
+  }
+  if(isExistUser.role !== ADMIN_ROLES.SUPER_ADMIN && isExistUser.role !== ADMIN_ROLES.ADMIN){
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'You don’t have permission to access this content.',
+    )
+  }
 
   //check match password
   if (
@@ -62,14 +75,23 @@ const loginAdminFromDB = async (payload: ILoginData) => {
     config.jwt.jwt_secret as Secret,
     config.jwt.jwt_expire_in as string,
   )
+  const refreshToken = jwtHelper.createToken(
+    {
+      id: isExistUser._id,
+      role: isExistUser.role,
+      email: isExistUser.email,
+      name: isExistUser.name,
+    },
+    config.jwt.jwtRefreshSecret as Secret,
+    config.jwt.jwtRefreshExpiresIn as string,
+  )
   const userInfo ={
     id: isExistUser._id,
     role: isExistUser.role,
     email: isExistUser.email,
     name: isExistUser.name,
   }
-
-  return { createToken, userInfo }
+  return { createToken, refreshToken, userInfo }
 }
 
 //forget password
