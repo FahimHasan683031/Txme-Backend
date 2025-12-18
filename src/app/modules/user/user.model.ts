@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import config from "../../../config";
+import { Wallet } from "../wallet/wallet.model";
 
 // Provider Profile Sub-document Schema
 const providerProfileSchema = new Schema(
@@ -172,6 +173,7 @@ userSchema.pre("save", function (next) {
   }
   next();
 });
+
 
 // ✅ Index for residentialAddress coordinates
 userSchema.index({

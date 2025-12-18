@@ -12,7 +12,7 @@ import sendSMS from "../../../shared/sendSMS";
 import { USER_ROLES } from "../../../enums/user";
 import { emailHelper } from "../../../helpers/emailHelper";
 import { emailTemplate } from "../../../shared/emailTemplate";
-
+import { Wallet } from "../wallet/wallet.model";
 
 // Login user from DB
 const loginUserFromDB = async (payload: ILoginData) => {
@@ -259,7 +259,10 @@ const verifyOtp = async (payload: {
     throw new ApiError(StatusCodes.BAD_REQUEST, "OTP expired");
 
   // ✅ Mark verified according to purpose
-  if (purpose === "email_verify") user.isEmailVerified = true;
+  if (purpose === "email_verify") {
+    user.isEmailVerified = true;
+    await Wallet.create({ user: user._id });
+  }
   if (purpose === "phone_verify") user.isPhoneVerified = true;
 
   // Clear authentication
@@ -300,7 +303,12 @@ const verifyOtp = async (payload: {
       ),
     ]);
 
-    tokens = { accessToken, refreshToken, ...(purpose === "login_otp" && user.biometricEnabled && { biometricToken }) };
+    tokens = {
+      accessToken,
+      refreshToken,
+      ...(purpose === "login_otp" &&
+        user.biometricEnabled && { biometricToken }),
+    };
     userInfo = {
       userId: user._id,
       email: user.email,
@@ -311,22 +319,22 @@ const verifyOtp = async (payload: {
     };
   }
 
-  if(purpose === "biometric_enable"){
-   await User.findByIdAndUpdate(user.id, {
-    biometricEnabled: true,
-   })
+  if (purpose === "biometric_enable") {
+    await User.findByIdAndUpdate(user.id, {
+      biometricEnabled: true,
+    });
 
-  const biometricToken = jwtHelper.createToken(
-        {
-          id: user._id,
-          role: user.role,
-          email: user.email,
-        },
-        config.jwt.jwtBiometricSecret as Secret,
-        config.jwt.jwtBiometricExpiresIn as string
-      );
-      tokens = { biometricToken };
-      userInfo = {
+    const biometricToken = jwtHelper.createToken(
+      {
+        id: user._id,
+        role: user.role,
+        email: user.email,
+      },
+      config.jwt.jwtBiometricSecret as Secret,
+      config.jwt.jwtBiometricExpiresIn as string
+    );
+    tokens = { biometricToken };
+    userInfo = {
       userId: user._id,
       email: user.email,
       phone: user.phone,
@@ -334,7 +342,6 @@ const verifyOtp = async (payload: {
       profilePicture: user.profilePicture,
       role: user.role,
     };
-
   }
 
   return {

@@ -1,4 +1,3 @@
-// transaction.model.ts
 import { Schema, model } from "mongoose";
 import { IWalletTransaction } from "./transaction.interface";
 
