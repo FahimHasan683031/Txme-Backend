@@ -5,6 +5,21 @@ import sendResponse from '../../../shared/sendResponse';
 import { AdminService } from './admin.service';
 
 
+// create admin
+const createAdmin = catchAsync(async (req: Request, res: Response) => {
+  const { ...adminData } = req.body;
+  const result = await AdminService.createAdminToDB(adminData);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.CREATED,
+    message: 'Admin created successfully.',
+    data: result,
+  });
+});
+
+
+
 const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   const { ...verifyData } = req.body;
   const result = await AdminService.verifyEmailToDB(verifyData);
@@ -73,4 +88,5 @@ export const AdminController = {
   forgetPassword,
   resetPassword,
   changePassword,
+  createAdmin
 };

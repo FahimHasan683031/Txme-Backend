@@ -6,12 +6,18 @@ import { emailHelper } from '../../../helpers/emailHelper'
 import { jwtHelper } from '../../../helpers/jwtHelper'
 import { emailTemplate } from '../../../shared/emailTemplate'
 import { ResetToken } from '../resetToken/resetToken.model'
-import { IAuthResetPassword, IChangePassword, ILoginData, IVerifyEmail } from './admin.interface'
+import { IAdmin, IAuthResetPassword, IChangePassword, ILoginData, IVerifyEmail } from './admin.interface'
 import ApiError from '../../../errors/ApiErrors'
 import { Admin } from './admin.model'
 import generateOTP from '../../../util/generateOTP'
 import cryptoToken from '../../../util/cryptoToken'
 
+
+// create admin
+const createAdminToDB = async (payload: IAdmin) => {
+  const user = await Admin.create(payload)
+  return user
+}
 
 //login
 const loginAdminFromDB = async (payload: ILoginData) => {
@@ -269,4 +275,5 @@ export const AdminService = {
   forgetPasswordToDB,
   resetPasswordToDB,
   changePasswordToDB,
+  createAdminToDB
 }

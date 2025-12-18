@@ -6,6 +6,15 @@ import { AdminValidation } from './admin.validation';
 import { AdminController } from './admin.controller';
 const router = express.Router();
 
+// create admin
+router.post(
+  '/create-admin',
+  auth(ADMIN_ROLES.SUPER_ADMIN),
+//   validateRequest(AdminValidation.createAdminZodSchema),
+  AdminController.createAdmin
+);
+
+
 
 router.post(
   '/login',
