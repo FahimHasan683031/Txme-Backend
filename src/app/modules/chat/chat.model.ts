@@ -6,13 +6,28 @@ const chatSchema = new Schema<IChat, ChatModel>(
         participants: [
             {
                 type: Schema.Types.ObjectId,
-                ref: 'User'
+                ref: 'User',
+                required: true
             }
         ],
+        isAdminSupport: {
+            type: Boolean,
+            default: false
+        },
+        lastMessage: {
+            type: Schema.Types.ObjectId,
+            ref: 'Message'
+        },
+        lastMessageAt: {
+            type: Date
+        },
         status: {
             type: Boolean,
             default: true
         }
+    },
+    {
+        timestamps: true
     }
 )
 

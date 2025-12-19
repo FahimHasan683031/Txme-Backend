@@ -109,6 +109,10 @@ const userSchema = new Schema<IUser>(
       type: providerProfileSchema,
       required: false
     },
+    review:{
+      averageRating: { type: Number, default: 0 },
+      totalReviews: { type: Number, default: 0 },
+    },
 
     authentication: {
       purpose: {

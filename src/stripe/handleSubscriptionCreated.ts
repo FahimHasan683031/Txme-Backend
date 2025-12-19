@@ -9,7 +9,7 @@ import { Plan } from '../app/modules/plan/plan.model';
 
 // Helper function to create new subscription in database
 const createNewSubscription = async (payload: any) => {
-    const isExistSubscription = await Subscription.findOne({ user: payload.vendor });
+    const isExistSubscription = await Subscription.findOne({ user: payload.PROVIDER });
     if (isExistSubscription) {
         await Subscription.findByIdAndUpdate(
             { _id: isExistSubscription._id },
@@ -52,7 +52,7 @@ export const handleSubscriptionCreated = async (data: Stripe.Subscription) => {
         const payload = {
             customerId: customer.id,
             price: amountPaid,
-            vendor: user._id,
+            PROVIDER: user._id,
             plan: plan._id,
             trxId,
             subscriptionId: subscription.id,

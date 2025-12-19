@@ -8,7 +8,7 @@ import QueryBuilder from "../../../helpers/QueryBuilder";
 
 const subscriptionDetailsFromDB = async (user: JwtPayload): Promise<ISubscription | {}> => {
 
-    const subscription = await Subscription.findOne({ vendor: user.id }).populate("plan", "title price duration ").lean();
+    const subscription = await Subscription.findOne({ PROVIDER: user.id }).populate("plan", "title price duration ").lean();
     if (!subscription) {
         return {}; // Return empty object if no subscription found
     }
@@ -19,7 +19,7 @@ const subscriptionDetailsFromDB = async (user: JwtPayload): Promise<ISubscriptio
     if (subscriptionFromStripe?.status !== "active") {
         await Promise.all([
             User.findByIdAndUpdate(user.id, { subscribe: false }, { new: true }),
-            Subscription.findOneAndUpdate({ vendor: user.id }, { status: "expired" }, { new: true })
+            Subscription.findOneAndUpdate({ PROVIDER: user.id }, { status: "expired" }, { new: true })
         ]);
     }
 
@@ -36,7 +36,7 @@ const subscriptionsFromDB = async (query: Record<string, unknown>): Promise<{ su
                 select: "title price duration"
             },
             {
-                path: "vendor",
+                path: "PROVIDER",
                 select: "name email profile"
             }
         ])

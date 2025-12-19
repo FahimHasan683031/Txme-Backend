@@ -1,6 +1,6 @@
 export enum USER_ROLES {
     CUSTOMER = 'CUSTOMER',
-    VENDOR = 'PROVIDER',
+    PROVIDER = 'PROVIDER',
 }
 
 export enum ADMIN_ROLES {

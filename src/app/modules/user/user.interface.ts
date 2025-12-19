@@ -55,6 +55,10 @@ export interface IUser extends Document {
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
   maritalStatus?: string;
+  review: {
+    averageRating: number;
+    totalReviews: number;
+  };
   authentication?: IAuthenticationProps;
   idDocuments?: string[];
   addressDocuments?: string[];

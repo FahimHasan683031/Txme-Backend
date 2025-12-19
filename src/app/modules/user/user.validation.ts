@@ -23,7 +23,7 @@ export const loginZod = z.object({
 export const sendEmailOtpZod = z.object({
   body: z.object({
     email: z.string().email(),
-    role: z.enum([ USER_ROLES.CUSTOMER, USER_ROLES.VENDOR]),
+    role: z.enum([ USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER]),
   }),
 });
 

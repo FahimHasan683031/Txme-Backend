@@ -9,11 +9,11 @@ const router = express.Router();
 
 router.route('/')
     .get(
-        auth(ADMIN_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+        auth(ADMIN_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
         UserController.getUserProfile
     )
     .patch(
-        auth( USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+        auth( USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
         fileUploadHandler(),
         async (req: Request, res: Response, next: NextFunction) => {
             try {
@@ -30,7 +30,7 @@ router.route('/')
 
     // get single user
     router.get('/:id',
-        // auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.VENDOR, USER_ROLES.SUPER_ADMIN),
+        // auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, USER_ROLES.SUPER_ADMIN),
         UserController.getSingleUser
     );
 

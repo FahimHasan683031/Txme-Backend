@@ -7,6 +7,7 @@ import config from '../config';
 import ApiError from '../errors/ApiErrors';
 import stripe from '../config/stripe';
 import { handleSubscriptionCreated } from './handleSubscriptionCreated';
+import { StripeWalletService } from '../app/modules/wallet/wallet.stripe.service';
 
 const handleStripeWebhook = async (req: Request, res: Response) => {
 
@@ -29,21 +30,30 @@ const handleStripeWebhook = async (req: Request, res: Response) => {
     }
 
     // Extract event data and type
-    const data = event.data.object as Stripe.Subscription | Stripe.Account;
     const eventType = event.type;
 
     // Handle the event based on its type
     try {
         switch (eventType) {
             case 'customer.subscription.created':
-                await handleSubscriptionCreated(data as Stripe.Subscription);
+                const subscription = event.data.object as Stripe.Subscription;
+                await handleSubscriptionCreated(subscription);
+                break;
+
+            case 'payment_intent.succeeded':
+                const paymentIntent = event.data.object as Stripe.PaymentIntent;
+                // Check if this is a wallet top up payment
+                if (paymentIntent.metadata.type === 'wallet_topup') {
+                    await StripeWalletService.handleSuccessfulTopUpPayment(paymentIntent);
+                    logger.info(colors.bgGreen.bold(`Wallet top up payment succeeded: ${paymentIntent.id}`));
+                }
                 break;
 
             default:
                 logger.warn(colors.bgGreen.bold(`Unhandled event type: ${eventType}`));
         }
     } catch (error) {
-        throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR,`Error handling event: ${error}`,);
+        throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Error handling event: ${error}`,);
     }
 
     res.sendStatus(200);

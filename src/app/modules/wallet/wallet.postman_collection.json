@@ -1,0 +1,163 @@
+{
+    "info": {
+        "name": "Wallet API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{authToken}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:5000"
+        },
+        {
+            "key": "authToken",
+            "value": ""
+        }
+    ],
+    "item": [
+        {
+            "name": "Create Payment Intent (Stripe)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"amount\": 1000\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/wallet/create-payment-intent",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "wallet",
+                        "create-payment-intent"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Verify Payment (Stripe)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"paymentIntentId\": \"\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/wallet/verify-payment",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "wallet",
+                        "verify-payment"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Top Up",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"amount\": 1000\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/wallet/topup",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "wallet",
+                        "topup"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Send Money",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"receiverId\": \"\",\n  \"amount\": 100\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/wallet/send",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "wallet",
+                        "send"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Withdraw",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"amount\": 200\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/wallet/withdraw",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "wallet",
+                        "withdraw"
+                    ]
+                }
+            }
+        }
+    ]
+}

@@ -54,7 +54,7 @@ router.post("/refresh-token", AuthController.refreshToken);
 
 router.patch(
   "/complete-profile",
-  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
   fileAndBodyProcessorUsingDiskStorage(),
   validateRequest(completeProfileZod),
   AuthController.completeProfile
@@ -71,7 +71,7 @@ router.post(
 
 router.delete(
   "/delete-account",
-  auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
   AuthController.deleteUser
 );
 

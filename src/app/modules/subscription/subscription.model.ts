@@ -11,7 +11,7 @@ const subscriptionSchema = new Schema<ISubscription, SubscriptionModel>(
             type: Number,
             required: true
         },
-        vendor: {
+        PROVIDER: {
             type: Schema.Types.ObjectId,
             ref: "User",
             required: true

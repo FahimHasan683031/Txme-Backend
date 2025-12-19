@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.route('/')
     .post(
-        auth(USER_ROLES.CUSTOMER, USER_ROLES.VENDOR),
+        auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
         async (req: Request, res: Response, next: NextFunction) => {
             try {
 

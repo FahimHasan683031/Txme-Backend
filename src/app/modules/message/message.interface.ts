@@ -7,7 +7,8 @@ export type IMessage = {
   sender: Types.ObjectId;
   text?: string;
   image?: string;
-  type: MESSAGE
+  type: MESSAGE;
+  readBy: Types.ObjectId[]; // Array of user IDs who have read the message
 };
 
 export type MessageModel = Model<IMessage, Record<string, unknown>>;

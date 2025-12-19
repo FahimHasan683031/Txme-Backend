@@ -1,6 +1,5 @@
 import { Schema, model } from 'mongoose';
 import { IMessage, MessageModel } from './message.interface';
-import { object } from 'zod';
 import { MESSAGE } from '../../../enums/message';
 
 const messageSchema = new Schema<IMessage, MessageModel>(
@@ -26,8 +25,12 @@ const messageSchema = new Schema<IMessage, MessageModel>(
     type: {
       type: String,
       enum: Object.values(MESSAGE),
-      default : MESSAGE.Text
-    }
+      default: MESSAGE.Text
+    },
+    readBy: [{
+      type: Schema.Types.ObjectId,
+      ref: 'User'
+    }]
   },
   {
     timestamps: true,
