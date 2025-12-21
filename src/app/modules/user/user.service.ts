@@ -7,20 +7,26 @@ import generateOTP from "../../../util/generateOTP";
 import unlinkFile from "../../../shared/unlinkFile";
 import sendSMS from "../../../shared/sendSMS";
 import { emailHelper } from "../../../helpers/emailHelper";
+import { ADMIN_ROLES } from "../../../enums/user";
+import QueryBuilder from "../../../helpers/QueryBuilder";
+
+
+// get all users
+const getAllUsers = async (
+  query: Record<string, unknown>
+) => {
+const userQueryBuilder = new QueryBuilder(User.find(), query)
+  .filter()
+  .search(["name", "email", "phone"])
+  .sort()
+  .paginate();
+
+const users = await userQueryBuilder.modelQuery;
+const paginateInfo = await userQueryBuilder.getPaginationInfo();
 
 
 
-const getUserProfileFromDB = async (
-  user: JwtPayload
-): Promise<Partial<IUser>> => {
-  const { id } = user;
-
-  const isExistUser = await User.isExistUserById(id);
-  if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
-  }
-
-  return isExistUser;
+  return {data:users,meta:paginateInfo};
 };
 
 const updateProfileToDB = async (
@@ -52,8 +58,15 @@ const getSingleUser=async (id:string):Promise<IUser|null>=>{
   return user;
 }
 
+const getmyProfile=async (user:JwtPayload):Promise<IUser|null>=>{
+  const {id}=user;
+  const result=await User.findById(id);
+  return result;
+}
+
 export const UserService = {
-  getUserProfileFromDB,
+  getAllUsers,
   updateProfileToDB,
-  getSingleUser
+  getSingleUser,
+  getmyProfile
 };

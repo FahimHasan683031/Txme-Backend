@@ -65,7 +65,7 @@ const getChatFromDB = async (
     const chats = await Chat.find(query)
         .populate({
             path: 'participants',
-            select: '_id name profile email',
+            select: '_id fullName profilePicture email',
             match: { _id: { $ne: user.id } }
         })
         .populate({
@@ -77,7 +77,7 @@ const getChatFromDB = async (
         .lean();
 
     // Calculate unread count for each chat
-    const chatsWithUnreadCount = await Promise.all(
+    const chatsWithDetails = await Promise.all(
         chats.map(async (chat) => {
             const unreadCount = await Message.countDocuments({
                 chatId: chat._id,
@@ -93,7 +93,7 @@ const getChatFromDB = async (
     );
 
     // Filter out chats where participants array is empty after filtering
-    const filteredChats = chatsWithUnreadCount.filter(
+    const filteredChats = chatsWithDetails.filter(
         chat => chat.participants.length > 0 || chat.isAdminSupport
     );
 
@@ -105,7 +105,7 @@ const getAdminSupportChats = async (): Promise<any[]> => {
     const chats = await Chat.find({ isAdminSupport: true })
         .populate({
             path: 'participants',
-            select: '_id name profile email'
+            select: '_id fullName profilePicture email'
         })
         .populate({
             path: 'lastMessage',

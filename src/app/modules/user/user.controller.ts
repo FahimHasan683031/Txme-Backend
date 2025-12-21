@@ -6,14 +6,14 @@ import sendResponse from '../../../shared/sendResponse';
 
 
 // retrieved user profile
-const getUserProfile = catchAsync(async (req: Request, res: Response) => {
+const getAllUsers = catchAsync(async (req: Request, res: Response) => {
     const user = req.user;
-    const result = await UserService.getUserProfileFromDB(user);
+    const result = await UserService.getAllUsers(req.query);
 
     sendResponse(res, {
         success: true,
         statusCode: StatusCodes.OK,
-        message: 'Profile data retrieved successfully',
+        message: 'Users data retrieved successfully',
         data: result
     });
 });
@@ -43,10 +43,24 @@ const getSingleUser = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+// get my profile
+const getMyProfile = catchAsync(async (req: Request, res: Response) => {
+    const user = req.user;
+    const result = await UserService.getmyProfile(user);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: 'Profile data retrieved successfully',
+        data: result
+    });
+});
+
 
 
 export const UserController = { 
-    getUserProfile, 
+    getAllUsers, 
     updateProfile,
-    getSingleUser
+    getSingleUser,
+    getMyProfile
 };

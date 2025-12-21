@@ -9,16 +9,16 @@ const router = express.Router();
 
 router.route('/')
     .get(
-        auth(ADMIN_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
-        UserController.getUserProfile
+        auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
+        UserController.getAllUsers
     )
     .patch(
-        auth( USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+        auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
         fileUploadHandler(),
         async (req: Request, res: Response, next: NextFunction) => {
             try {
                 const profile = getSingleFilePath(req.files, "image");
-                req.body = { profile, ...req.body};
+                req.body = { profile, ...req.body };
                 next();
 
             } catch (error) {
@@ -28,12 +28,18 @@ router.route('/')
         UserController.updateProfile
     );
 
-    // get single user
-    router.get('/:id',
-        // auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, USER_ROLES.SUPER_ADMIN),
-        UserController.getSingleUser
-    );
+// get my profile
+router.get('/me',
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+    UserController.getMyProfile
+);
 
-    
+// get single user
+router.get('/:id',
+    // auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, USER_ROLES.SUPER_ADMIN),
+    UserController.getSingleUser
+);
+
+
 
 export const UserRoutes = router;

@@ -5,10 +5,21 @@ import { Message } from './message.model';
 import { checkMongooseIDValidation } from '../../../shared/checkMongooseIDValidation';
 import { Chat } from '../chat/chat.model';
 import { JwtPayload } from 'jsonwebtoken';
+import ApiError from '../../../errors/ApiErrors';
+import { StatusCodes } from 'http-status-codes';
 
 const sendMessageToDB = async (payload: any): Promise<IMessage> => {
   // Initialize readBy with sender's ID
   payload.readBy = [payload.sender];
+
+  const isExistChat = await Chat.findById(payload.chatId);
+  if (!isExistChat) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Chat doesn't exist!");
+  }
+
+  if (!isExistChat.participants.includes(payload.sender)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "You are not a participant!");
+  }
 
   // Save to DB
   const response = await Message.create(payload);
@@ -37,6 +48,27 @@ const getMessageFromDB = async (
 ): Promise<{ messages: IMessage[], pagination: any, participant: any }> => {
   checkMongooseIDValidation(id, "Chat");
 
+  const isExistChat = await Chat.findById(id);
+  if (!isExistChat) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Chat doesn't exist!");
+  }
+
+  if (!isExistChat.participants.includes(user.id)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "You are not a participant!");
+  }
+
+  // Mark messages as read for this user
+  await Message.updateMany(
+    {
+      chatId: new mongoose.Types.ObjectId(id),
+      sender: { $ne: new mongoose.Types.ObjectId(user.id) },
+      readBy: { $ne: new mongoose.Types.ObjectId(user.id) }
+    },
+    {
+      $addToSet: { readBy: new mongoose.Types.ObjectId(user.id) }
+    }
+  );
+
   const result = new QueryBuilder(
     Message.find({ chatId: id }).sort({ createdAt: 1 }),
     query
@@ -47,7 +79,7 @@ const getMessageFromDB = async (
 
   const participant = await Chat.findById(id).populate({
     path: 'participants',
-    select: '-_id name profile',
+    select: '-_id fullName profilePicture email',
     match: {
       _id: { $ne: new mongoose.Types.ObjectId(user.id) }
     }
@@ -55,6 +87,7 @@ const getMessageFromDB = async (
 
   return { messages, pagination, participant: participant?.participants[0] };
 };
+
 
 // Mark messages as read
 const markMessagesAsRead = async (chatId: string, userId: string): Promise<void> => {
