@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.route('/')
     .get(
-        auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
+        auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
         UserController.getAllUsers
     )
     .patch(

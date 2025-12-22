@@ -6,9 +6,9 @@ export type IMessage = {
   chatId: Types.ObjectId;
   sender: Types.ObjectId;
   text?: string;
-  image?: string;
+  files?: string[];
   type: MESSAGE;
-  readBy: Types.ObjectId[]; 
+  readBy: Types.ObjectId[];
 };
 
 export type MessageModel = Model<IMessage, Record<string, unknown>>;

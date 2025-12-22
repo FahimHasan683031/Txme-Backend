@@ -8,7 +8,7 @@ import sendResponse from '../../../shared/sendResponse';
 // retrieved user profile
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
     const user = req.user;
-    const result = await UserService.getAllUsers(req.query);
+    const result = await UserService.getAllUsers(user,req.query);
 
     sendResponse(res, {
         success: true,

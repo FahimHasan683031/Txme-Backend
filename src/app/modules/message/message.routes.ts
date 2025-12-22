@@ -5,26 +5,14 @@ import { MessageController } from './message.controller';
 import fileUploadHandler from '../../middlewares/fileUploaderHandler';
 import { getSingleFilePath } from '../../../shared/getFilePath';
 import { ADMIN_ROLES } from '../../../enums/user';
+import { fileAndBodyProcessorUsingDiskStorage } from '../../middlewares/processReqBody';
 
 const router = express.Router();
 
 // Send a message
 router.post('/',
   auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
-  fileUploadHandler(),
-  async (req, res, next) => {
-    try {
-      const image = getSingleFilePath(req.files, "image");
-      req.body = {
-        sender: req.user.id,
-        image,
-        ...req.body
-      };
-      next();
-    } catch (error) {
-      res.status(400).json({ message: "Failed to upload message image" });
-    }
-  },
+  fileAndBodyProcessorUsingDiskStorage(),
   MessageController.sendMessage
 );
 
@@ -35,11 +23,11 @@ router.get(
   MessageController.getMessage
 );
 
-// Mark messages as read
+// Update a message
 router.patch(
-  '/mark-read/:chatId',
+  '/:id',
   auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
-  MessageController.markAsRead
+  MessageController.updateMessage
 );
 
 // Get total unread count
@@ -47,6 +35,13 @@ router.get(
   '/unread/count',
   auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
   MessageController.getUnreadCount
+);
+
+// Delete a message
+router.delete(
+  '/:id',
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
+  MessageController.deleteMessage
 );
 
 export const MessageRoutes = router;

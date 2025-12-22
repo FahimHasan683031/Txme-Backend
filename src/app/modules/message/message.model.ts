@@ -18,8 +18,8 @@ const messageSchema = new Schema<IMessage, MessageModel>(
       type: String,
       required: false
     },
-    image: {
-      type: String,
+    files: {
+      type: [String],
       required: false
     },
     type: {

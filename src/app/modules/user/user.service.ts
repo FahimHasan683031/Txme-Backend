@@ -13,8 +13,10 @@ import QueryBuilder from "../../../helpers/QueryBuilder";
 
 // get all users
 const getAllUsers = async (
+  user:JwtPayload,
   query: Record<string, unknown>
 ) => {
+  if(user.role === "CUSTOMER"|| user.role ==="PROVIDER")query.role="PROVIDER"
 const userQueryBuilder = new QueryBuilder(User.find(), query)
   .filter()
   .search(["name", "email", "phone"])

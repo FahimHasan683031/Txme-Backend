@@ -6,6 +6,7 @@ import { JwtPayload } from 'jsonwebtoken';
 import { User } from '../user/user.model';
 import ApiError from '../../../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
+import QueryBuilder from '../../../helpers/QueryBuilder';
 
 const createChatToDB = async (payload: {
     participants: string[];
@@ -65,12 +66,12 @@ const getChatFromDB = async (
     const chats = await Chat.find(query)
         .populate({
             path: 'participants',
-            select: '_id fullName profilePicture email',
+            select: '_id fullName profilePicture',
             match: { _id: { $ne: user.id } }
         })
         .populate({
             path: 'lastMessage',
-            select: 'text image type createdAt sender'
+            select: 'text files type createdAt sender'
         })
         .sort({ lastMessageAt: -1 }) // Sort by most recent message
         .select('participants status isAdminSupport lastMessage lastMessageAt')
@@ -109,7 +110,7 @@ const getAdminSupportChats = async (): Promise<any[]> => {
         })
         .populate({
             path: 'lastMessage',
-            select: 'text image type createdAt sender'
+            select: 'text files type createdAt sender'
         })
         .sort({ lastMessageAt: -1 })
         .select('participants status isAdminSupport lastMessage lastMessageAt')

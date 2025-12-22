@@ -12,20 +12,22 @@ type IFolderName =
   | 'documents'
   | 'idDocuments'
   | 'addressDocuments'
-  | 'serviceimage' 
+  | 'serviceimage'
+  | 'messageFiles'
 
 interface ProcessedFiles {
   [key: string]: string | string[] | undefined
 }
 
-// ✅ Updated upload fields - serviceimage added
+// ✅ Updated upload fields - messageFiles added
 const uploadFields = [
   { name: 'image', maxCount: 1 },
   { name: 'media', maxCount: 3 },
   { name: 'documents', maxCount: 3 },
   { name: 'idDocuments', maxCount: 3 },
   { name: 'addressDocuments', maxCount: 3 },
-  { name: 'serviceimage', maxCount: 1 }, // 
+  { name: 'serviceimage', maxCount: 1 },
+  { name: 'messageFiles', maxCount: 4 },
 ] as const
 
 export const fileAndBodyProcessorUsingDiskStorage = () => {
@@ -63,22 +65,30 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
         media: ['video/mp4', 'audio/mpeg'],
         documents: ['application/pdf'],
         idDocuments: [
-          'image/jpeg', 
-          'image/png', 
-          'image/jpg', 
+          'image/jpeg',
+          'image/png',
+          'image/jpg',
           'application/pdf',
           'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         ],
         addressDocuments: [
-          'image/jpeg', 
-          'image/png', 
-          'image/jpg', 
+          'image/jpeg',
+          'image/png',
+          'image/jpg',
           'application/pdf',
           'application/msword',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         ],
         serviceimage: ['image/jpeg', 'image/png', 'image/jpg'],
+        messageFiles: [
+          'image/jpeg',
+          'image/png',
+          'image/jpg',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ],
       };
 
       const fieldType = file.fieldname as IFolderName;
@@ -141,7 +151,7 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
 
                 // Only optimize images (not PDFs or documents)
                 if (
-                  ['image', 'idDocuments', 'addressDocuments', 'serviceimage'].includes(fieldName) &&
+                  ['image', 'idDocuments', 'addressDocuments', 'serviceimage', 'messageFiles'].includes(fieldName) &&
                   file.mimetype.startsWith('image/')
                 ) {
                   const fullPath = path.join(uploadsDir, fieldName, file.filename);
@@ -185,7 +195,8 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
           ...(processedFiles.addressDocuments && { addressDocuments: processedFiles.addressDocuments }),
           ...(processedFiles.documents && { documents: processedFiles.documents }),
           ...(processedFiles.media && { media: processedFiles.media }),
-          ...(processedFiles.serviceimage && { image: processedFiles.serviceimage }), 
+          ...(processedFiles.serviceimage && { image: processedFiles.serviceimage }),
+          ...(processedFiles.messageFiles && { files: processedFiles.messageFiles }),
         };
 
         next();

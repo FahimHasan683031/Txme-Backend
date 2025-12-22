@@ -5,6 +5,7 @@ import { StatusCodes } from 'http-status-codes';
 import { MessageService } from './message.service';
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
+  req.body.sender = req.user.id
   const message = await MessageService.sendMessageToDB(req.body);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -28,13 +29,17 @@ const getMessage = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const markAsRead = catchAsync(async (req: Request, res: Response) => {
-  await MessageService.markMessagesAsRead(req.params.chatId, req.user.id);
+const updateMessage = catchAsync(async (req: Request, res: Response) => {
+  const result = await MessageService.updateMessageToDB(
+    req.params.id,
+    req.user.id,
+    req.body
+  );
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'Messages marked as read',
-    data: null,
+    message: 'Message Updated Successfully',
+    data: result,
   });
 });
 
@@ -48,9 +53,20 @@ const getUnreadCount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteMessage = catchAsync(async (req: Request, res: Response) => {
+  const result = await MessageService.deleteMessageFromDB(req.params.id, req.user.id);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Message Deleted Successfully',
+    data: result,
+  });
+});
+
 export const MessageController = {
   sendMessage,
   getMessage,
-  markAsRead,
-  getUnreadCount
+  updateMessage,
+  getUnreadCount,
+  deleteMessage
 };

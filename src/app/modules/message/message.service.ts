@@ -53,8 +53,8 @@ const getMessageFromDB = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "Chat doesn't exist!");
   }
 
-  if (!isExistChat.participants.includes(user.id)) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "You are not a participant!");
+  if (!isExistChat.participants.includes(user.id) && user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+    throw new Error('You are not participant of this chat')
   }
 
   // Mark messages as read for this user
@@ -70,7 +70,9 @@ const getMessageFromDB = async (
   );
 
   const result = new QueryBuilder(
-    Message.find({ chatId: id }).sort({ createdAt: 1 }),
+    Message.find({ chatId: id })
+      .populate('sender', 'fullName profilePicture')
+      .sort({ createdAt: 1 }),
     query
   ).paginate();
 
@@ -79,7 +81,7 @@ const getMessageFromDB = async (
 
   const participant = await Chat.findById(id).populate({
     path: 'participants',
-    select: '-_id fullName profilePicture email',
+    select: '-_id fullName profilePicture ',
     match: {
       _id: { $ne: new mongoose.Types.ObjectId(user.id) }
     }
@@ -89,21 +91,26 @@ const getMessageFromDB = async (
 };
 
 
-// Mark messages as read
-const markMessagesAsRead = async (chatId: string, userId: string): Promise<void> => {
-  checkMongooseIDValidation(chatId, "Chat");
+// Update a message
+const updateMessageToDB = async (messageId: string, userId: string, payload: Partial<IMessage>): Promise<IMessage | null> => {
+  const message = await Message.findById(messageId);
+  if (!message) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Message not found");
+  }
 
-  // Update all messages in the chat that haven't been read by this user
-  await Message.updateMany(
-    {
-      chatId: new mongoose.Types.ObjectId(chatId),
-      sender: { $ne: new mongoose.Types.ObjectId(userId) },
-      readBy: { $ne: new mongoose.Types.ObjectId(userId) }
-    },
-    {
-      $addToSet: { readBy: new mongoose.Types.ObjectId(userId) }
-    }
+  // Check if the user is the sender
+  if (message.sender.toString() !== userId) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "You can only update your own messages");
+  }
+
+  // Update the message
+  const updatedMessage = await Message.findByIdAndUpdate(
+    messageId,
+    payload,
+    { new: true }
   );
+
+  return updatedMessage;
 };
 
 // Get unread message count for a specific chat
@@ -136,10 +143,26 @@ const getTotalUnreadCount = async (userId: string): Promise<number> => {
   return count;
 };
 
+// Delete message from DB
+const deleteMessageFromDB = async (messageId: string, userId: string): Promise<IMessage | null> => {
+  const message = await Message.findById(messageId);
+  if (!message) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Message not found");
+  }
+
+  // Check if the user is the sender of the message
+  if (message.sender.toString() !== userId) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "You can only delete your own messages");
+  }
+
+  return await Message.findByIdAndDelete(messageId);
+};
+
 export const MessageService = {
   sendMessageToDB,
   getMessageFromDB,
-  markMessagesAsRead,
+  updateMessageToDB,
   getUnreadCountForChat,
-  getTotalUnreadCount
+  getTotalUnreadCount,
+  deleteMessageFromDB
 };
