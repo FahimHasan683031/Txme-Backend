@@ -5,7 +5,7 @@ import { USER_ROLES } from "../../../enums/user";
 // Add status enum for validation
 export const USER_STATUS = {
   PENDING: "pending",
-  ACTIVE: "active", 
+  ACTIVE: "active",
   REJECTED: "rejected",
   SUSPENDED: "suspended",
   BLOCKED: "blocked",
@@ -23,7 +23,7 @@ export const loginZod = z.object({
 export const sendEmailOtpZod = z.object({
   body: z.object({
     email: z.string().email(),
-    role: z.enum([ USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER]),
+    role: z.enum([USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER]),
   }),
 });
 
@@ -74,7 +74,7 @@ export const verifyOtpZod = z.object({
       "biometric_enable",
     ]),
     channel: z.enum(["email", "phone"]),
-    identifier: z.string(), 
+    identifier: z.string(),
     oneTimeCode: z.union([z.string(), z.number()]).transform((v) => Number(v)),
   }),
 });
@@ -103,11 +103,11 @@ export const completeProfileZod = z.object({
       .optional(),
     maritalStatus: z.string().optional(),
     status: z.enum([
-      "pending", 
-      "active", 
-      "rejected", 
-      "suspended", 
-      "blocked", 
+      "pending",
+      "active",
+      "rejected",
+      "suspended",
+      "blocked",
       "deleted"
     ]).optional(),
     // ✅ Provider profile validation added here
@@ -117,28 +117,29 @@ export const completeProfileZod = z.object({
         startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
         endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
         duration: z.number().positive("Duration must be positive").optional(),
-        workingDays: z.array(z.string()).optional(),
       }),
-      pricePerSlot: z.number().positive("Price must be positive").optional(),
+      workingDays: z.array(z.string()).optional(),
+      unavailableDates: z.array(z.string()).optional(), // Receiving as strings (ISO dates) from frontend usually
+      hourlyRate: z.number().positive("Hourly rate must be positive").optional(),
       certifications: z.array(z.string()).optional(),
       bio: z.string().optional(),
       experience: z.number().min(0, "Experience cannot be negative").optional(),
       skills: z.array(z.string()).optional(),
     }).optional(),
-  }).strict(), 
+  }).strict(),
 });
 
 // ✅ New schema for updating user status (admin only)
 export const updateUserStatusZod = z.object({
   body: z.object({
     status: z.enum([
-      "pending", 
-      "active", 
-      "rejected", 
-      "suspended", 
+      "pending",
+      "active",
+      "rejected",
+      "suspended",
       "deleted"
     ]),
-    reason: z.string().optional(), 
+    reason: z.string().optional(),
   }),
 });
 

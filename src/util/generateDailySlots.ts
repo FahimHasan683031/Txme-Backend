@@ -3,9 +3,8 @@ export function generateDailySlots(
         startTime: string;
         endTime: string;
         duration: number;
-        workingDays: string[];
-    }, 
-    date: string 
+    },
+    date: string
 ) {
     const slots = [];
 
@@ -21,11 +20,11 @@ export function generateDailySlots(
         const startTime = `${String(Math.floor(current / 60)).padStart(2, "0")}:${String(current % 60).padStart(2, "0")}`;
         const endTimeRaw = current + duration;
         const endTime = `${String(Math.floor(endTimeRaw / 60)).padStart(2, "0")}:${String(endTimeRaw % 60).padStart(2, "0")}`;
-        
-        slots.push({ 
-            startTime, 
+
+        slots.push({
+            startTime,
             endTime,
-            date: date // requested date use করুন
+            date: date 
         });
 
         current += duration;

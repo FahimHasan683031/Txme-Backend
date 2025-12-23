@@ -7,11 +7,11 @@ export const createAppointment = async (data: any) => {
   const { customer, provider, date, startTime, endTime, service } = data;
 
   // Validate provider exists and has provider profile
-  const providerUser = await User.findOne({ 
-    _id: provider, 
-    "providerProfile": { $exists: true } 
+  const providerUser = await User.findOne({
+    _id: provider,
+    "providerProfile": { $exists: true }
   });
-  
+
   if (!providerUser?.providerProfile) {
     throw new Error("Provider profile not found");
   }
@@ -19,9 +19,18 @@ export const createAppointment = async (data: any) => {
   // Check if provider is available on the requested date
   const requestedDate = new Date(date);
   const dayOfWeek = requestedDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-  
-  if (!providerUser.providerProfile.workingHours.workingDays.includes(dayOfWeek)) {
+
+  if (!providerUser.providerProfile.workingDays.includes(dayOfWeek)) {
     throw new Error("Provider not available on this day");
+  }
+
+  // Check if provider has set this specific date as unavailable
+  const isUnavailableDate = providerUser.providerProfile.unavailableDates?.some(
+    (d: Date) => d.toISOString().split('T')[0] === requestedDate.toISOString().split('T')[0]
+  );
+
+  if (isUnavailableDate) {
+    throw new Error("Provider is unavailable on this date");
   }
 
   // Generate valid slots for the provider
@@ -31,20 +40,20 @@ export const createAppointment = async (data: any) => {
   const isValidSlot = validSlots.some(
     slot => slot.startTime === startTime && slot.endTime === endTime
   );
-  
+
   if (!isValidSlot) {
     throw new Error("Invalid time slot");
   }
 
   // Check for existing Appointments in the same time slot
-  const conflictingAppointment = await Appointment.findOne({ 
-    provider, 
+  const conflictingAppointment = await Appointment.findOne({
+    provider,
     date: requestedDate,
     startTime,
     endTime,
     status: { $in: ["confirmed", "pending"] }
   });
-  
+
   if (conflictingAppointment) {
     throw new Error("This time slot is already booked");
   }
@@ -58,9 +67,9 @@ export const createAppointment = async (data: any) => {
     endTime,
     service,
     status: "confirmed",
-    price: providerUser.providerProfile.pricePerSlot 
+    price: providerUser.providerProfile.hourlyRate
   });
-  
+
   return Appointment;
 };
 
@@ -106,14 +115,14 @@ export const updateAppointmentStatus = async (appointmentId: string, status: str
       appointment.endTime = new Date();
 
       const provider = await User.findById(appointment.provider);
-      
+
       // Calculate hours and amount
       if (appointment.startTime && appointment.endTime) {
         const hours = (appointment.endTime.getTime() - appointment.startTime.getTime()) / (1000 * 60 * 60);
         appointment.totalWorkedTime = parseFloat(hours.toFixed(2));
-        // appointment.totalCost = parseFloat((hours * provider.providerProfile.pricePerSlot).toFixed(2));
+        // appointment.totalCost = parseFloat((hours * provider.providerProfile.hourlyRate).toFixed(2));
       }
-      
+
       // Generate invoice automatically
       appointment.status = "awaiting_payment";
       break;
@@ -152,5 +161,5 @@ export const getAppointmentById = async (appointmentId: string) => {
 
 
 export const AppointmentService = {
-    createAppointment
+  createAppointment
 }

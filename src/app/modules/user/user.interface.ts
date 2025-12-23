@@ -3,29 +3,30 @@ import { USER_ROLES } from "../../../enums/user";
 
 interface IAuthenticationProps {
   purpose:
-    | "email_verify"
-    | "phone_verify"
-    | "login_otp"
-    | "password_reset"
-    | "number_change"
-    | "biometric_enable";
+  | "email_verify"
+  | "phone_verify"
+  | "login_otp"
+  | "password_reset"
+  | "number_change"
+  | "biometric_enable";
   channel: "email" | "phone";
   oneTimeCode: number;
   expireAt: Date;
-  
+
 }
 
 interface IWorkingHours {
   startTime: string;
   endTime: string;
   duration: number;
-  workingDays: string[];
 }
 
 interface IProviderProfile {
   serviceCategory: string[];
   workingHours: IWorkingHours;
-  pricePerSlot?: number;
+  workingDays: string[];
+  unavailableDates?: Date[];
+  hourlyRate?: number;
   certifications?: string[];
   bio?: string;
   experience?: number;

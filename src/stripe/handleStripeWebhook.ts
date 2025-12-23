@@ -6,7 +6,6 @@ import { logger } from '../shared/logger';
 import config from '../config';
 import ApiError from '../errors/ApiErrors';
 import stripe from '../config/stripe';
-import { handleSubscriptionCreated } from './handleSubscriptionCreated';
 import { StripeWalletService } from '../app/modules/wallet/wallet.stripe.service';
 
 const handleStripeWebhook = async (req: Request, res: Response) => {
@@ -36,11 +35,6 @@ const handleStripeWebhook = async (req: Request, res: Response) => {
     // Handle the event based on its type
     try {
         switch (eventType) {
-            case 'customer.subscription.created':
-                const subscription = event.data.object as Stripe.Subscription;
-                await handleSubscriptionCreated(subscription);
-                break;
-
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object as Stripe.PaymentIntent;
                 console.log('Payment Intent Succeeded:', paymentIntent.id);

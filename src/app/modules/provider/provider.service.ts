@@ -4,13 +4,13 @@ import { Appointment } from "../appointment/appointment.model";
 
 export const getProviderCalendar = async (providerId: string, date: string) => {
     console.log(providerId, date);
-    
+
     // Find provider from User model with providerProfile
-    const provider = await User.findOne({ 
-        _id: providerId, 
-        "providerProfile": { $exists: true } 
+    const provider = await User.findOne({
+        _id: providerId,
+        "providerProfile": { $exists: true }
     });
-    
+
     if (!provider) throw new Error("Provider not found");
     if (!provider.providerProfile) throw new Error("Provider profile not found");
 
@@ -19,14 +19,23 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
     // Check if provider works on the requested day
     const requestedDate = new Date(date);
     const dayOfWeek = requestedDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-    
-    if (!workingHours.workingDays.includes(dayOfWeek)) {
+
+    if (!provider.providerProfile.workingDays.includes(dayOfWeek)) {
         // Provider doesn't work on this day, return empty slots
         return [];
     }
 
+    // Check if provider has set this specific date as unavailable
+    const isUnavailableDate = provider.providerProfile.unavailableDates?.some(
+        (d: Date) => d.toISOString().split('T')[0] === requestedDate.toISOString().split('T')[0]
+    );
+
+    if (isUnavailableDate) {
+        return [];
+    }
+
     // generate slots dynamically WITH date
-    let slots = generateDailySlots(workingHours, date); 
+    let slots = generateDailySlots(workingHours, date);
 
     // find booked slots for that date
     const appointments = await Appointment.find({
@@ -39,12 +48,12 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
     const finalSlots = slots.map(slot => {
         const isBooked = appointments.some(appointment => {
             // Convert appointment times to comparable format
-            const appointmentStart = formatTime(appointment.startTime);     
+            const appointmentStart = formatTime(appointment.startTime);
             const appointmentEnd = formatTime(appointment.endTime);
-            
+
             return appointmentStart === slot.startTime && appointmentEnd === slot.endTime;
         });
-        
+
         return {
             ...slot,
             status: isBooked ? "booked" : "available"

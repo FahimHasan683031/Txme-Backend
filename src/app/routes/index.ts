@@ -1,8 +1,6 @@
 import express from 'express';
 import { UserRoutes } from '../modules/user/user.routes';
 import { AuthRoutes } from '../modules/auth/auth.routes';
-import { PlanRoutes } from '../modules/plan/plan.routes';
-import { SubscriptionRoutes } from '../modules/subscription/subscription.routes';
 import { RuleRoutes } from '../modules/rule/rule.route';
 import { ChatRoutes } from '../modules/chat/chat.routes';
 import { MessageRoutes } from '../modules/message/message.routes';
@@ -20,8 +18,7 @@ const apiRoutes = [
     { path: "/user", route: UserRoutes },
     { path: "/auth", route: AuthRoutes },
     { path: "/service", route: ServiceRoutes },
-    { path: "/plan", route: PlanRoutes },
-    { path: "/subscription", route: SubscriptionRoutes },
+    { path: "/service", route: ServiceRoutes },
     { path: "/rule", route: RuleRoutes },
     { path: "/chat", route: ChatRoutes },
     { path: "/message", route: MessageRoutes },

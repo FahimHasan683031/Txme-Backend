@@ -18,14 +18,19 @@ const providerProfileSchema = new Schema(
       startTime: { type: String, required: true },
       endTime: { type: String, required: true },
       duration: { type: Number, required: true, default: 120 },
-      workingDays: [
-        {
-          type: String,
-          required: true,
-        },
-      ],
     },
-    pricePerSlot: { type: Number, required: true },
+    workingDays: [
+      {
+        type: String, // e.g., "Mon", "Tue"
+        required: true,
+      },
+    ],
+    unavailableDates: [
+      {
+        type: Date,
+      }
+    ],
+    hourlyRate: { type: Number, required: true },
     certifications: [{ type: String }],
     bio: { type: String },
     experience: { type: Number },
@@ -109,7 +114,7 @@ const userSchema = new Schema<IUser>(
       type: providerProfileSchema,
       required: false
     },
-    review:{
+    review: {
       averageRating: { type: Number, default: 0 },
       totalReviews: { type: Number, default: 0 },
     },
@@ -156,7 +161,7 @@ userSchema.pre("save", function (next) {
       !profile.workingHours?.startTime ||
       !profile.workingHours?.endTime ||
       !profile.workingHours?.duration ||
-      !profile.workingHours?.workingDays?.length
+      !profile.workingDays?.length
     ) {
       return next(
         new ApiError(
@@ -166,11 +171,11 @@ userSchema.pre("save", function (next) {
       );
     }
 
-    if (!profile.pricePerSlot) {
+    if (!profile.hourlyRate) {
       return next(
         new ApiError(
           StatusCodes.BAD_REQUEST,
-          "Price per slot is required for providers"
+          "Hourly rate is required for providers"
         )
       );
     }
