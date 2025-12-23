@@ -10,6 +10,7 @@ import { handleSubscriptionCreated } from './handleSubscriptionCreated';
 import { StripeWalletService } from '../app/modules/wallet/wallet.stripe.service';
 
 const handleStripeWebhook = async (req: Request, res: Response) => {
+    console.log("Stripe webhook received");
 
     // Extract Stripe signature and webhook secret
     const signature = req.headers['stripe-signature'] as string;
@@ -42,10 +43,21 @@ const handleStripeWebhook = async (req: Request, res: Response) => {
 
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object as Stripe.PaymentIntent;
+                console.log('Payment Intent Succeeded:', paymentIntent.id);
+                console.log('Metadata:', JSON.stringify(paymentIntent.metadata, null, 2));
+
                 // Check if this is a wallet top up payment
                 if (paymentIntent.metadata.type === 'wallet_topup') {
-                    await StripeWalletService.handleSuccessfulTopUpPayment(paymentIntent);
-                    logger.info(colors.bgGreen.bold(`Wallet top up payment succeeded: ${paymentIntent.id}`));
+                    console.log("Matched condition: wallet_topup");
+                    try {
+                        await StripeWalletService.handleSuccessfulTopUpPayment(paymentIntent);
+                        logger.info(colors.bgGreen.bold(`Wallet top up payment succeeded: ${paymentIntent.id}`));
+                    } catch (serviceError) {
+                        console.error("Error in StripeWalletService:", serviceError);
+                        logger.error(`Wallet top up service failed: ${serviceError}`);
+                    }
+                } else {
+                    console.log("Condition NOT matched. Metadata type:", paymentIntent.metadata.type);
                 }
                 break;
 

@@ -10,7 +10,8 @@ const createService = async (payload: IService) => {
 
 // Get all services
 const getAllServices = async (query: Record<string, unknown>) => {
-   const serviceQueryBuilder = new QueryBuilder(ServiceModel.find(), query)
+
+   const serviceQueryBuilder = new QueryBuilder(ServiceModel.find(!query.parent?{parent:null}:{parent:query.parent}), query)
     .filter()
     .fields()
 

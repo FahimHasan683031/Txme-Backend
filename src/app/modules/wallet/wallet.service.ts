@@ -13,13 +13,20 @@ const getOrCreateWallet = async (userId: string) => {
   return wallet;
 };
 
+const getmyWallet = async (userId: string) => {
+  const wallet = await getOrCreateWallet(userId);
+  return wallet;
+};
+
 // TOP UP
 const topUp = async (userId: string, amount: number) => {
+  console.log(`[WalletService] topUp called. User: ${userId}, Amount: ${amount}`);
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const wallet = await getOrCreateWallet(userId);
+    console.log(`[WalletService] Wallet found/created: ${wallet._id}`);
 
     const tx = await WalletTransaction.create(
       [
@@ -34,13 +41,17 @@ const topUp = async (userId: string, amount: number) => {
       ],
       { session }
     );
+    console.log(`[WalletService] Transaction record created: ${tx[0]?._id}`);
 
     wallet.balance += amount;
     await wallet.save({ session });
+    console.log(`[WalletService] Wallet balance updated.`);
 
     await session.commitTransaction();
+    console.log('[WalletService] Transaction committed.');
     return tx[0];
   } catch (e) {
+    console.error('[WalletService] topUp failed:', e);
     await session.abortTransaction();
     throw e;
   } finally {
@@ -134,4 +145,5 @@ export const WalletService = {
   topUp,
   sendMoney,
   withdraw,
+  getmyWallet
 };

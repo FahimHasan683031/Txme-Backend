@@ -6,6 +6,15 @@ import { WalletController } from "./wallet.controller";
 
 const router = express.Router();
 
+// Get my wallet
+router.get(
+    "/my-wallet",
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+    WalletController.getmyWallet
+);
+
+
+
 // Stripe Payment Routes
 router.post(
     "/create-payment-intent",

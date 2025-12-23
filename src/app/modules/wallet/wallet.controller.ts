@@ -14,6 +14,19 @@ const topUp = catchAsync(async (req, res) => {
   });
 });
 
+// Get my wallet
+const getmyWallet = catchAsync(async (req, res) => {
+  const result = await WalletService.getmyWallet(req.user.id);
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "Wallet retrieved successfully",
+    data: result,
+  });
+});
+
+
+
 // Create Stripe Payment Intent for Top Up
 const createTopUpPaymentIntent = catchAsync(async (req, res) => {
   const { amount } = req.body;
@@ -68,4 +81,5 @@ export const WalletController = {
   verifyTopUpPayment,
   sendMoney,
   withdraw,
+  getmyWallet
 };
