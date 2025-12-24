@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 import path from "path";
-dotenv.config({path: path.join(process.cwd(), '.env')});
+dotenv.config({ path: path.join(process.cwd(), '.env') });
 
-export default{
+export default {
     ip_address: process.env.IP,
     port: process.env.PORT,
     database_url: process.env.DATABASE_URL,
@@ -16,12 +16,12 @@ export default{
         jwtBiometricSecret: process.env.JWT_BIOMETRIC_SECRET,
         jwtBiometricExpiresIn: process.env.JWT_BIOMETRIC_EXPIRES_IN,
     },
-    stripe:{
-        stripeSecretKey:process.env.STRIPE_API_SECRET,
-        webhookSecret:process.env.WEBHOOK_SECRET,
-        paymentSuccess:process.env.SUCCESS_URL
+    stripe: {
+        stripeSecretKey: process.env.STRIPE_API_SECRET,
+        webhookSecret: process.env.WEBHOOK_SECRET,
+        paymentSuccess: process.env.SUCCESS_URL
     },
-    email:{
+    email: {
         from: process.env.EMAIL_FROM,
         user: process.env.EMAIL_USER,
         port: process.env.EMAIL_PORT,
@@ -29,7 +29,7 @@ export default{
         pass: process.env.EMAIL_PASS
     },
     admin: {
-        email:process.env.ADMIN_EMAIL,
+        email: process.env.ADMIN_EMAIL,
         password: process.env.ADMIN_PASSWORD
     },
     twilio: {

@@ -23,16 +23,24 @@ const AppointmentSchema = new Schema<IAppointment>(
       required: true,
     },
     startTime: {
-      type: Date,
+      type: String,
       required: true,
     },
     endTime: {
-      type: Date,
+      type: String,
       required: true,
+    },
+    actualStartTime: {
+      type: String,
+      required: false,
+    },
+    actualEndTime: {
+      type: String,
+      required: false,
     },
     status: {
       type: String,
-      enum: ["pending", "confirmed", "completed", "cancelled", "rejected", "awaiting_payment", "paid", "no_show"],
+      enum: ["pending", "accepted", "in_progress", "completed", "cancelled", "rejected", "awaiting_payment", "paid", "no_show"],
       default: "pending",
     },
     totalWorkedTime: {
@@ -45,6 +53,11 @@ const AppointmentSchema = new Schema<IAppointment>(
     },
     address: {
       type: String,
+      required: false,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["wallet", "card", "cash"],
       required: false,
     },
   },

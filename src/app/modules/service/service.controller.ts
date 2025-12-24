@@ -53,9 +53,21 @@ const deleteService = async (req: Request, res: Response) => {
   });
 };
 
+// get all child services
+const getAllChildServices = async (req: Request, res: Response) => {
+  const result = await serviceService.getAllChildServices();
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Child services retrieved successfully",
+    data: result,
+  });
+};
+
 export const serviceController = {
   createService,
   getAllServices,
   updateService,
   deleteService,
+  getAllChildServices,
 };

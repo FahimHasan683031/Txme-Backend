@@ -8,7 +8,7 @@ import sendResponse from '../../../shared/sendResponse';
 // retrieved user profile
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
     const user = req.user;
-    const result = await UserService.getAllUsers(user,req.query);
+    const result = await UserService.getAllUsers(user, req.query);
 
     sendResponse(res, {
         success: true,
@@ -19,7 +19,7 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
 });
 
 //update profile
-const updateProfile = catchAsync( async (req: Request, res: Response, next: NextFunction) => {
+const updateProfile = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const result = await UserService.updateProfileToDB(req.user, req.body);
 
     sendResponse(res, {
@@ -58,9 +58,22 @@ const getMyProfile = catchAsync(async (req: Request, res: Response) => {
 
 
 
-export const UserController = { 
-    getAllUsers, 
+// get popular providers
+const getPopularProviders = catchAsync(async (req: Request, res: Response) => {
+    const result = await UserService.getPopularProvidersFromDB();
+
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: 'Popular providers retrieved successfully',
+        data: result
+    });
+});
+
+export const UserController = {
+    getAllUsers,
     updateProfile,
     getSingleUser,
-    getMyProfile
+    getMyProfile,
+    getPopularProviders
 };

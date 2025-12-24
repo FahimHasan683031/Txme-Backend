@@ -118,13 +118,14 @@ export const completeProfileZod = z.object({
         endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
         duration: z.number().positive("Duration must be positive").optional(),
       }),
-      workingDays: z.array(z.string()).optional(),
+      workingDays: z.array(z.enum(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])).optional(),
       unavailableDates: z.array(z.string()).optional(), // Receiving as strings (ISO dates) from frontend usually
       hourlyRate: z.number().positive("Hourly rate must be positive").optional(),
       certifications: z.array(z.string()).optional(),
       bio: z.string().optional(),
       experience: z.number().min(0, "Experience cannot be negative").optional(),
       skills: z.array(z.string()).optional(),
+      languages: z.array(z.enum(["English", "Spanish", "French", "German", "Chinese", "Arabic", "Bengali", "Hindi", "Portuguese", "Russian", "Japanese"])).optional(),
     }).optional(),
   }).strict(),
 });

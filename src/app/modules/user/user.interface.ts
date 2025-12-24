@@ -24,13 +24,14 @@ interface IWorkingHours {
 interface IProviderProfile {
   serviceCategory: string[];
   workingHours: IWorkingHours;
-  workingDays: string[];
+  workingDays: ("Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday")[];
   unavailableDates?: Date[];
   hourlyRate?: number;
   certifications?: string[];
   bio?: string;
   experience?: number;
   skills?: string[];
+  languages?: ("English" | "Spanish" | "French" | "German" | "Chinese" | "Arabic" | "Bengali" | "Hindi" | "Portuguese" | "Russian" | "Japanese")[];
 }
 
 export interface IUser extends Document {

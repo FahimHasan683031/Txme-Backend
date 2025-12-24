@@ -18,7 +18,7 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
 
     // Check if provider works on the requested day
     const requestedDate = new Date(date);
-    const dayOfWeek = requestedDate.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+    const dayOfWeek = requestedDate.toLocaleDateString('en-US', { weekday: 'long' }) as any;
 
     if (!provider.providerProfile.workingDays.includes(dayOfWeek)) {
         // Provider doesn't work on this day, return empty slots
@@ -37,11 +37,12 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
     // generate slots dynamically WITH date
     let slots = generateDailySlots(workingHours, date);
 
+
     // find booked slots for that date
     const appointments = await Appointment.find({
         provider: providerId,
         date: requestedDate,
-        status: { $in: ["confirmed", "pending"] }
+        status: { $nin: ["pending","cancelled","rejected"] }
     });
 
     // merge availability

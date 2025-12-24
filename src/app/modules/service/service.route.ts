@@ -11,6 +11,7 @@ router.post("/create-service",
     validateRequest(createServiceZod),
     serviceController.createService);
 router.get("/get-services", serviceController.getAllServices);
+router.get("/get-all-child-services", serviceController.getAllChildServices);
 router.put("/update-service/:id", serviceController.updateService);
 router.delete("/delete-service/:id", serviceController.deleteService);
 

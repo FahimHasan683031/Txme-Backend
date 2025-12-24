@@ -13,22 +13,25 @@ import QueryBuilder from "../../../helpers/QueryBuilder";
 
 // get all users
 const getAllUsers = async (
-  user:JwtPayload,
+  user: JwtPayload,
   query: Record<string, unknown>
 ) => {
-  if(user.role === "CUSTOMER"|| user.role ==="PROVIDER")query.role="PROVIDER"
-const userQueryBuilder = new QueryBuilder(User.find(), query)
-  .filter()
-  .search(["name", "email", "phone"])
-  .sort()
-  .paginate();
+  if (user.role === "CUSTOMER" || user.role === "PROVIDER") {
+    query.role = "PROVIDER";
+  }
 
-const users = await userQueryBuilder.modelQuery;
-const paginateInfo = await userQueryBuilder.getPaginationInfo();
+  const userQueryBuilder = new QueryBuilder(User.find(), query)
+    .geolocation()
+    .providerFilter()
+    .filter()
+    .search(["fullName", "email", "phone", "providerProfile.serviceCategory", "providerProfile.skills"])
+    .sort()
+    .paginate();
 
+  const users = await userQueryBuilder.modelQuery;
+  const paginateInfo = await userQueryBuilder.getPaginationInfo();
 
-
-  return {data:users,meta:paginateInfo};
+  return { data: users, meta: paginateInfo };
 };
 
 const updateProfileToDB = async (
@@ -37,7 +40,7 @@ const updateProfileToDB = async (
 ): Promise<Partial<IUser | null>> => {
   const { id } = user;
 
-  const isExistUser = await User.isExistUserById(id);
+  const isExistUser = await User.findById(id);
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!");
   }
@@ -47,28 +50,39 @@ const updateProfileToDB = async (
     unlinkFile(isExistUser.profilePicture);
   }
 
-  // ✅ Update user document safely
-  const updatedUser = await User.findByIdAndUpdate(id, payload, {
-    new: true,
-  });
+  // ✅ Update user document safely and trigger hooks
+  Object.assign(isExistUser, payload);
+  const updatedUser = await isExistUser.save();
 
   return updatedUser;
 };
 
-const getSingleUser=async (id:string):Promise<IUser|null>=>{
-  const user=await User.findById(id);
+const getSingleUser = async (id: string): Promise<IUser | null> => {
+  const user = await User.findById(id);
   return user;
 }
 
-const getmyProfile=async (user:JwtPayload):Promise<IUser|null>=>{
-  const {id}=user;
-  const result=await User.findById(id);
+const getmyProfile = async (user: JwtPayload): Promise<IUser | null> => {
+  const { id } = user;
+  const result = await User.findById(id);
   return result;
 }
+
+const getPopularProvidersFromDB = async () => {
+  const result = await User.find({
+    role: "PROVIDER",
+    status: "active",
+  })
+    .sort({ "review.averageRating": -1, "review.totalReviews": -1 })
+    .limit(5);
+
+  return result;
+};
 
 export const UserService = {
   getAllUsers,
   updateProfileToDB,
   getSingleUser,
-  getmyProfile
+  getmyProfile,
+  getPopularProvidersFromDB
 };

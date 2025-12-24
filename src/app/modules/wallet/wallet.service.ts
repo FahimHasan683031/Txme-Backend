@@ -4,6 +4,8 @@ import { StatusCodes } from "http-status-codes";
 import { Wallet } from "./wallet.model";
 import { WalletTransaction } from "../transaction/transaction.model";
 import ApiError from "../../../errors/ApiErrors";
+import { NotificationService } from "../notification/notification.service";
+import { Types } from "mongoose";
 
 const getOrCreateWallet = async (userId: string) => {
   let wallet = await Wallet.findOne({ user: userId });
@@ -49,6 +51,17 @@ const topUp = async (userId: string, amount: number) => {
 
     await session.commitTransaction();
     console.log('[WalletService] Transaction committed.');
+
+    // Send Notification
+    await NotificationService.insertNotification({
+      title: "Wallet Top Up",
+      message: `Successfully added ${amount} to your wallet.`,
+      receiver: new Types.ObjectId(userId),
+      screen: "WALLET",
+      type: "USER",
+      read: false
+    });
+
     return tx[0];
   } catch (e) {
     console.error('[WalletService] topUp failed:', e);
@@ -111,6 +124,17 @@ const sendMoney = async (
     );
 
     await session.commitTransaction();
+
+    // Notify Receiver
+    await NotificationService.insertNotification({
+      title: "Money Received",
+      message: `You have received ${amount} in your wallet.`,
+      receiver: new Types.ObjectId(receiverId),
+      screen: "WALLET",
+      type: "USER",
+      read: false
+    });
+
     return true;
   } catch (e) {
     await session.abortTransaction();

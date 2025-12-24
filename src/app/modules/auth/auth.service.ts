@@ -221,7 +221,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
   // Find user by email
   const existingUser = await User.findOne({ email });
 
-  console.log("Login user found:", existingUser);
+
 
   // If user doesn't exist
   if (!existingUser) {
@@ -242,7 +242,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
   };
   // Update user with OTP
   await User.updateOne({ _id: existingUser._id }, { $set: { authentication } });
-  console.log("LOGIN-OTP:", otp);
+
   // send login otp email
   const emailContent = emailTemplate.loginOtp({
     email,
@@ -373,12 +373,12 @@ const sendNumberChangeOtp = async (oldPhone: string, newPhone: string) => {
 
 // Complete profile
 const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
-  console.log(user, payload);
-
   const userFromDB = await User.findById(user.id);
   if (!userFromDB) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
-  const res = await User.findByIdAndUpdate(user.id, payload, { new: true });
+  // Update fields and trigger .save() for hooks
+  Object.assign(userFromDB, payload);
+  const res = await userFromDB.save();
 
   return { res };
 };
@@ -437,7 +437,7 @@ const resendOtp = async (identifier: unknown) => {
   const { purpose, channel } = user.authentication;
 
   const newOtp = generateOTP();
-  console.log({ newOtp });
+
 
   user.authentication.oneTimeCode = newOtp;
   user.authentication.expireAt = new Date(Date.now() + 5 * 60 * 1000);

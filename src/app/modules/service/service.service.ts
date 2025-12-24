@@ -11,17 +11,25 @@ const createService = async (payload: IService) => {
 // Get all services
 const getAllServices = async (query: Record<string, unknown>) => {
 
-   const serviceQueryBuilder = new QueryBuilder(ServiceModel.find(!query.parent?{parent:null}:{parent:query.parent}), query)
+  const serviceQueryBuilder = new QueryBuilder(ServiceModel.find(!query.parent ? { parent: null } : { parent: query.parent }), query)
     .filter()
     .fields()
 
   const totalServices = await ServiceModel.countDocuments()
 
   const services = await serviceQueryBuilder.modelQuery
-  
+
   return {
     services,
   };
+};
+
+
+
+// Get all child services
+const getAllChildServices = async () => {
+  const result = await ServiceModel.find({ parent: { $ne: null } });
+  return result;
 };
 
 // Update service
@@ -44,4 +52,5 @@ export const serviceService = {
   getAllServices,
   updateService,
   deleteService,
+  getAllChildServices,
 };

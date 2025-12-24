@@ -1,30 +1,32 @@
 // src/modules/Appointment/Appointment.model.ts
-import {Types } from "mongoose";
+import { Types } from "mongoose";
 
-export type AppointmentStatus = 
-  | "pending"          // Customer requested
-  | "accepted"         // Provider accepted
-  | "confirmed"        // Slot officially booked
-  | "in_progress"      // Provider started service
-  | "completed"        // Service completed
-  | "cancelled"        // Cancelled by anyone
-  | "rejected"         // Provider rejected
-  | "awaiting_payment" // Waiting for customer payment
-  | "paid"             // Payment completed
-  | "no_show"; 
+export type AppointmentStatus =
+  | "pending"
+  | "accepted"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "rejected"
+  | "awaiting_payment"
+  | "paid"
+  | "no_show";
 
- 
+
 export interface IAppointment extends Document {
   customer: Types.ObjectId;
   provider: Types.ObjectId;
   service: string;
   date: Date;
-  startTime?: Date; // "HH:MM" format
-  endTime?: Date;   // "HH:MM" format
+  startTime?: string; // Booked slot start time in "HH:MM" format
+  endTime?: string;   // Booked slot end time in "HH:MM" format
+  actualStartTime?: string; // Real start time in "HH:MM" format
+  actualEndTime?: string;   // Real end time in "HH:MM" format
   status: AppointmentStatus;
   totalWorkedTime?: number; // in minutes
   totalCost?: number;
   address?: string;
+  paymentMethod?: 'wallet' | 'card' | 'cash';
   createdAt: Date;
   updatedAt: Date;
 }

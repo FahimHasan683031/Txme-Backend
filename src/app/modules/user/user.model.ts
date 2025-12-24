@@ -7,6 +7,8 @@ import { StatusCodes } from "http-status-codes";
 import config from "../../../config";
 import { Wallet } from "../wallet/wallet.model";
 
+
+
 // Provider Profile Sub-document Schema
 const providerProfileSchema = new Schema(
   {
@@ -21,8 +23,9 @@ const providerProfileSchema = new Schema(
     },
     workingDays: [
       {
-        type: String, // e.g., "Mon", "Tue"
+        type: String, // e.g., "Monday", "Tuesday"
         required: true,
+        enum: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
       },
     ],
     unavailableDates: [
@@ -35,6 +38,10 @@ const providerProfileSchema = new Schema(
     bio: { type: String },
     experience: { type: Number },
     skills: [{ type: String }],
+    languages: [{
+      type: String,
+      enum: ["English", "Spanish", "French", "German", "Chinese", "Arabic", "Bengali", "Hindi", "Portuguese", "Russian", "Japanese"],
+    }],
   },
   { _id: false, timestamps: false }
 );
@@ -144,6 +151,11 @@ const userSchema = new Schema<IUser>(
   }
 );
 
+// pre save hook
+userSchema.pre("save", async function (next) {
+  next();
+});
+
 userSchema.pre("save", function (next) {
   if (this.providerProfile) {
     const profile = this.providerProfile;
@@ -184,7 +196,7 @@ userSchema.pre("save", function (next) {
 });
 
 
-// ✅ Index for residentialAddress coordinates
+// ✅ Index for residentialAddress coordinates (2dsphere for radius search)
 userSchema.index({
   "residentialAddress.latitude": 1,
   "residentialAddress.longitude": 1,
@@ -221,7 +233,7 @@ userSchema.pre("save", async function (next) {
       const existingUser = await User.findOne({
         email: email,
       });
-      console.log("existingUser", existingUser);
+
       if (existingUser) {
         return next(
           new ApiError(StatusCodes.BAD_REQUEST, "Email already exists!")

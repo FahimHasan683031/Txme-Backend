@@ -28,6 +28,11 @@ router.route('/')
         UserController.updateProfile
     );
 
+// get popular providers
+router.get('/popular-providers',
+    UserController.getPopularProviders
+);
+
 // get my profile
 router.get('/me',
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),

@@ -7,6 +7,7 @@ import config from '../config';
 import ApiError from '../errors/ApiErrors';
 import stripe from '../config/stripe';
 import { StripeWalletService } from '../app/modules/wallet/wallet.stripe.service';
+import { StripeAppointmentService } from '../app/modules/appointment/appointment.stripe.service';
 
 const handleStripeWebhook = async (req: Request, res: Response) => {
     console.log("Stripe webhook received");
@@ -49,6 +50,15 @@ const handleStripeWebhook = async (req: Request, res: Response) => {
                     } catch (serviceError) {
                         console.error("Error in StripeWalletService:", serviceError);
                         logger.error(`Wallet top up service failed: ${serviceError}`);
+                    }
+                } else if (paymentIntent.metadata.type === 'appointment_payment') {
+                    console.log("Matched condition: appointment_payment");
+                    try {
+                        await StripeAppointmentService.handleSuccessfulAppointmentPayment(paymentIntent);
+                        logger.info(colors.bgGreen.bold(`Appointment payment succeeded: ${paymentIntent.id}`));
+                    } catch (serviceError) {
+                        console.error("Error in StripeAppointmentService:", serviceError);
+                        logger.error(`Appointment payment service failed: ${serviceError}`);
                     }
                 } else {
                     console.log("Condition NOT matched. Metadata type:", paymentIntent.metadata.type);

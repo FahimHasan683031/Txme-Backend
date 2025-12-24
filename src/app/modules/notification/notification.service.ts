@@ -4,10 +4,16 @@ import { Notification } from './notification.model';
 import { FilterQuery } from 'mongoose';
 import QueryBuilder from '../../../helpers/QueryBuilder';
 
+// insert notification
+const insertNotification = async (payload: Partial<INotification>): Promise<INotification> => {
+    const result = await Notification.create(payload);
+    return result;
+};
+
 // get notifications
-const getNotificationFromDB = async ( user: JwtPayload, query: FilterQuery<any> ): Promise<Object> => {
-    const result = new QueryBuilder(Notification.find({ receiver: user.id }), query).paginate();
-    const notifications = await result.queryModel;
+const getNotificationFromDB = async (user: JwtPayload, query: FilterQuery<any>): Promise<Object> => {
+    const result = new QueryBuilder(Notification.find({ receiver: user.id }), query).paginate().sort();
+    const notifications = await result.modelQuery;
     const pagination = await result.getPaginationInfo();
 
     const unreadCount = await Notification.countDocuments({
@@ -15,19 +21,18 @@ const getNotificationFromDB = async ( user: JwtPayload, query: FilterQuery<any> 
         read: false,
     });
 
-    const data: Record<string ,any> = {
+    const data: Record<string, any> = {
         notifications,
         pagination,
         unreadCount
     };
 
-  return data;
+    return data;
 };
 
 // read notifications only for user
-const readNotificationToDB = async ( user: JwtPayload): Promise<INotification | undefined> => {
-
-    const result: any = await Notification.updateMany(
+const readNotificationToDB = async (user: JwtPayload): Promise<any> => {
+    const result = await Notification.updateMany(
         { receiver: user.id, read: false },
         { $set: { read: true } }
     );
@@ -35,27 +40,26 @@ const readNotificationToDB = async ( user: JwtPayload): Promise<INotification | 
 };
 
 // get notifications for admin
-const adminNotificationFromDB = async (query: FilterQuery<any>): Promise<{notifications: INotification[], pagination: any}> => {
-
-    const result = new QueryBuilder(Notification.find({ type: "ADMIN" }), query).paginate();
-    const notifications = await result.queryModel;
+const adminNotificationFromDB = async (query: FilterQuery<any>): Promise<{ notifications: INotification[], pagination: any }> => {
+    const result = new QueryBuilder(Notification.find({ type: "ADMIN" }), query).paginate().sort();
+    const notifications = await result.modelQuery;
     const pagination = await result.getPaginationInfo();
-    return {notifications, pagination};
+    return { notifications, pagination };
 };
 
 // read notifications only for admin
-const adminReadNotificationToDB = async (): Promise<INotification | null> => {
-    const result: any = await Notification.updateMany(
+const adminReadNotificationToDB = async (): Promise<any> => {
+    const result = await Notification.updateMany(
         { type: 'ADMIN', read: false },
-        { $set: { read: true } },
-        { new: true }
+        { $set: { read: true } }
     );
     return result;
 };
 
 export const NotificationService = {
-    adminNotificationFromDB,
+    insertNotification,
     getNotificationFromDB,
     readNotificationToDB,
+    adminNotificationFromDB,
     adminReadNotificationToDB
 };

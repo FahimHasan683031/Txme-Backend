@@ -12,6 +12,8 @@ import { AppointmentRoutes } from '../modules/appointment/appointment.route';
 import { AdminRoutes } from '../modules/admin/admin.route';
 import { ReviewRoutes } from '../modules/review/review.route';
 import { WalletRoutes } from '../modules/wallet/wallet.route';
+import { SettingRoutes } from '../modules/setting/setting.route';
+import { AuditLogRoutes } from '../modules/auditLog/auditLog.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -29,6 +31,8 @@ const apiRoutes = [
     { path: "/admin", route: AdminRoutes },
     { path: "/review", route: ReviewRoutes },
     { path: "/wallet", route: WalletRoutes },
+    { path: "/setting", route: SettingRoutes },
+    { path: "/audit-log", route: AuditLogRoutes },
 ]
 
 apiRoutes.forEach(route => router.use(route.path, route.route));
