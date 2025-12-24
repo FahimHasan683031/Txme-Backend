@@ -41,7 +41,7 @@ const topUp = async (userId: string, amount: number) => {
           to: userId,
         },
       ],
-      { session }
+      { session, ordered: true }
     );
     console.log(`[WalletService] Transaction record created: ${tx[0]?._id}`);
 
@@ -120,7 +120,7 @@ const sendMoney = async (
           to: receiverId,
         },
       ],
-      { session }
+      { session, ordered: true }
     );
 
     await session.commitTransaction();

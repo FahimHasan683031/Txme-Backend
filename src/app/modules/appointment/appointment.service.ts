@@ -59,7 +59,7 @@ export const createAppointment = async (customerId: string, data: any) => {
     date: requestedDate,
     startTime,
     endTime,
-    status: { $in: ["confirmed", "accepted", "in_progress","awaiting_payment","paid"] }
+    status: { $in: ["confirmed", "accepted", "in_progress", "awaiting_payment", "paid"] }
   });
 
   if (conflictingAppointment) {
@@ -158,6 +158,14 @@ export const updateAppointmentStatus = async (
 
   // 4. Send Notifications
   await sendStatusNotification(appointment, status);
+
+  // 5. Emit socket event for real-time update
+  // @ts-ignore
+  const io = global.io;
+  if (io) {
+    io.emit(`appointmentUpdate::${appointmentId}`, appointment);
+    console.log(`[Socket] Emitted appointmentUpdate::${appointmentId}`);
+  }
 
   return appointment;
 };

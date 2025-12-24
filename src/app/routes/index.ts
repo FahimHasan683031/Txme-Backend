@@ -14,12 +14,12 @@ import { ReviewRoutes } from '../modules/review/review.route';
 import { WalletRoutes } from '../modules/wallet/wallet.route';
 import { SettingRoutes } from '../modules/setting/setting.route';
 import { AuditLogRoutes } from '../modules/auditLog/auditLog.route';
+import { TransactionRoutes } from '../modules/transaction/transaction.route';
 const router = express.Router();
 
 const apiRoutes = [
     { path: "/user", route: UserRoutes },
     { path: "/auth", route: AuthRoutes },
-    { path: "/service", route: ServiceRoutes },
     { path: "/service", route: ServiceRoutes },
     { path: "/rule", route: RuleRoutes },
     { path: "/chat", route: ChatRoutes },
@@ -33,6 +33,7 @@ const apiRoutes = [
     { path: "/wallet", route: WalletRoutes },
     { path: "/setting", route: SettingRoutes },
     { path: "/audit-log", route: AuditLogRoutes },
+    { path: "/transaction", route: TransactionRoutes },
 ]
 
 apiRoutes.forEach(route => router.use(route.path, route.route));
