@@ -9,6 +9,8 @@ import { Wallet } from "../wallet/wallet.model";
 
 
 
+import { PROVIDER_LANGUAGES } from "../../../enums/languages";
+
 // Provider Profile Sub-document Schema
 const providerProfileSchema = new Schema(
   {
@@ -19,7 +21,7 @@ const providerProfileSchema = new Schema(
     workingHours: {
       startTime: { type: String, required: true },
       endTime: { type: String, required: true },
-      duration: { type: Number, required: true, default: 120 },
+      duration: { type: Number, required: true, default: 2 }, // duration in hours (e.g., 1, 1.5, 2)
     },
     workingDays: [
       {
@@ -40,7 +42,7 @@ const providerProfileSchema = new Schema(
     skills: [{ type: String }],
     languages: [{
       type: String,
-      enum: ["English", "Spanish", "French", "German", "Chinese", "Arabic", "Bengali", "Hindi", "Portuguese", "Russian", "Japanese"],
+      enum: PROVIDER_LANGUAGES,
     }],
   },
   { _id: false, timestamps: false }

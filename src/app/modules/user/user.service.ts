@@ -50,9 +50,33 @@ const updateProfileToDB = async (
     unlinkFile(isExistUser.profilePicture);
   }
 
-  // ✅ Update user document safely and trigger hooks
-  Object.assign(isExistUser, payload);
-  const updatedUser = await isExistUser.save();
+  if (payload.providerProfile?.workingHours) {
+    const workingHours = payload.providerProfile.workingHours;
+    if (!workingHours.startTime || !workingHours.endTime || !workingHours.duration) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Working hours is required!");
+    }
+
+    const [startH, startM] = workingHours.startTime.split(":").map(Number);
+    const [endH, endM] = workingHours.endTime.split(":").map(Number);
+    const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    const slotDurationMinutes = workingHours.duration * 60;
+
+    if (totalMinutes <= 0) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "End time must be after start time");
+    }
+
+    if (totalMinutes % slotDurationMinutes !== 0) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `The slot duration (${workingHours.duration} hours) does not fit perfectly into the working hours (${workingHours.startTime} - ${workingHours.endTime}).`
+      );
+    }
+  }
+
+
+  const updatedUser = await User.findByIdAndUpdate(id, payload, {
+    new: true,
+  });
 
   return updatedUser;
 };

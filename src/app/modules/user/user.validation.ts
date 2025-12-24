@@ -1,6 +1,7 @@
 // src/modules/auth/auth.validation.ts
 import { z } from "zod";
 import { USER_ROLES } from "../../../enums/user";
+import { PROVIDER_LANGUAGES } from "../../../enums/languages";
 
 // Add status enum for validation
 export const USER_STATUS = {
@@ -116,7 +117,7 @@ export const completeProfileZod = z.object({
       workingHours: z.object({
         startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
         endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
-        duration: z.number().positive("Duration must be positive").optional(),
+        duration: z.number().positive("Duration must be positive").optional(), // in hours (e.g., 1, 1.5, 2)
       }),
       workingDays: z.array(z.enum(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])).optional(),
       unavailableDates: z.array(z.string()).optional(), // Receiving as strings (ISO dates) from frontend usually
@@ -125,7 +126,7 @@ export const completeProfileZod = z.object({
       bio: z.string().optional(),
       experience: z.number().min(0, "Experience cannot be negative").optional(),
       skills: z.array(z.string()).optional(),
-      languages: z.array(z.enum(["English", "Spanish", "French", "German", "Chinese", "Arabic", "Bengali", "Hindi", "Portuguese", "Russian", "Japanese"])).optional(),
+      languages: z.array(z.enum(PROVIDER_LANGUAGES as unknown as [string, ...string[]])).optional(),
     }).optional(),
   }).strict(),
 });

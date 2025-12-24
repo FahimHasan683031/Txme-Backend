@@ -11,7 +11,7 @@ export function generateDailySlots(
     const [startH, startM] = workingHours.startTime.split(":").map(Number);
     const [endH, endM] = workingHours.endTime.split(":").map(Number);
 
-    const duration = workingHours.duration;
+    const duration = workingHours.duration * 60; // duration is in hours, convert to minutes
 
     let current = startH * 60 + startM;
     const end = endH * 60 + endM;
@@ -24,7 +24,7 @@ export function generateDailySlots(
         slots.push({
             startTime,
             endTime,
-            date: date 
+            date: date
         });
 
         current += duration;

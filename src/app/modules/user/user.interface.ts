@@ -15,10 +15,12 @@ interface IAuthenticationProps {
 
 }
 
+import { IProviderLanguage } from "../../../enums/languages";
+
 interface IWorkingHours {
   startTime: string;
   endTime: string;
-  duration: number;
+  duration: number; // in hours (e.g., 1, 1.5, 2)
 }
 
 interface IProviderProfile {
@@ -31,7 +33,7 @@ interface IProviderProfile {
   bio?: string;
   experience?: number;
   skills?: string[];
-  languages?: ("English" | "Spanish" | "French" | "German" | "Chinese" | "Arabic" | "Bengali" | "Hindi" | "Portuguese" | "Russian" | "Japanese")[];
+  languages?: IProviderLanguage[];
 }
 
 export interface IUser extends Document {
