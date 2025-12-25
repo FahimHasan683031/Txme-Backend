@@ -18,6 +18,11 @@ const reviewSchema = new Schema<IReview>(
       ref: "Service",
       required: true,
     },
+    appointment: {
+      type: Schema.Types.ObjectId,
+      ref: "Appointment",
+      required: true,
+    },
     rating: {
       type: Number,
       min: 1,

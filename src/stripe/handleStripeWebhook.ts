@@ -8,6 +8,8 @@ import ApiError from '../errors/ApiErrors';
 import stripe from '../config/stripe';
 import { StripeService } from '../app/modules/stripe/stripe.service';
 import catchAsync from '../shared/catchAsync';
+import { NotificationService } from '../app/modules/notification/notification.service';
+import { Appointment } from '../app/modules/appointment/appointment.model';
 
 const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
     console.log("Stripe webhook received");
@@ -31,6 +33,37 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
 
     try {
         switch (eventType) {
+            case 'checkout.session.completed':
+                const session = event.data.object as Stripe.Checkout.Session;
+                console.log('Checkout Session Completed:', session.id);
+
+                const sessionMetadata = session.metadata || {};
+
+                if (sessionMetadata.type === 'appointment_payment') {
+                    // Extract appointmentId from metadata
+                    const appointmentId = sessionMetadata.appointmentId;
+                    if (appointmentId) {
+                        // We can manually call a slim version of handleSuccessfulAppointmentPayment
+                        // Or fetch the payment intent. For simplicity, let's adapt a bit.
+                        const appointment = await Appointment.findById(appointmentId);
+                        if (appointment) {
+                            appointment.status = 'review_pending';
+                            await appointment.save();
+
+                            await NotificationService.insertNotification({
+                                title: "Payment Received (Checkout)",
+                                message: `Payment received via Stripe Checkout for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
+                                receiver: appointment.provider,
+                                referenceId: appointment._id,
+                                screen: "WALLET",
+                                type: "USER"
+                            });
+                            logger.info(colors.bgGreen.bold(`Appointment payment via Checkout succeeded: ${session.id}`));
+                        }
+                    }
+                }
+                break;
+
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object as Stripe.PaymentIntent;
                 console.log('Payment Intent Succeeded:', paymentIntent.id);

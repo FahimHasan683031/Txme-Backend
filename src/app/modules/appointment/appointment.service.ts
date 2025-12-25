@@ -118,9 +118,9 @@ export const updateAppointmentStatus = async (
   const allowedTransitions: Record<string, string[]> = {
     pending: ["accepted", "rejected", "cancelled"], // Provider: accepted/rejected, Customer: cancelled
     accepted: ["in_progress", "no_show"],           // Provider only
-    in_progress: ["completed"],                     // Provider only
-    completed: ["awaiting_payment"],
-    awaiting_payment: ["paid"],
+    in_progress: ["work_completed"],                 // Provider only
+    work_completed: ["awaiting_payment"],
+    awaiting_payment: ["review_pending"],
   };
 
   // Check if transition is generally allowed
@@ -137,7 +137,7 @@ export const updateAppointmentStatus = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "You can no longer cancel this appointment as it is already accepted or in progress");
   }
 
-  if (["accepted", "rejected", "in_progress", "completed", "no_show"].includes(status) && !isProvider) {
+  if (["accepted", "rejected", "in_progress", "work_completed", "no_show"].includes(status) && !isProvider) {
     throw new ApiError(StatusCodes.FORBIDDEN, "Only providers have the authority to update to this status");
   }
 
@@ -146,7 +146,7 @@ export const updateAppointmentStatus = async (
     appointment.actualStartTime = formatTime(new Date());
   }
 
-  if (status === "completed") {
+  if (status === "work_completed") {
     appointment.actualEndTime = formatTime(new Date());
     await handleAppointmentCompletion(appointment);
     appointment.status = "awaiting_payment";
@@ -202,7 +202,7 @@ async function sendStatusNotification(appointment: any, status: string) {
     accepted: { title: "Appointment Accepted", message: "Your appointment request has been accepted by the provider." },
     rejected: { title: "Appointment Rejected", message: "Your appointment request was rejected by the provider." },
     in_progress: { title: "Service Started", message: "The provider has started the service for your appointment." },
-    completed: { title: "Service Completed", message: "The service has been completed. Please proceed to payment." },
+    work_completed: { title: "Service Completed", message: "The service has been completed. Please proceed to payment." },
     cancelled: { title: "Appointment Cancelled", message: "The appointment has been cancelled." },
   };
 
@@ -253,7 +253,7 @@ const payWithWallet = async (appointmentId: string, userId: string) => {
   );
 
   // Update appointment status
-  appointment.status = 'paid';
+  appointment.status = 'review_pending';
   await appointment.save();
 
   // Notify Provider

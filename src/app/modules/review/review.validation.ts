@@ -4,6 +4,7 @@ export const createReviewZod = z.object({
   body: z.object({
     reviewee: z.string(),
     service: z.string(),
+    appointment: z.string(),
     rating: z.number().min(1).max(5),
     comment: z.string().optional(),
   }),

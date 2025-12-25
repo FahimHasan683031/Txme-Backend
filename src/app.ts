@@ -9,7 +9,9 @@ import rateLimit from 'express-rate-limit';
 import ApiError from "./errors/ApiErrors";
 import compression from "compression";
 import handleStripeWebhook from "./stripe/handleStripeWebhook";
+import cookieParser from "cookie-parser";
 const app = express();
+
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -40,10 +42,16 @@ app.use(Morgan.errorHandler);
 
 
 //body parser
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3001", "http://localhost:3002"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestIp.mw());
+app.use(cookieParser());
 // app.use(limiter);
 
 //file retrieve

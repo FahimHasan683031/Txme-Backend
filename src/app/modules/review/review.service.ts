@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import { Review } from "./review.model";
 import { User } from "../user/user.model";
+import { Appointment } from "../appointment/appointment.model";
 import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import { IReview } from "./review.interface";
@@ -32,15 +33,66 @@ const recalculateUserRating = async (userId: Types.ObjectId) => {
 
 // Create review
 const createReview = async (payload: IReview, user: JwtPayload) => {
-  const { reviewee } = payload;
+  const { reviewee, appointment: appointmentId } = payload;
 
   if (user.id.toString() === reviewee.toString()) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "You cannot review yourself");
   }
 
+  // Check if appointment exists and is paid
+  const appointment = await Appointment.findById(appointmentId);
+  if (!appointment) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Appointment not found");
+  }
+
+  if (appointment.status !== 'review_pending' && !appointment.status.includes('review_pending')) {
+    // If it's already completed, we also block it through already reviewed check
+    throw new ApiError(StatusCodes.BAD_REQUEST, "You can only review after payment is completed");
+  }
+
+  // Check if reviewer is part of the appointment
+  const isCustomer = appointment.customer.toString() === user.id;
+  const isProvider = appointment.provider.toString() === user.id;
+
+  if (!isCustomer && !isProvider) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "You are not authorized to review this appointment");
+  }
+
+  // Check if reviewer has already reviewed this appointment
+  const existingReview = await Review.findOne({
+    appointment: appointmentId,
+    reviewer: user.id
+  });
+
+  if (existingReview) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "You have already reviewed this appointment");
+  }
+
   payload.reviewer = user.id;
 
   const review = await Review.create(payload);
+
+  // Update Appointment status based on single-field logic
+  let nextStatus = appointment.status;
+
+  if (isCustomer) {
+    if (appointment.status === 'review_pending') {
+      nextStatus = 'customer_review_pending';
+    } else if (appointment.status === 'provider_review_pending') {
+      nextStatus = 'completed';
+    }
+  } else if (isProvider) {
+    if (appointment.status === 'review_pending') {
+      nextStatus = 'provider_review_pending';
+    } else if (appointment.status === 'customer_review_pending') {
+      nextStatus = 'completed';
+    }
+  }
+
+  if (nextStatus !== appointment.status) {
+    appointment.status = nextStatus;
+    await appointment.save();
+  }
 
   await recalculateUserRating(reviewee);
 

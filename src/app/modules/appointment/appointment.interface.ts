@@ -5,13 +5,15 @@ export type AppointmentStatus =
   | "pending"
   | "accepted"
   | "in_progress"
-  | "completed"
+  | "work_completed"
   | "cancelled"
   | "rejected"
   | "awaiting_payment"
-  | "paid"
+  | "review_pending"
+  | "provider_review_pending"
+  | "customer_review_pending"
+  | "completed"
   | "no_show";
-
 
 export interface IAppointment extends Document {
   customer: Types.ObjectId;

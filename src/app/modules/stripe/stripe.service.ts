@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { WalletService } from '../wallet/wallet.service';
 import { Appointment } from '../appointment/appointment.model';
 import { NotificationService } from '../notification/notification.service';
+import config from '../../../config';
 
 // --- Wallet Management (formerly wallet.stripe.service.ts) ---
 
@@ -218,7 +219,7 @@ const handleSuccessfulAppointmentPayment = async (
         throw new ApiError(StatusCodes.NOT_FOUND, "Appointment not found");
     }
 
-    appointment.status = 'paid';
+    appointment.status = 'review_pending';
     await appointment.save();
 
     await NotificationService.insertNotification({
