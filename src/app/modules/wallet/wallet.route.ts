@@ -3,6 +3,7 @@ import express from "express";
 import auth from "../../middlewares/auth";
 import { USER_ROLES } from "../../../enums/user";
 import { WalletController } from "./wallet.controller";
+import { StripeController } from "../stripe/stripe.controller";
 
 const router = express.Router();
 
@@ -13,19 +14,17 @@ router.get(
     WalletController.getmyWallet
 );
 
-
-
-// Stripe Payment Routes
+// Stripe Payment Routes (Logic in Stripe Module)
 router.post(
     "/create-payment-intent",
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
-    WalletController.createTopUpPaymentIntent
+    StripeController.createTopUpPaymentIntent
 );
 
 router.post(
     "/verify-payment",
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
-    WalletController.verifyTopUpPayment
+    StripeController.verifyTopUpPayment
 );
 
 // Regular Wallet Routes

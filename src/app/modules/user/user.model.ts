@@ -18,6 +18,7 @@ const providerProfileSchema = new Schema(
       type: [String],
       required: true,
     },
+    designation: { type: String },
     workingHours: {
       startTime: { type: String, required: true },
       endTime: { type: String, required: true },
@@ -37,7 +38,6 @@ const providerProfileSchema = new Schema(
     ],
     hourlyRate: { type: Number, required: true },
     certifications: [{ type: String }],
-    bio: { type: String },
     experience: { type: Number },
     skills: [{ type: String }],
     languages: [{
@@ -127,6 +127,7 @@ const userSchema = new Schema<IUser>(
       averageRating: { type: Number, default: 0 },
       totalReviews: { type: Number, default: 0 },
     },
+    bio: { type: String },
 
     authentication: {
       purpose: {
@@ -147,6 +148,8 @@ const userSchema = new Schema<IUser>(
       oneTimeCode: { type: Number },
       expireAt: { type: Date },
     },
+    stripeAccountId: { type: String, required: false },
+    isStripeConnected: { type: Boolean, default: false },
   },
   {
     timestamps: true,

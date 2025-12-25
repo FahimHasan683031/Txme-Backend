@@ -15,6 +15,7 @@ import { WalletRoutes } from '../modules/wallet/wallet.route';
 import { SettingRoutes } from '../modules/setting/setting.route';
 import { AuditLogRoutes } from '../modules/auditLog/auditLog.route';
 import { TransactionRoutes } from '../modules/transaction/transaction.route';
+import { StripeRoutes } from '../modules/stripe/stripe.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -34,6 +35,7 @@ const apiRoutes = [
     { path: "/setting", route: SettingRoutes },
     { path: "/audit-log", route: AuditLogRoutes },
     { path: "/transaction", route: TransactionRoutes },
+    { path: "/stripe", route: StripeRoutes },
 ]
 
 apiRoutes.forEach(route => router.use(route.path, route.route));

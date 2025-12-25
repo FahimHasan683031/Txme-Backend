@@ -26,12 +26,6 @@ router.patch('/update-status/:appointmentId',
 );
 
 router.post(
-    '/create-payment-intent/:appointmentId',
-    auth(USER_ROLES.CUSTOMER),
-    AppointmentController.createPaymentIntent
-);
-
-router.post(
     '/pay-with-wallet/:appointmentId',
     auth(USER_ROLES.CUSTOMER),
     AppointmentController.payWithWallet

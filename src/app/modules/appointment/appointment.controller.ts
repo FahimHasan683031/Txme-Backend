@@ -1,7 +1,6 @@
 // src/modules/Appointment/Appointment.controller.ts
 import { Request, Response } from "express";
 import { AppointmentService } from "./appointment.service";
-import { StripeAppointmentService } from "./appointment.stripe.service";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { StatusCodes } from "http-status-codes";
@@ -14,20 +13,6 @@ const createAppointment = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: 'Appointment created successfully',
     data: Appointment,
-  });
-});
-
-const createPaymentIntent = catchAsync(async (req: Request, res: Response) => {
-  const { appointmentId } = req.params;
-  const userEmail = req.user.email; // Assuming user is authenticated
-
-  const result = await StripeAppointmentService.createAppointmentPaymentIntent(appointmentId, userEmail);
-
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: 'Payment intent created successfully',
-    data: result,
   });
 });
 
@@ -90,7 +75,6 @@ const updateAppointmentStatus = catchAsync(async (req: Request, res: Response) =
 
 export const AppointmentController = {
   createAppointment,
-  createPaymentIntent,
   payWithWallet,
   getMyAppointments,
   getAllAppointments,

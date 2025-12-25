@@ -111,9 +111,11 @@ export const completeProfileZod = z.object({
       "blocked",
       "deleted"
     ]).optional(),
+    bio: z.string().optional(),
     // ✅ Provider profile validation added here
     providerProfile: z.object({
       serviceCategory: z.array(z.string()).optional(),
+      designation: z.string().optional(),
       workingHours: z.object({
         startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
         endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)").optional(),
@@ -123,7 +125,6 @@ export const completeProfileZod = z.object({
       unavailableDates: z.array(z.string()).optional(), // Receiving as strings (ISO dates) from frontend usually
       hourlyRate: z.number().positive("Hourly rate must be positive").optional(),
       certifications: z.array(z.string()).optional(),
-      bio: z.string().optional(),
       experience: z.number().min(0, "Experience cannot be negative").optional(),
       skills: z.array(z.string()).optional(),
       languages: z.array(z.enum(PROVIDER_LANGUAGES as unknown as [string, ...string[]])).optional(),

@@ -25,12 +25,12 @@ interface IWorkingHours {
 
 interface IProviderProfile {
   serviceCategory: string[];
+  designation?: string;
   workingHours: IWorkingHours;
   workingDays: ("Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday")[];
   unavailableDates?: Date[];
   hourlyRate?: number;
   certifications?: string[];
-  bio?: string;
   experience?: number;
   skills?: string[];
   languages?: IProviderLanguage[];
@@ -68,7 +68,10 @@ export interface IUser extends Document {
   addressDocuments?: string[];
   biometricEnabled?: boolean;
   status?: "pending" | "active" | "rejected" | "suspended" | "blocked" | "deleted";
+  bio?: string;
   providerProfile?: IProviderProfile;
+  stripeAccountId?: string;
+  isStripeConnected?: boolean;
 }
 
 export type UserModal = {

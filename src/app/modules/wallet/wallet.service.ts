@@ -3,8 +3,11 @@ import mongoose from "mongoose";
 import { StatusCodes } from "http-status-codes";
 import { Wallet } from "./wallet.model";
 import { WalletTransaction } from "../transaction/transaction.model";
+import { StripeService } from "../stripe/stripe.service";
+import { User } from "../user/user.model";
 import ApiError from "../../../errors/ApiErrors";
 import { NotificationService } from "../notification/notification.service";
+import { logger } from "../../../shared/logger";
 import { Types } from "mongoose";
 
 const getOrCreateWallet = async (userId: string) => {
@@ -152,6 +155,56 @@ const withdraw = async (userId: string, amount: number) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Insufficient balance");
   }
 
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+
+  // If user is connected to Stripe, proceed with automated withdrawal
+  if (user.isStripeConnected && user.stripeAccountId) {
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
+
+      // 1. Create successful transaction
+      const tx = await WalletTransaction.create([
+        {
+          wallet: wallet._id,
+          amount,
+          type: "withdraw",
+          direction: "debit",
+          status: "success",
+          from: userId,
+          reference: "Stripe Automated Withdrawal"
+        }
+      ], { session });
+
+      // 2. Deduct from wallet balance
+      wallet.balance -= amount;
+      await wallet.save({ session });
+
+      // 3. Trigger Stripe Transfer (Platform -> Provider Account)
+      await StripeService.createTransfer(amount, user.stripeAccountId, { type: 'withdrawal', userId });
+
+      // 4. Trigger Stripe Payout (Provider Account -> Card/Bank)
+      // Note: This requires the connected account to have enough balance. 
+      // If we just transferred it, it might take a moment to be available.
+      // We'll attempt a payout.
+      try {
+        await StripeService.createPayout(amount, user.stripeAccountId);
+      } catch (payoutError) {
+        logger.error(`Automatic payout failed for user ${userId}: ${payoutError}. The transfer was still successful.`);
+      }
+
+      await session.commitTransaction();
+      return tx[0];
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  // Fallback: Manual withdrawal (just create pending transaction)
   const tx = await WalletTransaction.create({
     wallet: wallet._id,
     amount,

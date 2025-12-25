@@ -6,73 +6,65 @@ import { logger } from '../shared/logger';
 import config from '../config';
 import ApiError from '../errors/ApiErrors';
 import stripe from '../config/stripe';
-import { StripeWalletService } from '../app/modules/wallet/wallet.stripe.service';
-import { StripeAppointmentService } from '../app/modules/appointment/appointment.stripe.service';
+import { StripeService } from '../app/modules/stripe/stripe.service';
+import catchAsync from '../shared/catchAsync';
 
-const handleStripeWebhook = async (req: Request, res: Response) => {
+const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
     console.log("Stripe webhook received");
 
-    // Extract Stripe signature and webhook secret
     const signature = req.headers['stripe-signature'] as string;
     const webhookSecret = config.stripe.webhookSecret as string;
 
-    let event: Stripe.Event | undefined;
+    if (!signature || !webhookSecret) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Stripe signature or webhook secret is missing");
+    }
 
-    // Verify the event signature
+    let event: Stripe.Event;
+
     try {
         event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
-    } catch (error) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, `Webhook signature verification failed. ${error}`);
+    } catch (error: any) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, `Webhook signature verification failed: ${error.message}`);
     }
 
-    // Check if the event is valid
-    if (!event) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid event received!');
-    }
-
-    // Extract event data and type
     const eventType = event.type;
 
-    // Handle the event based on its type
     try {
         switch (eventType) {
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object as Stripe.PaymentIntent;
                 console.log('Payment Intent Succeeded:', paymentIntent.id);
-                console.log('Metadata:', JSON.stringify(paymentIntent.metadata, null, 2));
 
-                // Check if this is a wallet top up payment
-                if (paymentIntent.metadata.type === 'wallet_topup') {
-                    console.log("Matched condition: wallet_topup");
-                    try {
-                        await StripeWalletService.handleSuccessfulTopUpPayment(paymentIntent);
-                        logger.info(colors.bgGreen.bold(`Wallet top up payment succeeded: ${paymentIntent.id}`));
-                    } catch (serviceError) {
-                        console.error("Error in StripeWalletService:", serviceError);
-                        logger.error(`Wallet top up service failed: ${serviceError}`);
-                    }
-                } else if (paymentIntent.metadata.type === 'appointment_payment') {
-                    console.log("Matched condition: appointment_payment");
-                    try {
-                        await StripeAppointmentService.handleSuccessfulAppointmentPayment(paymentIntent);
-                        logger.info(colors.bgGreen.bold(`Appointment payment succeeded: ${paymentIntent.id}`));
-                    } catch (serviceError) {
-                        console.error("Error in StripeAppointmentService:", serviceError);
-                        logger.error(`Appointment payment service failed: ${serviceError}`);
-                    }
+                const metadata = paymentIntent.metadata || {};
+
+                if (metadata.type === 'wallet_topup') {
+                    await StripeService.handleSuccessfulTopUpPayment(paymentIntent);
+                    logger.info(colors.bgGreen.bold(`Wallet top up payment succeeded: ${paymentIntent.id}`));
+                } else if (metadata.type === 'appointment_payment') {
+                    await StripeService.handleSuccessfulAppointmentPayment(paymentIntent);
+                    logger.info(colors.bgGreen.bold(`Appointment payment succeeded: ${paymentIntent.id}`));
                 } else {
-                    console.log("Condition NOT matched. Metadata type:", paymentIntent.metadata.type);
+                    console.log("No specific handler for this payment intent type:", metadata.type);
                 }
                 break;
 
+            case 'account.updated':
+                const account = event.data.object as Stripe.Account;
+                await StripeService.handleAccountUpdate(account);
+                logger.info(colors.bgGreen.bold(`Stripe account updated: ${account.id}`));
+                break;
+
             default:
-                logger.warn(colors.bgGreen.bold(`Unhandled event type: ${eventType}`));
+                logger.warn(colors.bgYellow.bold(`Unhandled event type: ${eventType}`));
         }
-    } catch (error) {
-        throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Error handling event: ${error}`,);
+    } catch (error: any) {
+        logger.error(`Error processing Stripe event ${eventType}: ${error.message}`);
+        // We still return 200 to Stripe to avoid retries if the error is handled/logged
+        // but since we use catchAsync, this will trigger the global error handler
+        throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Error handling event: ${error.message}`);
     }
 
-    res.sendStatus(200);
-};
+    res.status(StatusCodes.OK).json({ received: true });
+});
 
 export default handleStripeWebhook;
