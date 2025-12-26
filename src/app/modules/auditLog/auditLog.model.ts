@@ -12,14 +12,9 @@ const auditLogSchema = new Schema<IAuditLog, AuditLogModel>(
             type: String,
             required: true
         },
-        targetModule: {
+        details: {
             type: String,
             required: true
-        },
-        details: {
-            oldValue: { type: Schema.Types.Mixed },
-            newValue: { type: Schema.Types.Mixed },
-            changes: { type: Schema.Types.Mixed }
         }
     },
     {

@@ -37,10 +37,12 @@ const loginAdmin = catchAsync(async (req: Request, res: Response) => {
   const { ...loginData } = req.body;
   const result = await AdminService.loginAdminFromDB(loginData);
 
-    res.cookie("refreshToken", result.refreshToken, {
-    secure: config.node_env === "production",
-    httpOnly: true,
-  });
+      res.cookie("refreshToken", result.refreshToken, {
+        httpOnly: true,
+        secure: config.node_env === "production",
+        sameSite: "strict",
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
   sendResponse(res, {
     success: true,

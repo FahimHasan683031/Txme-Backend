@@ -14,8 +14,7 @@ const reviewSchema = new Schema<IReview>(
       required: true,
     },
     service: {
-      type: Schema.Types.ObjectId,
-      ref: "Service",
+      type: String,
       required: true,
     },
     appointment: {

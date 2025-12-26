@@ -12,20 +12,19 @@ export type AppointmentStatus =
   | "review_pending"
   | "provider_review_pending"
   | "customer_review_pending"
-  | "completed"
-  | "no_show";
+  | "completed";
 
 export interface IAppointment extends Document {
   customer: Types.ObjectId;
   provider: Types.ObjectId;
   service: string;
   date: Date;
-  startTime?: string; // Booked slot start time in "HH:MM" format
-  endTime?: string;   // Booked slot end time in "HH:MM" format
-  actualStartTime?: string; // Real start time in "HH:MM" format
-  actualEndTime?: string;   // Real end time in "HH:MM" format
+  startTime?: string;
+  endTime?: string;  
+  actualStartTime?: string; 
+  actualEndTime?: string;  
   status: AppointmentStatus;
-  totalWorkedTime?: number; // in minutes
+  totalWorkedTime?: number;
   totalCost?: number;
   address?: string;
   paymentMethod?: 'wallet' | 'card' | 'cash';

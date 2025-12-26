@@ -40,7 +40,7 @@ const AppointmentSchema = new Schema<IAppointment>(
     },
     status: {
       type: String,
-      enum: ["pending", "accepted", "in_progress", "work_completed", "cancelled", "rejected", "awaiting_payment", "review_pending", "provider_review_pending", "customer_review_pending", "completed", "no_show"],
+      enum: ["pending", "accepted", "in_progress", "work_completed", "cancelled", "rejected", "awaiting_payment", "review_pending", "provider_review_pending", "customer_review_pending", "completed"],
       default: "pending",
     },
     totalWorkedTime: {
@@ -71,5 +71,10 @@ AppointmentSchema.index(
   { provider: 1, date: 1, startTime: 1, endTime: 1 },
   { unique: true }
 );
+
+AppointmentSchema.post('save', function (doc) {
+  const { emitAppointmentUpdate } = require('../../../util/appointment.util');
+  emitAppointmentUpdate(doc);
+});
 
 export const Appointment = model<IAppointment>("Appointment", AppointmentSchema);

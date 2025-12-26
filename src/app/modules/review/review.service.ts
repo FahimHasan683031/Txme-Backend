@@ -77,14 +77,14 @@ const createReview = async (payload: IReview, user: JwtPayload) => {
 
   if (isCustomer) {
     if (appointment.status === 'review_pending') {
-      nextStatus = 'customer_review_pending';
-    } else if (appointment.status === 'provider_review_pending') {
+      nextStatus = 'provider_review_pending';
+    } else if (appointment.status === 'customer_review_pending') {
       nextStatus = 'completed';
     }
   } else if (isProvider) {
     if (appointment.status === 'review_pending') {
-      nextStatus = 'provider_review_pending';
-    } else if (appointment.status === 'customer_review_pending') {
+      nextStatus = 'customer_review_pending';
+    } else if (appointment.status === 'provider_review_pending') {
       nextStatus = 'completed';
     }
   }
@@ -106,7 +106,7 @@ const getMyReviews = async (user: JwtPayload, query: Record<string, unknown>) =>
     .sort()
     .paginate()
 
-  const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "name email profileImage").populate("service", "title");
+  const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "name email profileImage");
   const paginateInfo = reviewQeryBuilder.getPaginationInfo();
   return { data: result, meta: paginateInfo };
 };

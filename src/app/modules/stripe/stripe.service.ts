@@ -7,6 +7,7 @@ import { WalletService } from '../wallet/wallet.service';
 import { Appointment } from '../appointment/appointment.model';
 import { NotificationService } from '../notification/notification.service';
 import config from '../../../config';
+import { emitAppointmentUpdate } from '../../../util/appointment.util';
 
 // --- Wallet Management (formerly wallet.stripe.service.ts) ---
 

@@ -45,11 +45,7 @@ const updateSetting = async (payload: Partial<ISetting>, userId: string): Promis
         await AuditLogService.createLog({
             user: new Types.ObjectId(userId),
             action: 'UPDATE_SETTING',
-            targetModule: 'SETTING',
-            details: {
-                oldValue: oldSetting,
-                newValue: result
-            }
+            details: `Settings updated by Admin (ID: ${userId})`
         });
     }
 

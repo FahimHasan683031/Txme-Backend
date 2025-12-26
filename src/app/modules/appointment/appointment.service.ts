@@ -117,7 +117,7 @@ export const updateAppointmentStatus = async (
   // New strict transition rules
   const allowedTransitions: Record<string, string[]> = {
     pending: ["accepted", "rejected", "cancelled"], // Provider: accepted/rejected, Customer: cancelled
-    accepted: ["in_progress", "no_show"],           // Provider only
+    accepted: ["in_progress"],                      // Provider only
     in_progress: ["work_completed"],                 // Provider only
     work_completed: ["awaiting_payment"],
     awaiting_payment: ["review_pending"],
@@ -137,7 +137,7 @@ export const updateAppointmentStatus = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "You can no longer cancel this appointment as it is already accepted or in progress");
   }
 
-  if (["accepted", "rejected", "in_progress", "work_completed", "no_show"].includes(status) && !isProvider) {
+  if (["accepted", "rejected", "in_progress", "work_completed"].includes(status) && !isProvider) {
     throw new ApiError(StatusCodes.FORBIDDEN, "Only providers have the authority to update to this status");
   }
 
@@ -150,22 +150,13 @@ export const updateAppointmentStatus = async (
     appointment.actualEndTime = formatTime(new Date());
     await handleAppointmentCompletion(appointment);
     appointment.status = "awaiting_payment";
-  } else {
-    appointment.status = status as any;
   }
+
 
   await appointment.save();
 
   // 4. Send Notifications
   await sendStatusNotification(appointment, status);
-
-  // 5. Emit socket event for real-time update
-  // @ts-ignore
-  const io = global.io;
-  if (io) {
-    io.emit(`appointmentUpdate::${appointmentId}`, appointment);
-    console.log(`[Socket] Emitted appointmentUpdate::${appointmentId}`);
-  }
 
   return appointment;
 };
