@@ -133,18 +133,22 @@ export const completeProfileZod = z.object({
 });
 
 // ✅ New schema for updating user status (admin only)
-export const updateUserStatusZod = z.object({
+export const updateUserStatusZodSchema = z.object({
+  params: z.object({
+    userId: z.string({ required_error: 'User ID is required' }),
+  }),
   body: z.object({
     status: z.enum([
       "pending",
       "active",
       "rejected",
       "suspended",
+      "blocked",
       "deleted"
     ]),
-    reason: z.string().optional(),
   }),
 });
+
 
 
 export const resendOtpZod = z.object({
@@ -157,4 +161,10 @@ export const resendOtpZod = z.object({
         return isEmail || isPhone;
       }, "Please provide a valid email or phone number"),
   })
+});
+
+export const userIdParamZodSchema = z.object({
+  params: z.object({
+    userId: z.string({ required_error: 'User ID is required' }),
+  }),
 });

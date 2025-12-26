@@ -70,10 +70,39 @@ const getPopularProviders = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+// update user status
+const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { status } = req.body;
+    const result = await UserService.updateUserStatusInDB(userId, status);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: 'User status updated successfully',
+        data: result
+    });
+});
+
+
+// delete user
+const deleteUser = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const result = await UserService.deleteUserFromDB(userId);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: result.message
+    });
+});
+
 export const UserController = {
     getAllUsers,
     updateProfile,
     getSingleUser,
     getMyProfile,
-    getPopularProviders
+    getPopularProviders,
+    updateUserStatus,
+    deleteUser
 };

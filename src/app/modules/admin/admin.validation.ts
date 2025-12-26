@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 const createAdminZodSchema = z.object({
-    body: z.object({
-        name: z.string({ required_error: 'Name is required' }),
-        email: z.string({ required_error: 'Email is required' }),
-        password: z.string({ required_error: 'Password is required' })
-    }).strict(),
+  body: z.object({
+    name: z.string({ required_error: 'Name is required' }),
+    email: z.string({ required_error: 'Email is required' }),
+    password: z.string({ required_error: 'Password is required' })
+  }).strict(),
 });
 
 
@@ -50,11 +50,18 @@ const changePasswordZodSchema = z.object({
   }).strict(),
 });
 
+const userIdParamZodSchema = z.object({
+  params: z.object({
+    userId: z.string({ required_error: 'User ID is required' }),
+  }),
+});
+
 export const AdminValidation = {
-    createAdminZodSchema,
-    verifyOTPZodSchema,
-    loginZodSchema,
-    forgetPasswordZodSchema,
-    resetPasswordZodSchema,
-    changePasswordZodSchema,
+  createAdminZodSchema,
+  verifyOTPZodSchema,
+  loginZodSchema,
+  forgetPasswordZodSchema,
+  resetPasswordZodSchema,
+  changePasswordZodSchema,
+  userIdParamZodSchema,
 };

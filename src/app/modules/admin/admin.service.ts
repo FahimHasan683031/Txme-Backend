@@ -9,15 +9,26 @@ import { ResetToken } from '../resetToken/resetToken.model'
 import { IAdmin, IAuthResetPassword, IChangePassword, ILoginData, IVerifyEmail } from './admin.interface'
 import ApiError from '../../../errors/ApiErrors'
 import { Admin } from './admin.model'
+import { User } from '../user/user.model'
 import generateOTP from '../../../util/generateOTP'
 import cryptoToken from '../../../util/cryptoToken'
 import { ADMIN_ROLES } from '../../../enums/user'
+import QueryBuilder from '../../../helpers/QueryBuilder'
+
 
 
 // create admin
 const createAdminToDB = async (payload: IAdmin) => {
   const user = await Admin.create(payload)
   return user
+}
+
+// Get all admins
+const getAllAdminsFromDB = async (query:Record<string,any>) => {
+  const adninQuery = new QueryBuilder(Admin.find(),query)
+  const admins = await adninQuery.modelQuery;
+  const meta = await adninQuery.getPaginationInfo();
+  return {admins,meta}
 }
 
 //login
@@ -43,13 +54,13 @@ const loginAdminFromDB = async (payload: ILoginData) => {
       'You don’t have permission to access this content.It looks like your account has been deactivated.',
     )
   }
-  if(isExistUser.status === 'inactive'){
+  if (isExistUser.status === 'inactive') {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Your account is inactive. Please contact support to activate it.',
     )
   }
-  if(isExistUser.role !== ADMIN_ROLES.SUPER_ADMIN && isExistUser.role !== ADMIN_ROLES.ADMIN){
+  if (isExistUser.role !== ADMIN_ROLES.SUPER_ADMIN && isExistUser.role !== ADMIN_ROLES.ADMIN) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'You don’t have permission to access this content.',
@@ -85,7 +96,7 @@ const loginAdminFromDB = async (payload: ILoginData) => {
     config.jwt.jwtRefreshSecret as Secret,
     config.jwt.jwtRefreshExpiresIn as string,
   )
-  const userInfo ={
+  const userInfo = {
     id: isExistUser._id,
     role: isExistUser.role,
     email: isExistUser.email,
@@ -291,11 +302,52 @@ const changePasswordToDB = async (
   await Admin.findOneAndUpdate({ _id: user.id }, updateData, { new: true })
 }
 
+// toggle user status (active/blocked)
+const toggleUserStatusInDB = async (userId: string) => {
+  const user = await Admin.findById(userId)
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!")
+  }
+
+  // Toggle between active and blocked
+  const newStatus = user.status === 'active' ? 'blocked' : 'active'
+
+  const updatedUser = await Admin.findByIdAndUpdate(
+    userId,
+    { status: newStatus },
+    { new: true }
+  ).select('-authentication')
+
+  return updatedUser
+}
+
+// delete user (soft delete)
+const deleteUserFromDB = async (userId: string) => {
+  const user = await Admin.findById(userId)
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!")
+  }
+  if(user.role === ADMIN_ROLES.SUPER_ADMIN){
+    throw new ApiError(StatusCodes.BAD_REQUEST, "You can't delete super admin")
+  }
+
+  await Admin.findByIdAndUpdate(
+    userId,
+    { status: 'deleted' },
+    { new: true }
+  )
+
+  return { message: 'User deleted successfully' }
+}
+
 export const AdminService = {
   verifyEmailToDB,
   loginAdminFromDB,
   forgetPasswordToDB,
   resetPasswordToDB,
   changePasswordToDB,
-  createAdminToDB
+  createAdminToDB,
+  toggleUserStatusInDB,
+  deleteUserFromDB,
+  getAllAdminsFromDB
 }

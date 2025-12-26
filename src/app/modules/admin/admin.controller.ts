@@ -19,6 +19,18 @@ const createAdmin = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// Get all admins
+const getAllAdmins = catchAsync(async (req: Request, res: Response) => {
+  const { ...query } = req.query;
+  const result = await AdminService.getAllAdminsFromDB(query);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Admins fetched successfully.',
+    data: result,
+  });
+});
 
 
 const verifyEmail = catchAsync(async (req: Request, res: Response) => {
@@ -37,12 +49,12 @@ const loginAdmin = catchAsync(async (req: Request, res: Response) => {
   const { ...loginData } = req.body;
   const result = await AdminService.loginAdminFromDB(loginData);
 
-      res.cookie("refreshToken", result.refreshToken, {
-        httpOnly: true,
-        secure: config.node_env === "production",
-        sameSite: "strict",
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+  res.cookie("refreshToken", result.refreshToken, {
+    httpOnly: true,
+    secure: config.node_env === "production",
+    sameSite: "strict",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
 
   sendResponse(res, {
     success: true,
@@ -90,11 +102,37 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const toggleUserStatus = catchAsync(async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const result = await AdminService.toggleUserStatusInDB(userId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'User status updated successfully',
+    data: result,
+  });
+});
+
+const deleteUser = catchAsync(async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const result = await AdminService.deleteUserFromDB(userId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: result.message,
+  });
+});
+
 export const AdminController = {
   verifyEmail,
   loginAdmin,
   forgetPassword,
   resetPassword,
   changePassword,
-  createAdmin
+  createAdmin,
+  toggleUserStatus,
+  deleteUser,
+  getAllAdmins
 };

@@ -103,10 +103,53 @@ const getPopularProvidersFromDB = async () => {
   return result;
 };
 
+// update user status
+const updateUserStatusInDB = async (userId: string, status: string) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
+  }
+
+  const validStatuses = ['pending', 'active', 'rejected', 'suspended', 'blocked', 'deleted'];
+  if (!validStatuses.includes(status)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, `Invalid status. Valid statuses are: ${validStatuses.join(', ')}`);
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { status },
+    { new: true }
+  ).select('-authentication');
+
+  return updatedUser;
+};
+
+// delete user (soft delete)
+const deleteUserFromDB = async (userId: string) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!");
+  }
+
+  if (user.status === 'deleted') {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User is already deleted');
+  }
+
+  await User.findByIdAndUpdate(
+    userId,
+    { status: 'deleted' },
+    { new: true }
+  );
+
+  return { message: 'User deleted successfully' };
+};
+
 export const UserService = {
   getAllUsers,
   updateProfileToDB,
   getSingleUser,
   getmyProfile,
-  getPopularProvidersFromDB
+  getPopularProvidersFromDB,
+  updateUserStatusInDB,
+  deleteUserFromDB
 };

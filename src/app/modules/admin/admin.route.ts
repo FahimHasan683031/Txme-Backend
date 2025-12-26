@@ -14,6 +14,12 @@ router.post(
   AdminController.createAdmin
 );
 
+router.get(
+  '/',
+  auth(ADMIN_ROLES.SUPER_ADMIN),
+  AdminController.getAllAdmins
+);
+
 
 
 router.post(
@@ -47,6 +53,22 @@ router.post(
   auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
   validateRequest(AdminValidation.changePasswordZodSchema),
   AdminController.changePassword
+);
+
+// toggle user status (active/blocked)
+router.patch(
+  '/:userId/toggle-status',
+  auth(ADMIN_ROLES.SUPER_ADMIN),
+  validateRequest(AdminValidation.userIdParamZodSchema),
+  AdminController.toggleUserStatus
+);
+
+// delete user (soft delete)
+router.delete(
+  '/:userId',
+  auth(ADMIN_ROLES.SUPER_ADMIN),
+  validateRequest(AdminValidation.userIdParamZodSchema),
+  AdminController.deleteUser
 );
 
 export const AdminRoutes = router;

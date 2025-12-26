@@ -1,6 +1,8 @@
 import { User } from "../user/user.model";
 import { generateDailySlots } from "../../../util/generateDailySlots";
 import { Appointment } from "../appointment/appointment.model";
+import ApiError from "../../../errors/ApiErrors";
+import { StatusCodes } from "http-status-codes";
 
 export const getProviderCalendar = async (providerId: string, date: string) => {
     console.log(providerId, date);
@@ -21,8 +23,8 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
     const dayOfWeek = requestedDate.toLocaleDateString('en-US', { weekday: 'long' }) as any;
 
     if (!provider.providerProfile.workingDays.includes(dayOfWeek)) {
-        // Provider doesn't work on this day, return empty slots
-        return [];
+        // Provider doesn't work on this day, throw error
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Provider does not work on this day");
     }
 
     // Check if provider has set this specific date as unavailable
@@ -31,18 +33,18 @@ export const getProviderCalendar = async (providerId: string, date: string) => {
     );
 
     if (isUnavailableDate) {
-        return [];
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Provider is unavailable on this date");
     }
 
     // generate slots dynamically WITH date
     let slots = generateDailySlots(workingHours, date);
 
 
-    // find booked slots for that date
+    // find booked slots for that date (exclude only cancelled and rejected)
     const appointments = await Appointment.find({
         provider: providerId,
         date: requestedDate,
-        status: { $nin: ["pending","cancelled","rejected"] }
+        status: { $nin: ["cancelled", "rejected"] }
     });
 
     // merge availability

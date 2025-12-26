@@ -5,6 +5,7 @@ import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import fileUploadHandler from '../../middlewares/fileUploaderHandler';
 import { getSingleFilePath } from '../../../shared/getFilePath';
+import { updateUserStatusZodSchema } from './user.validation';
 const router = express.Router();
 
 router.route('/')
@@ -43,6 +44,20 @@ router.get('/me',
 router.get('/:id',
     // auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, USER_ROLES.SUPER_ADMIN),
     UserController.getSingleUser
+);
+
+// update user status (admin only)
+router.patch('/:userId/status',
+    auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
+    validateRequest(updateUserStatusZodSchema),
+    UserController.updateUserStatus
+);
+
+// delete user (super admin only)
+router.delete('/:userId',
+    auth(ADMIN_ROLES.SUPER_ADMIN),
+    validateRequest(require('./user.validation').userIdParamZodSchema),
+    UserController.deleteUser
 );
 
 
