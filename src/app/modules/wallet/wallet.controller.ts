@@ -28,8 +28,8 @@ const getmyWallet = catchAsync(async (req, res) => {
 
 
 const sendMoney = catchAsync(async (req, res) => {
-  const { receiverId, amount } = req.body;
-  await WalletService.sendMoney(req.user.id, receiverId, amount);
+  const { receiverId: receiverIdentifier, amount } = req.body;
+  await WalletService.sendMoney(req.user.id, receiverIdentifier, amount);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

@@ -104,11 +104,11 @@ export const updateAppointmentStatus = async (
   if (!appointment) throw new ApiError(StatusCodes.NOT_FOUND, "Appointment not found");
 
   // 1. Permission Check
-  const isCustomer = userRole === USER_ROLES.CUSTOMER && appointment.customer.toString() === userId;
-  const isProvider = userRole === USER_ROLES.PROVIDER && appointment.provider.toString() === userId;
+  const isCustomer = userRole?.toUpperCase() === USER_ROLES.CUSTOMER && appointment.customer.toString() === userId.toString();
+  const isProvider = userRole?.toUpperCase() === USER_ROLES.PROVIDER && appointment.provider.toString() === userId.toString();
 
   if (!isCustomer && !isProvider) {
-    throw new ApiError(StatusCodes.FORBIDDEN, "Unauthorized to update this appointment");
+    throw new ApiError(StatusCodes.FORBIDDEN, "Permission denied! Only the assigned user can update this.");
   }
 
   // 2. Status Transition Validation
@@ -120,30 +120,40 @@ export const updateAppointmentStatus = async (
     accepted: ["in_progress"],                      // Provider only
     in_progress: ["work_completed"],                 // Provider only
     work_completed: ["awaiting_payment"],
-    awaiting_payment: ["review_pending"],
+    awaiting_payment: ["review_pending", "cashPayment"],
+    cashPayment: ["cashReceived"],
   };
 
   // Check if transition is generally allowed
   if (!allowedTransitions[currentStatus]?.includes(status)) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, `Invalid status transition from ${currentStatus} to ${status}`);
+    throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot move appointment from '${currentStatus}' to '${status}'.`);
   }
 
   // Role-specific restrictions
   if (status === "cancelled" && !isCustomer) {
-    throw new ApiError(StatusCodes.FORBIDDEN, "Only customers can cancel their request");
+    throw new ApiError(StatusCodes.FORBIDDEN, "Only customers can cancel appointments.");
   }
 
   if (status === "cancelled" && isCustomer && currentStatus !== "pending") {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "You can no longer cancel this appointment as it is already accepted or in progress");
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Can only cancel 'pending' appointments.");
   }
 
   if (["accepted", "rejected", "in_progress", "work_completed"].includes(status) && !isProvider) {
-    throw new ApiError(StatusCodes.FORBIDDEN, "Only providers have the authority to update to this status");
+    throw new ApiError(StatusCodes.FORBIDDEN, `Only providers can set status to '${status}'.`);
+  }
+
+  if (["review_pending", "cashPayment"].includes(status) && !isCustomer) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "Only customers can finalize payment.");
+  }
+
+  if (status === "cashReceived" && !isProvider) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "Only providers can confirm cash receipt.");
   }
 
   // 3. Status Specific Actions
   if (status === "in_progress") {
     appointment.actualStartTime = formatTime(new Date());
+    appointment.status = status;
   }
 
   if (status === "work_completed") {
@@ -152,6 +162,23 @@ export const updateAppointmentStatus = async (
     appointment.status = "awaiting_payment";
   }
 
+  if (status === "review_pending") {
+    appointment.status = "review_pending";
+  }
+
+  if (status === "cashPayment") {
+    appointment.paymentMethod = "cash";
+    appointment.status = "cashPayment";
+  }
+
+  if (status === "cashReceived") {
+    appointment.status = "review_pending";
+  }
+
+  // Update status for other valid transitions if not already handled
+  if (!["work_completed", "in_progress", "review_pending", "cashPayment", "cashReceived"].includes(status)) {
+    appointment.status = status as any;
+  }
 
   await appointment.save();
 
@@ -263,9 +290,9 @@ const payWithWallet = async (appointmentId: string, userId: string) => {
 const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) => {
   const { role, id } = user;
 
-  if (role === "CUSTOMER") {
+  if (role?.toUpperCase() === USER_ROLES.CUSTOMER) {
     query.customer = id;
-  } else if (role === "PROVIDER") {
+  } else if (role?.toUpperCase() === USER_ROLES.PROVIDER) {
     query.provider = id;
   }
 

@@ -78,9 +78,26 @@ const topUp = async (userId: string, amount: number) => {
 // SEND MONEY
 const sendMoney = async (
   senderId: string,
-  receiverId: string,
+  receiverIdentifier: string,
   amount: number
 ) => {
+  // Use Promise.all for finding user by ID, email or phone
+  const [userById, userByEmail, userByPhone] = await Promise.all([
+    Types.ObjectId.isValid(receiverIdentifier)
+      ? User.findById(receiverIdentifier)
+      : Promise.resolve(null),
+    User.findOne({ email: receiverIdentifier }),
+    User.findOne({ phone: receiverIdentifier }),
+  ]);
+
+  const receiver = userById || userByEmail || userByPhone;
+
+  if (!receiver) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Receiver not found");
+  }
+
+  const receiverId = receiver._id.toString();
+
   if (senderId === receiverId) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Cannot send to self");
   }
@@ -89,6 +106,11 @@ const sendMoney = async (
   session.startTransaction();
 
   try {
+    const sender = await User.findById(senderId);
+    if (!sender) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Sender not found");
+    }
+
     const senderWallet = await getOrCreateWallet(senderId);
     const receiverWallet = await getOrCreateWallet(receiverId);
 
@@ -131,8 +153,8 @@ const sendMoney = async (
     // Notify Receiver
     await NotificationService.insertNotification({
       title: "Money Received",
-      message: `You have received ${amount} in your wallet.`,
-      receiver: new Types.ObjectId(receiverId),
+      message: `${sender.fullName || "Someone"} has sent you ${amount} in your wallet.`,
+      receiver: receiver._id,
       screen: "WALLET",
       type: "USER",
       read: false

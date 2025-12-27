@@ -117,7 +117,7 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"receiverId\": \"\",\n  \"amount\": 100\n}"
+                    "raw": "{\n  \"receiverId\": \"\", // Can be User ID, Email, or Phone\n  \"amount\": 100\n}"
                 },
                 "url": {
                     "raw": "{{baseUrl}}/api/wallet/send",

@@ -40,7 +40,7 @@ const AppointmentSchema = new Schema<IAppointment>(
     },
     status: {
       type: String,
-      enum: ["pending", "accepted", "in_progress", "work_completed", "cancelled", "rejected", "awaiting_payment", "review_pending", "provider_review_pending", "customer_review_pending", "completed"],
+      enum: ["pending", "accepted", "in_progress", "work_completed", "cancelled", "rejected", "awaiting_payment", "review_pending", "provider_review_pending", "customer_review_pending", "completed", "cashPayment", "cashReceived"],
       default: "pending",
     },
     totalWorkedTime: {

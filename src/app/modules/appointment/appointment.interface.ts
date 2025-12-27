@@ -12,7 +12,9 @@ export type AppointmentStatus =
   | "review_pending"
   | "provider_review_pending"
   | "customer_review_pending"
-  | "completed";
+  | "completed"
+  | "cashPayment"
+  | "cashReceived";
 
 export interface IAppointment extends Document {
   customer: Types.ObjectId;
@@ -20,9 +22,9 @@ export interface IAppointment extends Document {
   service: string;
   date: Date;
   startTime?: string;
-  endTime?: string;  
-  actualStartTime?: string; 
-  actualEndTime?: string;  
+  endTime?: string;
+  actualStartTime?: string;
+  actualEndTime?: string;
   status: AppointmentStatus;
   totalWorkedTime?: number;
   totalCost?: number;

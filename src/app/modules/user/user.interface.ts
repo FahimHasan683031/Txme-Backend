@@ -1,5 +1,6 @@
 import { Model } from "mongoose";
 import { USER_ROLES } from "../../../enums/user";
+import { IProviderLanguage } from "../../../enums/languages";
 
 interface IAuthenticationProps {
   purpose:
@@ -15,12 +16,12 @@ interface IAuthenticationProps {
 
 }
 
-import { IProviderLanguage } from "../../../enums/languages";
+
 
 interface IWorkingHours {
   startTime: string;
   endTime: string;
-  duration: number; // in hours (e.g., 1, 1.5, 2)
+  duration: number; 
 }
 
 interface IProviderProfile {
