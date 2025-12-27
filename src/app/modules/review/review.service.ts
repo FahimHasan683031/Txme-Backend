@@ -7,6 +7,7 @@ import { StatusCodes } from "http-status-codes";
 import { IReview } from "./review.interface";
 import { JwtPayload } from "jsonwebtoken";
 import QueryBuilder from "../../../helpers/QueryBuilder";
+import { NotificationService } from "../notification/notification.service";
 
 
 const recalculateUserRating = async (userId: Types.ObjectId) => {
@@ -95,6 +96,16 @@ const createReview = async (payload: IReview, user: JwtPayload) => {
   }
 
   await recalculateUserRating(reviewee);
+
+  // Send Notification to the reviewee
+  await NotificationService.insertNotification({
+    title: "New Review Received",
+    message: `You have received a new ${review.rating}-star review for your service.`,
+    receiver: reviewee,
+    referenceId: review._id,
+    screen: "REVIEW",
+    type: "USER",
+  });
 
   return review;
 };

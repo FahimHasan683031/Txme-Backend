@@ -54,7 +54,7 @@ const getAllAppointments = catchAsync(async (req: Request, res: Response) => {
 
 const updateAppointmentStatus = catchAsync(async (req: Request, res: Response) => {
   const { appointmentId } = req.params;
-  const { status, ...data } = req.body;
+  const { status, reason, ...data } = req.body;
   const { id: userId, role: userRole } = req.user;
 
   const result = await AppointmentService.updateAppointmentStatus(
@@ -62,6 +62,7 @@ const updateAppointmentStatus = catchAsync(async (req: Request, res: Response) =
     status,
     userId,
     userRole,
+    reason,
     data
   );
 

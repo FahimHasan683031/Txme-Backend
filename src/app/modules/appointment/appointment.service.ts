@@ -98,6 +98,7 @@ export const updateAppointmentStatus = async (
   status: string,
   userId: string,
   userRole: string,
+  reason?: string,
   data?: any
 ) => {
   const appointment = await Appointment.findById(appointmentId);
@@ -132,6 +133,13 @@ export const updateAppointmentStatus = async (
   // Role-specific restrictions
   if (status === "cancelled" && !isCustomer) {
     throw new ApiError(StatusCodes.FORBIDDEN, "Only customers can cancel appointments.");
+  }
+
+  if (["cancelled", "rejected"].includes(status)) {
+    if (!reason) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, `A reason is required to ${status} this appointment.`);
+    }
+    appointment.reason = reason;
   }
 
   if (status === "cancelled" && isCustomer && currentStatus !== "pending") {
@@ -216,18 +224,55 @@ async function handleAppointmentCompletion(appointment: any) {
  * Centered notification logic
  */
 async function sendStatusNotification(appointment: any, status: string) {
-  const messages: Record<string, { title: string; message: string }> = {
-    accepted: { title: "Appointment Accepted", message: "Your appointment request has been accepted by the provider." },
-    rejected: { title: "Appointment Rejected", message: "Your appointment request was rejected by the provider." },
-    in_progress: { title: "Service Started", message: "The provider has started the service for your appointment." },
-    work_completed: { title: "Service Completed", message: "The service has been completed. Please proceed to payment." },
-    cancelled: { title: "Appointment Cancelled", message: "The appointment has been cancelled." },
+  const messages: Record<string, { title: string; message: string; receiver: "customer" | "provider" }> = {
+    accepted: {
+      title: "Appointment Accepted",
+      message: `Your appointment for ${appointment.service} has been accepted.`,
+      receiver: "customer"
+    },
+    rejected: {
+      title: "Appointment Rejected",
+      message: `Your appointment for ${appointment.service} was rejected. Reason: ${appointment.reason || 'N/A'}`,
+      receiver: "customer"
+    },
+    in_progress: {
+      title: "Service Started",
+      message: `The provider has started the service for your appointment.`,
+      receiver: "customer"
+    },
+    work_completed: {
+      title: "Service Completed",
+      message: `The service is complete. Total Time: ${appointment.totalWorkedTime} hrs, Total Cost: ${appointment.totalCost}. Please proceed to payment.`,
+      receiver: "customer"
+    },
+    cancelled: {
+      title: "Appointment Cancelled",
+      message: `The appointment for ${appointment.service} has been cancelled by the customer. Reason: ${appointment.reason || 'N/A'}`,
+      receiver: "provider"
+    },
+    cashPayment: {
+      title: "Payment Update: Cash",
+      message: `The customer has opted to pay via cash. Please confirm once you receive the payment.`,
+      receiver: "provider"
+    },
+    cashReceived: {
+      title: "Payment Confirmed",
+      message: `The provider has confirmed your cash payment. Your service is now ready for review.`,
+      receiver: "customer"
+    },
+    review_pending: {
+      title: "Payment Processed",
+      message: `Payment for appointment ${appointment._id} has been successfully processed.`,
+      receiver: "customer"
+    }
   };
 
-  if (messages[status]) {
+  const config = messages[status];
+  if (config) {
     await NotificationService.insertNotification({
-      ...messages[status],
-      receiver: appointment.customer, // Mostly customers get these, can be adjusted for providers
+      title: config.title,
+      message: config.message,
+      receiver: config.receiver === "customer" ? appointment.customer : appointment.provider,
       referenceId: appointment._id,
       screen: "APPOINTMENT",
       type: "USER",
