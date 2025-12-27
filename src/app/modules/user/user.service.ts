@@ -92,16 +92,7 @@ const getmyProfile = async (user: JwtPayload): Promise<IUser | null> => {
   return result;
 }
 
-const getPopularProvidersFromDB = async () => {
-  const result = await User.find({
-    role: "PROVIDER",
-    status: "active",
-  })
-    .sort({ "review.averageRating": -1, "review.totalReviews": -1 })
-    .limit(5);
 
-  return result;
-};
 
 // update user status
 const updateUserStatusInDB = async (userId: string, status: string) => {
@@ -149,7 +140,7 @@ export const UserService = {
   updateProfileToDB,
   getSingleUser,
   getmyProfile,
-  getPopularProvidersFromDB,
+
   updateUserStatusInDB,
   deleteUserFromDB
 };

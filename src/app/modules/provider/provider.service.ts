@@ -3,6 +3,7 @@ import { generateDailySlots } from "../../../util/generateDailySlots";
 import { Appointment } from "../appointment/appointment.model";
 import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
+import QueryBuilder from "../../../helpers/QueryBuilder";
 
 export const getProviderCalendar = async (providerId: string, date: string) => {
     console.log(providerId, date);
@@ -80,6 +81,25 @@ function formatTime(time: any): string {
     return time;
 }
 
+export const getPopularProvidersFromDB = async (query: Record<string, unknown>) => {
+    // Set default sort by popularity if not specified
+    if (!query.sort) {
+        query.sort = '-review.averageRating -review.totalReviews';
+    }
+
+    const popularQuery = new QueryBuilder(User.find({ role: "PROVIDER" }), query)
+        .filter()
+        .sort()
+        .paginate()
+        .fields();
+
+    const result = await popularQuery.modelQuery;
+    const meta = await popularQuery.getPaginationInfo();
+
+    return { data: result, meta };
+};
+
 export const proveiderServices = {
     getProviderCalendar,
+    getPopularProvidersFromDB
 }

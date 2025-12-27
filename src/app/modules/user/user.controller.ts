@@ -59,16 +59,7 @@ const getMyProfile = catchAsync(async (req: Request, res: Response) => {
 
 
 // get popular providers
-const getPopularProviders = catchAsync(async (req: Request, res: Response) => {
-    const result = await UserService.getPopularProvidersFromDB();
 
-    sendResponse(res, {
-        success: true,
-        statusCode: StatusCodes.OK,
-        message: 'Popular providers retrieved successfully',
-        data: result
-    });
-});
 
 // update user status
 const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
@@ -102,7 +93,7 @@ export const UserController = {
     updateProfile,
     getSingleUser,
     getMyProfile,
-    getPopularProviders,
+
     updateUserStatus,
     deleteUser
 };

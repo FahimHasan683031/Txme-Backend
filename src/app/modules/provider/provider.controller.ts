@@ -18,6 +18,19 @@ const getProviderCalendar = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// get popular providers
+const getPopularProviders = catchAsync(async (req: Request, res: Response) => {
+  const result = await proveiderServices.getPopularProvidersFromDB(req.query);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Popular providers retrieved successfully',
+    data: result
+  });
+});
+
 export const providerController = {
   getProviderCalendar,
+  getPopularProviders
 }
