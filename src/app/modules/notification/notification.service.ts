@@ -21,6 +21,12 @@ const getNotificationFromDB = async (user: JwtPayload, query: FilterQuery<any>):
         read: false,
     });
 
+    // Mark all unread notifications for this user as read
+    await Notification.updateMany(
+        { receiver: user.id, read: false },
+        { $set: { read: true } }
+    );
+
     const data: Record<string, any> = {
         notifications,
         pagination,
@@ -30,36 +36,48 @@ const getNotificationFromDB = async (user: JwtPayload, query: FilterQuery<any>):
     return data;
 };
 
-// read notifications only for user
-const readNotificationToDB = async (user: JwtPayload): Promise<any> => {
-    const result = await Notification.updateMany(
-        { receiver: user.id, read: false },
-        { $set: { read: true } }
-    );
-    return result;
+// get unread notification count
+const getUnreadCountFromDB = async (user: JwtPayload): Promise<number> => {
+    const count = await Notification.countDocuments({
+        receiver: user.id,
+        read: false,
+    });
+    return count;
 };
 
 // get notifications for admin
-const adminNotificationFromDB = async (query: FilterQuery<any>): Promise<{ notifications: INotification[], pagination: any }> => {
+const adminNotificationFromDB = async (query: FilterQuery<any>): Promise<{ notifications: INotification[], pagination: any, unreadCount: number }> => {
     const result = new QueryBuilder(Notification.find({ type: "ADMIN" }), query).paginate().sort();
     const notifications = await result.modelQuery;
     const pagination = await result.getPaginationInfo();
-    return { notifications, pagination };
-};
 
-// read notifications only for admin
-const adminReadNotificationToDB = async (): Promise<any> => {
-    const result = await Notification.updateMany(
+    const unreadCount = await Notification.countDocuments({
+        type: 'ADMIN',
+        read: false,
+    });
+
+    // Mark all unread admin notifications as read
+    await Notification.updateMany(
         { type: 'ADMIN', read: false },
         { $set: { read: true } }
     );
-    return result;
+
+    return { notifications, pagination, unreadCount };
+};
+
+// get unread count for admin
+const adminGetUnreadCountFromDB = async (): Promise<number> => {
+    const count = await Notification.countDocuments({
+        type: 'ADMIN',
+        read: false,
+    });
+    return count;
 };
 
 export const NotificationService = {
     insertNotification,
     getNotificationFromDB,
-    readNotificationToDB,
+    getUnreadCountFromDB,
     adminNotificationFromDB,
-    adminReadNotificationToDB
+    adminGetUnreadCountFromDB
 };

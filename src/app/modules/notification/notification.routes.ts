@@ -14,14 +14,14 @@ router.get('/admin',
     NotificationController.adminNotificationFromDB
 );
 
-router.patch('/',
+router.get('/unread-count',
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
-    NotificationController.readNotification
+    NotificationController.getUnreadCount
 );
 
-router.patch('/admin',
+router.get('/admin/unread-count',
     auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
-    NotificationController.adminReadNotification
+    NotificationController.adminGetUnreadCount
 );
 
 export const NotificationRoutes = router;
