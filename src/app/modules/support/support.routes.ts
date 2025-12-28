@@ -1,5 +1,5 @@
 import express, { NextFunction, Request, Response } from 'express';
-import { USER_ROLES } from '../../../enums/user';
+import { ADMIN_ROLES, USER_ROLES } from '../../../enums/user';
 import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import { supportZodValidationSchema } from './support.validation';
@@ -23,7 +23,7 @@ router.route('/')
         SupportController.makeSupport
     )
     .get(
-        auth(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN),
+        auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
         SupportController.supports
     )
 

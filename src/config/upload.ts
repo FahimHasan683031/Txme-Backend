@@ -11,7 +11,7 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
     cloudinary,
-    params: (req, file) => ({
+    params: (_req: any, _file: any) => ({
         folder: 'outfit_orbit',
         resource_type: 'auto'
     })
