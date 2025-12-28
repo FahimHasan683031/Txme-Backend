@@ -74,10 +74,22 @@ const updateAppointmentStatus = catchAsync(async (req: Request, res: Response) =
   });
 });
 
+const getCurrentAppointment = catchAsync(async (req: Request, res: Response) => {
+  const result = await AppointmentService.getCurrentAppointment(req.user);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Current appointment retrieved successfully",
+    data: result,
+  });
+});
+
 export const AppointmentController = {
   createAppointment,
   payWithWallet,
   getMyAppointments,
   getAllAppointments,
-  updateAppointmentStatus
+  updateAppointmentStatus,
+  getCurrentAppointment
 }

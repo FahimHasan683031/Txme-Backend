@@ -428,6 +428,37 @@ const getAllAppointmentsFromDB = async (query: Record<string, any>) => {
   return { result, meta };
 };
 
+const getCurrentAppointment = async (user: JwtPayload) => {
+  const { role, id } = user;
+  const query: Record<string, any> = {
+    status: {
+      $in: [
+        "in_progress",
+        "work_completed",
+        "awaiting_payment",
+        "cashPayment",
+        "cashReceived",
+        "review_pending",
+        "provider_review_pending",
+        "customer_review_pending",
+      ],
+    },
+  };
+
+  if (role?.toUpperCase() === USER_ROLES.CUSTOMER) {
+    query.customer = id;
+  } else if (role?.toUpperCase() === USER_ROLES.PROVIDER) {
+    query.provider = id;
+  }
+
+  const result = await Appointment.findOne(query)
+    .populate("customer", "fullName email phone profileImage")
+    .populate("provider", "fullName email phone profileImage providerProfile")
+    .sort("-updatedAt");
+
+  return result;
+};
+
 // Helper function to format time to "HH:MM" format
 function formatTime(time: Date): string {
   return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
@@ -438,5 +469,6 @@ export const AppointmentService = {
   payWithWallet,
   updateAppointmentStatus,
   getMyAppointments,
-  getAllAppointmentsFromDB
+  getAllAppointmentsFromDB,
+  getCurrentAppointment
 }

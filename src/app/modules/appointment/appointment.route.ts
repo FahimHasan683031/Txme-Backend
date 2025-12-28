@@ -15,6 +15,11 @@ router.get('/my-appointments',
     AppointmentController.getMyAppointments
 );
 
+router.get('/current-appointment',
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+    AppointmentController.getCurrentAppointment
+);
+
 router.get('/',
     auth(ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
     AppointmentController.getAllAppointments
