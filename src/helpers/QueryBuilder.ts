@@ -81,8 +81,8 @@ class QueryBuilder<T> {
 
 
   // Sorting
-  sort() {
-    let sort = (this?.query?.sort as string) || '-createdAt'
+  sort(sortStr?: string) {
+    let sort = sortStr || (this?.query?.sort as string) || '-createdAt'
     this.modelQuery = this.modelQuery.sort(sort)
     return this
   }

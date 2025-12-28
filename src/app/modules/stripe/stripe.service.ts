@@ -8,6 +8,7 @@ import { Appointment } from '../appointment/appointment.model';
 import { NotificationService } from '../notification/notification.service';
 import config from '../../../config';
 import { emitAppointmentUpdate } from '../../../util/appointment.util';
+import { checkCardPaymentSetting, checkWalletSetting } from '../../../helpers/checkSetting';
 
 // --- Wallet Management (formerly wallet.stripe.service.ts) ---
 
@@ -16,6 +17,7 @@ const createTopUpPaymentIntent = async (
     amount: number,
     userEmail: string
 ): Promise<{ clientSecret: string; paymentIntentId: string }> => {
+    await checkWalletSetting('topUp');
     try {
         const amountInCents = Math.round(amount * 100);
 
@@ -150,6 +152,7 @@ const createAppointmentPaymentIntent = async (
     appointmentId: string,
     userEmail: string
 ): Promise<{ clientSecret: string; paymentIntentId: string }> => {
+    await checkCardPaymentSetting();
     try {
         const appointment = await Appointment.findById(appointmentId).populate('provider');
         if (!appointment) {
@@ -159,6 +162,10 @@ const createAppointmentPaymentIntent = async (
         const provider = await User.findById(appointment.provider);
         if (!provider) {
             throw new ApiError(StatusCodes.NOT_FOUND, "Provider not found");
+        }
+
+        if (!provider.isStripeConnected || !provider.stripeAccountId) {
+            throw new ApiError(StatusCodes.BAD_REQUEST, "Provider has not connected their Stripe account yet. Payment cannot be processed.");
         }
 
         if (appointment.status !== 'awaiting_payment') {

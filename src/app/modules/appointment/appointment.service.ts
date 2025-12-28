@@ -2,6 +2,7 @@ import { USER_ROLES } from "../../../enums/user";
 import { Appointment } from "./appointment.model";
 import { User } from "../user/user.model";
 import { generateDailySlots } from "../../../util/generateDailySlots";
+import { checkWalletSetting } from "../../../helpers/checkSetting";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiErrors";
 import { WalletService } from "../wallet/wallet.service";
@@ -89,6 +90,13 @@ export const createAppointment = async (customerId: string, data: any) => {
     type: "USER"
   });
 
+  // Socket notification for real-time update in UI list (sorting)
+  //@ts-ignore
+  const io = global.io;
+  if (io) {
+    io.emit(`appointmentUpdate::${provider}`, appointment);
+  }
+
   return appointment;
 };
 
@@ -160,6 +168,29 @@ export const updateAppointmentStatus = async (
 
   // 3. Status Specific Actions
   if (status === "in_progress") {
+    const activeAppointment = await Appointment.findOne({
+      provider: appointment.provider,
+      status: {
+        $in: [
+          "in_progress",
+          "work_completed",
+          "awaiting_payment",
+          "review_pending",
+          "provider_review_pending",
+          "cashPayment",
+          "cashReceived",
+        ],
+      },
+      _id: { $ne: appointment._id },
+    });
+
+    if (activeAppointment) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Complete your previous work first! You already have an active appointment."
+      );
+    }
+
     appointment.actualStartTime = formatTime(new Date());
     appointment.status = status;
   }
@@ -192,6 +223,14 @@ export const updateAppointmentStatus = async (
 
   // 4. Send Notifications
   await sendStatusNotification(appointment, status);
+
+  // 5. Socket notification for real-time update in UI list (sorting)
+  //@ts-ignore
+  const io = global.io;
+  if (io) {
+    io.emit(`appointmentUpdate::${appointment.customer.toString()}`, appointment);
+    io.emit(`appointmentUpdate::${appointment.provider.toString()}`, appointment);
+  }
 
   return appointment;
 };
@@ -309,6 +348,7 @@ const payWithWallet = async (appointmentId: string, userId: string) => {
   // Use WalletService to transfer money from customer to provider
   // Note: We might want a specialized transaction type for appointments, 
   // but for now we follow the existing sendMoney pattern.
+  await checkWalletSetting('moneySend');
   await WalletService.sendMoney(
     appointment.customer.toString(),
     appointment.provider.toString(),
@@ -339,6 +379,14 @@ const payWithWallet = async (appointmentId: string, userId: string) => {
     type: "USER"
   });
 
+  // also emit socket for real-time update
+  //@ts-ignore
+  const io = global.io;
+  if (io) {
+    io.emit(`appointmentUpdate::${appointment.customer.toString()}`, appointment);
+    io.emit(`appointmentUpdate::${appointment.provider.toString()}`, appointment);
+  }
+
   return appointment;
 };
 
@@ -356,7 +404,7 @@ const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) =
     query
   )
     .filter()
-    .sort()
+    .sort((query.sort as string) || "-updatedAt")
     .paginate();
 
   const result = await appointmentQuery.modelQuery;

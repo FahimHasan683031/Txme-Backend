@@ -9,6 +9,7 @@ import ApiError from "../../../errors/ApiErrors";
 import { NotificationService } from "../notification/notification.service";
 import { logger } from "../../../shared/logger";
 import { Types } from "mongoose";
+import { checkWalletSetting } from "../../../helpers/checkSetting";
 
 const getOrCreateWallet = async (userId: string) => {
   let wallet = await Wallet.findOne({ user: userId });
@@ -25,6 +26,7 @@ const getmyWallet = async (userId: string) => {
 
 // TOP UP
 const topUp = async (userId: string, amount: number) => {
+  await checkWalletSetting('topUp');
   console.log(`[WalletService] topUp called. User: ${userId}, Amount: ${amount}`);
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -81,6 +83,7 @@ const sendMoney = async (
   receiverIdentifier: string,
   amount: number
 ) => {
+  await checkWalletSetting('moneySend');
   // Use Promise.all for finding user by ID, email or phone
   const [userById, userByEmail, userByPhone] = await Promise.all([
     Types.ObjectId.isValid(receiverIdentifier)
@@ -181,6 +184,7 @@ const sendMoney = async (
 
 // WITHDRAW
 const withdraw = async (userId: string, amount: number) => {
+  await checkWalletSetting('withdraw');
   const wallet = await getOrCreateWallet(userId);
 
   if (wallet.balance < amount) {

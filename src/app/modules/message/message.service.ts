@@ -9,12 +9,14 @@ import { MESSAGE } from '../../../enums/message';
 import { JwtPayload } from 'jsonwebtoken';
 import ApiError from '../../../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
+import { checkWalletSetting } from '../../../helpers/checkSetting';
 
 const sendMessageToDB = async (payload: any): Promise<IMessage> => {
   // Initialize readBy with sender's ID
   payload.readBy = [payload.sender];
 
   if (payload.type === MESSAGE.MoneyRequest) {
+    await checkWalletSetting('moneyRequest');
     if (!payload.amount || payload.amount <= 0) {
       throw new ApiError(StatusCodes.BAD_REQUEST, "Amount is required for money requests and must be greater than 0");
     }
@@ -44,6 +46,14 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
   if (io && payload.chatId) {
     // Send message to specific Chat room
     io.emit(`getMessage::${payload?.chatId}`, response);
+
+    // Notify ALL participants to update their chat list (real-time sorting)
+    isExistChat.participants.forEach((participantId: any) => {
+      io.emit(`chatListUpdate::${participantId.toString()}`, {
+        chatId: payload.chatId,
+        lastMessage: response,
+      });
+    });
   }
 
   return response;
@@ -187,6 +197,7 @@ const updateMoneyRequestStatusToDB = async (messageId: string, user: JwtPayload,
   }
 
   if (status === 'accepted') {
+    await checkWalletSetting('moneyRequest');
     if (!message.amount) {
       throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid money request: amount missing");
     }
@@ -203,6 +214,17 @@ const updateMoneyRequestStatusToDB = async (messageId: string, user: JwtPayload,
   const io = global.io;
   if (io) {
     io.emit(`moneyRequestUpdate::${message.chatId}`, message);
+
+    // Also update chat list for participants (move to top)
+    const chat = await Chat.findById(message.chatId);
+    if (chat) {
+      chat.participants.forEach((participantId: any) => {
+        io.emit(`chatListUpdate::${participantId.toString()}`, {
+          chatId: message.chatId,
+          lastMessageAt: new Date(),
+        });
+      });
+    }
   }
 
   return message;
