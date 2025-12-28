@@ -32,7 +32,14 @@ router.route('/')
 
 
 // get my profile
-router.get('/me',
+router.patch(
+    '/fcm-token',
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+    UserController.updateFcmToken
+);
+
+router.get(
+    '/my-profile',
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
     UserController.getMyProfile
 );

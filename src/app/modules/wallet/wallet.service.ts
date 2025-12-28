@@ -150,6 +150,16 @@ const sendMoney = async (
 
     await session.commitTransaction();
 
+    // Notify Sender
+    await NotificationService.insertNotification({
+      title: "Money Sent",
+      message: `You have successfully sent ${amount} to ${receiver.fullName || "User"}.`,
+      receiver: new Types.ObjectId(senderId),
+      screen: "WALLET",
+      type: "USER",
+      read: false
+    });
+
     // Notify Receiver
     await NotificationService.insertNotification({
       title: "Money Received",
@@ -217,6 +227,17 @@ const withdraw = async (userId: string, amount: number) => {
       }
 
       await session.commitTransaction();
+
+      // Notify User (Successful)
+      await NotificationService.insertNotification({
+        title: "Withdrawal Successful",
+        message: `Your withdrawal of ${amount} has been successfully processed via Stripe.`,
+        receiver: new Types.ObjectId(userId),
+        screen: "WALLET",
+        type: "USER",
+        read: false
+      });
+
       return tx[0];
     } catch (error) {
       await session.abortTransaction();
@@ -234,6 +255,16 @@ const withdraw = async (userId: string, amount: number) => {
     direction: "debit",
     status: "pending",
     from: userId,
+  });
+
+  // Notify User (Pending)
+  await NotificationService.insertNotification({
+    title: "Withdrawal Requested",
+    message: `Your request to withdraw ${amount} is pending approval from the admin.`,
+    receiver: new Types.ObjectId(userId),
+    screen: "WALLET",
+    type: "USER",
+    read: false
   });
 
   return tx;

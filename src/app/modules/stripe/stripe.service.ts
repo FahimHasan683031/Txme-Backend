@@ -223,12 +223,23 @@ const handleSuccessfulAppointmentPayment = async (
     appointment.status = 'review_pending';
     await appointment.save();
 
+    // Notify Provider
     await NotificationService.insertNotification({
         title: "Payment Received (Card)",
-        message: `Payment received via Stripe for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
+        message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
         receiver: appointment.provider,
         referenceId: appointment._id,
-        screen: "WALLET",
+        screen: "APPOINTMENT",
+        type: "USER"
+    });
+
+    // Notify Customer
+    await NotificationService.insertNotification({
+        title: "Payment Successful",
+        message: `Your payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
+        receiver: appointment.customer,
+        referenceId: appointment._id,
+        screen: "APPOINTMENT",
         type: "USER"
     });
 };

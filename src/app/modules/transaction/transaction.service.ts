@@ -7,7 +7,10 @@ import { StatusCodes } from "http-status-codes";
 
 const getAllTransactionsFromDB = async (query: Record<string, any>) => {
     const transactionQuery = new QueryBuilder(
-        WalletTransaction.find().populate("wallet from to"),
+        WalletTransaction.find()
+            .populate("wallet", "balance")
+            .populate("from", "fullName profilePicture email")
+            .populate("to", "fullName profilePicture email"),
         query
     )
         .filter()
@@ -34,7 +37,10 @@ const getMyTransactionsFromDB = async (user: JwtPayload, query: Record<string, a
     query.wallet = wallet._id.toString();
 
     const transactionQuery = new QueryBuilder(
-        WalletTransaction.find().populate("wallet from to"),
+        WalletTransaction.find()
+            .populate("wallet", "balance")
+            .populate("from", "fullName profilePicture email")
+            .populate("to", "fullName profilePicture email"),
         query
     )
         .filter()

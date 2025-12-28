@@ -135,6 +135,16 @@ const deleteUserFromDB = async (userId: string) => {
   return { message: 'User deleted successfully' };
 };
 
+const updateFcmTokenToDB = async (user: JwtPayload, token: string) => {
+  const { id } = user;
+  const result = await User.findByIdAndUpdate(
+    id,
+    { fcmToken: token },
+    { new: true }
+  );
+  return result;
+};
+
 export const UserService = {
   getAllUsers,
   updateProfileToDB,
@@ -142,5 +152,6 @@ export const UserService = {
   getmyProfile,
 
   updateUserStatusInDB,
-  deleteUserFromDB
+  deleteUserFromDB,
+  updateFcmTokenToDB
 };

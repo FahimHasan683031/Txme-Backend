@@ -150,6 +150,7 @@ const userSchema = new Schema<IUser>(
     },
     stripeAccountId: { type: String, required: false },
     isStripeConnected: { type: Boolean, default: false },
+    fcmToken: { type: String, required: false },
   },
   {
     timestamps: true,

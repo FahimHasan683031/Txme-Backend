@@ -4,6 +4,8 @@ import { IMessage } from './message.interface';
 import { Message } from './message.model';
 import { checkMongooseIDValidation } from '../../../shared/checkMongooseIDValidation';
 import { Chat } from '../chat/chat.model';
+import { WalletService } from '../wallet/wallet.service';
+import { MESSAGE } from '../../../enums/message';
 import { JwtPayload } from 'jsonwebtoken';
 import ApiError from '../../../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
@@ -11,6 +13,13 @@ import { StatusCodes } from 'http-status-codes';
 const sendMessageToDB = async (payload: any): Promise<IMessage> => {
   // Initialize readBy with sender's ID
   payload.readBy = [payload.sender];
+
+  if (payload.type === MESSAGE.MoneyRequest) {
+    if (!payload.amount || payload.amount <= 0) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Amount is required for money requests and must be greater than 0");
+    }
+    payload.moneyRequestStatus = 'pending';
+  }
 
   const isExistChat = await Chat.findById(payload.chatId);
   if (!isExistChat) {
@@ -158,11 +167,53 @@ const deleteMessageFromDB = async (messageId: string, userId: string): Promise<I
   return await Message.findByIdAndDelete(messageId);
 };
 
+const updateMoneyRequestStatusToDB = async (messageId: string, user: JwtPayload, status: 'accepted' | 'rejected') => {
+  const message = await Message.findById(messageId);
+  if (!message) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Message not found");
+  }
+
+  if (message.type !== MESSAGE.MoneyRequest) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Message is not a money request");
+  }
+
+  if (message.moneyRequestStatus !== 'pending') {
+    throw new ApiError(StatusCodes.BAD_REQUEST, `Money request is already ${message.moneyRequestStatus}`);
+  }
+
+  // The sender is the one who REQUESTED money. The participant (current user) is the one who ACCEPTS/REJECTS.
+  if (message.sender.toString() === user.id) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "You cannot accept/reject your own money request");
+  }
+
+  if (status === 'accepted') {
+    if (!message.amount) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid money request: amount missing");
+    }
+
+    // Transfer money from the current user (acceptor) to the message sender (requester)
+    await WalletService.sendMoney(user.id, message.sender.toString(), message.amount);
+  }
+
+  message.moneyRequestStatus = status;
+  await message.save();
+
+  // Socket notification for real-time update in chat UI
+  //@ts-ignore
+  const io = global.io;
+  if (io) {
+    io.emit(`moneyRequestUpdate::${message.chatId}`, message);
+  }
+
+  return message;
+};
+
 export const MessageService = {
   sendMessageToDB,
   getMessageFromDB,
   updateMessageToDB,
   getUnreadCountForChat,
   getTotalUnreadCount,
-  deleteMessageFromDB
+  deleteMessageFromDB,
+  updateMoneyRequestStatusToDB
 };

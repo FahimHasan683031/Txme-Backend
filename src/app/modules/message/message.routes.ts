@@ -37,6 +37,13 @@ router.get(
   MessageController.getUnreadCount
 );
 
+// Update money request status (accept/reject)
+router.patch(
+  '/:messageId/money-request',
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+  MessageController.updateMoneyRequestStatus
+);
+
 // Delete a message
 router.delete(
   '/:id',

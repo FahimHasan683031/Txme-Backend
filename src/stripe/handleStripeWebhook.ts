@@ -50,12 +50,23 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
                             appointment.status = 'review_pending';
                             await appointment.save();
 
+                            // Notify Provider
                             await NotificationService.insertNotification({
                                 title: "Payment Received (Checkout)",
-                                message: `Payment received via Stripe Checkout for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
+                                message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
                                 receiver: appointment.provider,
                                 referenceId: appointment._id,
-                                screen: "WALLET",
+                                screen: "APPOINTMENT",
+                                type: "USER"
+                            });
+
+                            // Notify Customer
+                            await NotificationService.insertNotification({
+                                title: "Payment Successful",
+                                message: `Your checkout payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
+                                receiver: appointment.customer,
+                                referenceId: appointment._id,
+                                screen: "APPOINTMENT",
                                 type: "USER"
                             });
                             logger.info(colors.bgGreen.bold(`Appointment payment via Checkout succeeded: ${session.id}`));

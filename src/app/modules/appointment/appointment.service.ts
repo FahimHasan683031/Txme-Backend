@@ -325,7 +325,17 @@ const payWithWallet = async (appointmentId: string, userId: string) => {
     message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
     receiver: appointment.provider,
     referenceId: appointment._id,
-    screen: "WALLET",
+    screen: "APPOINTMENT",
+    type: "USER"
+  });
+
+  // Notify Customer
+  await NotificationService.insertNotification({
+    title: "Payment Successful",
+    message: `Your wallet payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
+    receiver: appointment.customer,
+    referenceId: appointment._id,
+    screen: "APPOINTMENT",
     type: "USER"
   });
 

@@ -9,6 +9,8 @@ export type IMessage = {
   files?: string[];
   type: MESSAGE;
   readBy: Types.ObjectId[];
+  amount?: number;
+  moneyRequestStatus?: 'pending' | 'accepted' | 'rejected';
 };
 
 export type MessageModel = Model<IMessage, Record<string, unknown>>;

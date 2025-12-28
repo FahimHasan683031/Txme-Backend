@@ -4,9 +4,26 @@ import { Notification } from './notification.model';
 import { FilterQuery } from 'mongoose';
 import QueryBuilder from '../../../helpers/QueryBuilder';
 
+import { PushNotificationService } from './pushNotification.service';
+import { User } from '../user/user.model';
+
 // insert notification
 const insertNotification = async (payload: Partial<INotification>): Promise<INotification> => {
     const result = await Notification.create(payload);
+
+    // If there's a receiver and title/message, try to send a push notification
+    if (result.receiver && result.title && result.message) {
+        const receiverUser = await User.findById(result.receiver).select('fcmToken');
+        if (receiverUser?.fcmToken) {
+            await PushNotificationService.sendPushNotification(
+                receiverUser.fcmToken,
+                result.title,
+                result.message,
+                { referenceId: result.referenceId?.toString() || '', screen: result.screen || '' }
+            );
+        }
+    }
+
     return result;
 };
 

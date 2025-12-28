@@ -21,7 +21,7 @@ interface IAuthenticationProps {
 interface IWorkingHours {
   startTime: string;
   endTime: string;
-  duration: number; 
+  duration: number;
 }
 
 interface IProviderProfile {
@@ -73,6 +73,7 @@ export interface IUser extends Document {
   providerProfile?: IProviderProfile;
   stripeAccountId?: string;
   isStripeConnected?: boolean;
+  fcmToken?: string;
 }
 
 export type UserModal = {

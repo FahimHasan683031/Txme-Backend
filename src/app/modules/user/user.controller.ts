@@ -88,6 +88,18 @@ const deleteUser = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const updateFcmToken = catchAsync(async (req: Request, res: Response) => {
+    const { token } = req.body;
+    const result = await UserService.updateFcmTokenToDB(req.user, token);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: 'FCM Token updated successfully',
+        data: result
+    });
+});
+
 export const UserController = {
     getAllUsers,
     updateProfile,
@@ -95,5 +107,6 @@ export const UserController = {
     getMyProfile,
 
     updateUserStatus,
-    deleteUser
+    deleteUser,
+    updateFcmToken
 };
