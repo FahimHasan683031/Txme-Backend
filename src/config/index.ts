@@ -32,10 +32,10 @@ export default {
         email: process.env.ADMIN_EMAIL,
         password: process.env.ADMIN_PASSWORD
     },
-    twilio: {
-        accountSid: process.env.TWILIO_ACCOUNT_SID,
-        authToken: process.env.TWILIO_AUTH_TOKEN,
-        twilioNumber: process.env.TWILIO_NUMBER
+    aws: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        region: process.env.AWS_REGION
     },
     cloudinary: {
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

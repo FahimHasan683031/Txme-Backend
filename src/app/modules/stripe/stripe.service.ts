@@ -85,6 +85,48 @@ const createExpressAccount = async (userId: string, email: string) => {
         return user.stripeAccountId;
     }
 
+    // Prepare pre-filled data for Stripe
+    const individual: Stripe.AccountCreateParams.Individual = {};
+
+    if (user.email) individual.email = user.email;
+    if (user.phone) {
+        // Stripe expects E.164 format, which our phone field should already be in (+...)
+        individual.phone = user.phone.startsWith('+') ? user.phone : `+${user.phone}`;
+    }
+
+    if (user.fullName) {
+        const nameParts = user.fullName.trim().split(/\s+/);
+        if (nameParts.length > 0) {
+            individual.first_name = nameParts[0];
+            if (nameParts.length > 1) {
+                individual.last_name = nameParts.slice(1).join(' ');
+            }
+        }
+    }
+
+    if (user.dateOfBirth) {
+        const dob = new Date(user.dateOfBirth);
+        individual.dob = {
+            day: dob.getUTCDate(),
+            month: dob.getUTCMonth() + 1,
+            year: dob.getUTCFullYear(),
+        };
+    }
+
+    if (user.gender) {
+        const gender = user.gender.toLowerCase();
+        if (gender === 'male' || gender === 'female') {
+            individual.gender = gender;
+        }
+    }
+
+    if (user.residentialAddress?.address) {
+        individual.address = {
+            line1: user.residentialAddress.address,
+            // You can add city, state, postal_code here if you have separate fields for them
+        };
+    }
+
     const account = await stripe.accounts.create({
         type: 'express',
         email: email,
@@ -92,6 +134,8 @@ const createExpressAccount = async (userId: string, email: string) => {
             card_payments: { requested: true },
             transfers: { requested: true },
         },
+        individual: Object.keys(individual).length > 0 ? individual : undefined,
+        business_type: 'individual',
     });
 
     user.stripeAccountId = account.id;
@@ -100,16 +144,7 @@ const createExpressAccount = async (userId: string, email: string) => {
     return account.id;
 };
 
-const createOnboardingLink = async (stripeAccountId: string, returnUrl: string, refreshUrl: string) => {
-    const accountLink = await stripe.accountLinks.create({
-        account: stripeAccountId,
-        refresh_url: refreshUrl,
-        return_url: returnUrl,
-        type: 'account_onboarding',
-    });
-
-    return accountLink.url;
-};
+// function removed
 
 const getAccount = async (stripeAccountId: string) => {
     return await stripe.accounts.retrieve(stripeAccountId);
@@ -251,6 +286,48 @@ const handleSuccessfulAppointmentPayment = async (
     });
 };
 
+const createAccountSession = async (stripeAccountId: string) => {
+    const accountSession = await stripe.accountSessions.create({
+        account: stripeAccountId,
+        components: {
+            account_onboarding: { enabled: true },
+        },
+    });
+
+    return accountSession.client_secret;
+};
+
+const getAccountStatus = async (userId: string) => {
+    const user = await User.findById(userId);
+    if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+
+    if (!user.stripeAccountId) {
+        return {
+            isConnected: false,
+            detailsSubmitted: false,
+            requirements: [],
+            stripeAccountId: null
+        };
+    }
+
+    const account = await stripe.accounts.retrieve(user.stripeAccountId);
+
+    // Sync local status with Stripe status
+    if (account.details_submitted && !user.isStripeConnected) {
+        user.isStripeConnected = true;
+        await user.save();
+    }
+
+    return {
+        isConnected: user.isStripeConnected,
+        detailsSubmitted: account.details_submitted,
+        requirements: account.requirements?.currently_due || [],
+        stripeAccountId: user.stripeAccountId,
+        payoutsEnabled: account.payouts_enabled,
+        chargesEnabled: account.charges_enabled
+    };
+};
+
 export const StripeService = {
     // Wallet topup
     createTopUpPaymentIntent,
@@ -258,7 +335,8 @@ export const StripeService = {
     verifyTopUpPayment,
     // Connect
     createExpressAccount,
-    createOnboardingLink,
+    createAccountSession,
+    getAccountStatus,
     getAccount,
     handleAccountUpdate,
     createTransfer,

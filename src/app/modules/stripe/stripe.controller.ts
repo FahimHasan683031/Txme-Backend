@@ -4,22 +4,6 @@ import { StripeService } from "./stripe.service";
 import { StatusCodes } from "http-status-codes";
 import config from "../../../config";
 
-const createStripeConnectAccount = catchAsync(async (req, res) => {
-    const stripeAccountId = await StripeService.createExpressAccount(req.user.id, req.user.email);
-    const onboardingUrl = await StripeService.createOnboardingLink(
-        stripeAccountId,
-        `${config.stripe.paymentSuccess}/stripe-connect/success`,
-        `${config.stripe.paymentSuccess}/stripe-connect/refresh`
-    );
-
-    sendResponse(res, {
-        success: true,
-        statusCode: StatusCodes.OK,
-        message: "Onboarding link created",
-        data: { onboardingUrl },
-    });
-});
-
 const createTopUpPaymentIntent = catchAsync(async (req, res) => {
     const { amount } = req.body;
     const result = await StripeService.createTopUpPaymentIntent(
@@ -60,8 +44,31 @@ const createAppointmentPaymentIntent = catchAsync(async (req, res) => {
     });
 });
 
+const createAccountSession = catchAsync(async (req, res) => {
+    const stripeAccountId = await StripeService.createExpressAccount(req.user.id, req.user.email);
+    const clientSecret = await StripeService.createAccountSession(stripeAccountId);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Account session created successfully",
+        data: { clientSecret, stripeAccountId },
+    });
+});
+
+const getAccountStatus = catchAsync(async (req, res) => {
+    const result = await StripeService.getAccountStatus(req.user.id);
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Account status retrieved successfully",
+        data: result,
+    });
+});
+
 export const StripeController = {
-    createStripeConnectAccount,
+    createAccountSession,
+    getAccountStatus,
     createTopUpPaymentIntent,
     verifyTopUpPayment,
     createAppointmentPaymentIntent

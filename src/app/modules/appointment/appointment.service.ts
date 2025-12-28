@@ -452,8 +452,8 @@ const getCurrentAppointment = async (user: JwtPayload) => {
   }
 
   const result = await Appointment.findOne(query)
-    .populate("customer", "fullName email phone profileImage")
-    .populate("provider", "fullName email phone profileImage providerProfile")
+    .populate("customer", "fullName email phone profilePicture")
+    .populate("provider", "fullName email phone profilePicture providerProfile")
     .sort("-updatedAt");
 
   return result;
