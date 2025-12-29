@@ -286,15 +286,19 @@ const handleSuccessfulAppointmentPayment = async (
     });
 };
 
-const createAccountSession = async (stripeAccountId: string) => {
-    const accountSession = await stripe.accountSessions.create({
+const createAccountLink = async (
+    stripeAccountId: string,
+    returnUrl: string,
+    refreshUrl: string
+) => {
+    const accountLink = await stripe.accountLinks.create({
         account: stripeAccountId,
-        components: {
-            account_onboarding: { enabled: true },
-        },
+        refresh_url: refreshUrl,
+        return_url: returnUrl,
+        type: 'account_onboarding',
     });
 
-    return accountSession.client_secret;
+    return accountLink.url;
 };
 
 const getAccountStatus = async (userId: string) => {
@@ -335,7 +339,7 @@ export const StripeService = {
     verifyTopUpPayment,
     // Connect
     createExpressAccount,
-    createAccountSession,
+    createAccountLink,
     getAccountStatus,
     getAccount,
     handleAccountUpdate,

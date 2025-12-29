@@ -6,9 +6,9 @@ import { StripeController } from "./stripe.controller";
 const router = express.Router();
 
 router.post(
-    "/account-session",
-    auth(USER_ROLES.PROVIDER, USER_ROLES.CUSTOMER),
-    StripeController.createAccountSession
+    "/account-link",
+    auth(USER_ROLES.PROVIDER),
+    StripeController.createAccountLink
 );
 
 router.get(

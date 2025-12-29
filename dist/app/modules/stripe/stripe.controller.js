@@ -38,14 +38,15 @@ const createAppointmentPaymentIntent = (0, catchAsync_1.default)(async (req, res
         data: result,
     });
 });
-const createAccountSession = (0, catchAsync_1.default)(async (req, res) => {
+const createAccountLink = (0, catchAsync_1.default)(async (req, res) => {
+    const { return_url, refresh_url } = req.body;
     const stripeAccountId = await stripe_service_1.StripeService.createExpressAccount(req.user.id, req.user.email);
-    const clientSecret = await stripe_service_1.StripeService.createAccountSession(stripeAccountId);
+    const url = await stripe_service_1.StripeService.createAccountLink(stripeAccountId, return_url, refresh_url);
     (0, sendResponse_1.default)(res, {
         success: true,
         statusCode: http_status_codes_1.StatusCodes.OK,
-        message: "Account session created successfully",
-        data: { clientSecret, stripeAccountId },
+        message: "Account link created successfully",
+        data: { url, stripeAccountId },
     });
 });
 const getAccountStatus = (0, catchAsync_1.default)(async (req, res) => {
@@ -58,7 +59,7 @@ const getAccountStatus = (0, catchAsync_1.default)(async (req, res) => {
     });
 });
 exports.StripeController = {
-    createAccountSession,
+    createAccountLink,
     getAccountStatus,
     createTopUpPaymentIntent,
     verifyTopUpPayment,
