@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post(
     "/account-link",
-    auth(USER_ROLES.PROVIDER),
+    auth(USER_ROLES.PROVIDER, USER_ROLES.CUSTOMER),
     StripeController.createAccountLink
 );
 
@@ -21,6 +21,16 @@ router.post(
     "/create-appointment-payment-intent/:appointmentId",
     auth(USER_ROLES.CUSTOMER),
     StripeController.createAppointmentPaymentIntent
+);
+
+router.get(
+    "/return",
+    StripeController.handleConnectReturn
+);
+
+router.get(
+    "/refresh",
+    StripeController.handleConnectRefresh
 );
 
 export const StripeRoutes = router;
