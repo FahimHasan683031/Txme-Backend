@@ -85,7 +85,7 @@ const getPopularProvidersFromDB = async (query) => {
         .fields();
     const result = await popularQuery.modelQuery;
     const meta = await popularQuery.getPaginationInfo();
-    return { data: result, meta };
+    return { data: result, pagination: meta };
 };
 exports.getPopularProvidersFromDB = getPopularProvidersFromDB;
 exports.proveiderServices = {

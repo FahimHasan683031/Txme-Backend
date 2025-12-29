@@ -118,8 +118,26 @@ const getMyReviews = async (user: JwtPayload, query: Record<string, unknown>) =>
     .paginate()
 
   const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "name email profileImage");
-  const paginateInfo = reviewQeryBuilder.getPaginationInfo();
-  return { data: result, meta: paginateInfo };
+  const paginateInfo = await reviewQeryBuilder.getPaginationInfo();
+  return { data: result, pagination: paginateInfo };
+};
+
+// Get user reviews (all reviews for a specific user)
+const getUserReviews = async (userId: string, query: Record<string, unknown>) => {
+  const reviewQueryBuilder = new QueryBuilder(
+    Review.find({ reviewee: userId })
+      .populate("reviewer", "name email profileImage")
+      .populate("reviewee", "name email profileImage"),
+    query
+  )
+    .filter()
+    .sort()
+    .paginate();
+
+  const result = await reviewQueryBuilder.modelQuery;
+  const paginateInfo = await reviewQueryBuilder.getPaginationInfo();
+
+  return { data: result, pagination: paginateInfo };
 };
 
 
@@ -179,6 +197,7 @@ const deleteReview = async (id: string, user: JwtPayload) => {
 export const ReviewService = {
   createReview,
   getMyReviews,
+  getUserReviews,
   updateReview,
   deleteReview,
 };

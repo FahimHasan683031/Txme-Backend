@@ -16,7 +16,7 @@ const getAllUsers = (0, catchAsync_1.default)(async (req, res) => {
         success: true,
         statusCode: http_status_codes_1.StatusCodes.OK,
         message: 'Users data retrieved successfully',
-        data: result
+        ...result
     });
 });
 //update profile

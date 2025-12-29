@@ -96,7 +96,7 @@ export const getPopularProvidersFromDB = async (query: Record<string, unknown>) 
     const result = await popularQuery.modelQuery;
     const meta = await popularQuery.getPaginationInfo();
 
-    return { data: result, meta };
+    return { data: result, pagination:meta };
 };
 
 export const proveiderServices = {

@@ -17,9 +17,9 @@ const makeSupportInDB = async (payload) => {
 };
 const supportsFromDB = async (query) => {
     const support = new QueryBuilder_1.default(support_model_1.Support.find(), query).paginate();
-    const supports = await support.queryModel;
+    const supports = await support.modelQuery;
     const pagination = await support.getPaginationInfo();
-    return { supports, pagination };
+    return { data: supports, meta: pagination };
 };
 exports.SupportService = {
     makeSupportInDB,

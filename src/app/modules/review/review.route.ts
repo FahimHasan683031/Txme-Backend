@@ -20,6 +20,12 @@ router.get(
   ReviewController.getMyReviews
 );
 
+router.get(
+  "/:userId",
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+  ReviewController.getUserReviews
+);
+
 router.patch(
   "/:id",
   auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),

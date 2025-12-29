@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post(
     "/account-session",
-    auth(USER_ROLES.PROVIDER),
+    auth(USER_ROLES.PROVIDER, USER_ROLES.CUSTOMER),
     StripeController.createAccountSession
 );
 

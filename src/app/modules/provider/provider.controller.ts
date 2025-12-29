@@ -26,7 +26,7 @@ const getPopularProviders = catchAsync(async (req: Request, res: Response) => {
     success: true,
     statusCode: StatusCodes.OK,
     message: 'Popular providers retrieved successfully',
-    data: result
+    ...result
   });
 });
 

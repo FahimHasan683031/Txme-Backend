@@ -31,7 +31,19 @@ const getMyReviews = catchAsync(async (req: Request, res: Response) => {
     success: true,
     statusCode: StatusCodes.OK,
     message: "Reviews retrieved successfully",
-    data: result,
+    ...result,
+  });
+});
+
+const getUserReviews = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.params.userId;
+  const result = await ReviewService.getUserReviews(userId, req.query);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: "User reviews retrieved successfully",
+    ...result,
   });
 });
 
@@ -64,6 +76,7 @@ const deleteReview = catchAsync(async (req: Request, res: Response) => {
 export const ReviewController = {
   createReview,
   getMyReviews,
+  getUserReviews,
   updateReview,
   deleteReview,
 };

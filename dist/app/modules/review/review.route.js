@@ -13,6 +13,7 @@ const review_validation_1 = require("./review.validation");
 const router = express_1.default.Router();
 router.post("/", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), (0, validateRequest_1.default)(review_validation_1.createReviewZod), review_controller_1.ReviewController.createReview);
 router.get("/my-reviews", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), review_controller_1.ReviewController.getMyReviews);
+router.get("/:userId", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), review_controller_1.ReviewController.getUserReviews);
 router.patch("/:id", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), (0, validateRequest_1.default)(review_validation_1.updateReviewZod), review_controller_1.ReviewController.updateReview);
 router.delete("/:id", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), review_controller_1.ReviewController.deleteReview);
 exports.ReviewRoutes = router;

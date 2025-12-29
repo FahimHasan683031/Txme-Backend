@@ -25,7 +25,17 @@ const getMyReviews = (0, catchAsync_1.default)(async (req, res) => {
         success: true,
         statusCode: http_status_codes_1.StatusCodes.OK,
         message: "Reviews retrieved successfully",
-        data: result,
+        ...result,
+    });
+});
+const getUserReviews = (0, catchAsync_1.default)(async (req, res) => {
+    const userId = req.params.userId;
+    const result = await review_service_1.ReviewService.getUserReviews(userId, req.query);
+    (0, sendResponse_1.default)(res, {
+        success: true,
+        statusCode: http_status_codes_1.StatusCodes.OK,
+        message: "User reviews retrieved successfully",
+        ...result,
     });
 });
 const updateReview = (0, catchAsync_1.default)(async (req, res) => {
@@ -53,6 +63,7 @@ const deleteReview = (0, catchAsync_1.default)(async (req, res) => {
 exports.ReviewController = {
     createReview,
     getMyReviews,
+    getUserReviews,
     updateReview,
     deleteReview,
 };

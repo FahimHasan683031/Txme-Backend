@@ -23,7 +23,7 @@ const getAllUsers = async (user, query) => {
         .paginate();
     const users = await userQueryBuilder.modelQuery;
     const paginateInfo = await userQueryBuilder.getPaginationInfo();
-    return { data: users, meta: paginateInfo };
+    return { data: users, pagination: paginateInfo };
 };
 const updateProfileToDB = async (user, payload) => {
     const { id } = user;

@@ -103,8 +103,20 @@ const getMyReviews = async (user, query) => {
         .sort()
         .paginate();
     const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "name email profileImage");
-    const paginateInfo = reviewQeryBuilder.getPaginationInfo();
-    return { data: result, meta: paginateInfo };
+    const paginateInfo = await reviewQeryBuilder.getPaginationInfo();
+    return { data: result, pagination: paginateInfo };
+};
+// Get user reviews (all reviews for a specific user)
+const getUserReviews = async (userId, query) => {
+    const reviewQueryBuilder = new QueryBuilder_1.default(review_model_1.Review.find({ reviewee: userId })
+        .populate("reviewer", "name email profileImage")
+        .populate("reviewee", "name email profileImage"), query)
+        .filter()
+        .sort()
+        .paginate();
+    const result = await reviewQueryBuilder.modelQuery;
+    const paginateInfo = await reviewQueryBuilder.getPaginationInfo();
+    return { data: result, pagination: paginateInfo };
 };
 // Update review
 const updateReview = async (id, payload, user) => {
@@ -139,6 +151,7 @@ const deleteReview = async (id, user) => {
 exports.ReviewService = {
     createReview,
     getMyReviews,
+    getUserReviews,
     updateReview,
     deleteReview,
 };
