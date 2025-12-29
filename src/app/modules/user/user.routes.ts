@@ -1,4 +1,5 @@
 import express, { NextFunction, Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import { ADMIN_ROLES, USER_ROLES } from '../../../enums/user';
 import { UserController } from './user.controller';
 import auth from '../../middlewares/auth';
@@ -18,12 +19,17 @@ router.route('/')
         fileUploadHandler(),
         async (req: Request, res: Response, next: NextFunction) => {
             try {
-                const profile = getSingleFilePath(req.files, "image");
-                req.body = { profile, ...req.body };
+                const profilePicture = getSingleFilePath(req.files, "image");
+                req.body = { profilePicture, ...req.body };
                 next();
 
-            } catch (error) {
-                res.status(500).json({ message: "Failed to upload image" });
+            } catch (error: any) {
+                console.error("Profile update middleware error:", error);
+                res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                    success: false,
+                    message: "Failed to upload image",
+                    error: error.message
+                });
             }
         },
         UserController.updateProfile
@@ -41,6 +47,12 @@ router.patch(
 router.get(
     '/my-profile',
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+    UserController.getMyProfile
+);
+
+router.get(
+    '/me',
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
     UserController.getMyProfile
 );
 

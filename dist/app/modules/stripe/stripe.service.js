@@ -11,8 +11,10 @@ const http_status_codes_1 = require("http-status-codes");
 const wallet_service_1 = require("../wallet/wallet.service");
 const appointment_model_1 = require("../appointment/appointment.model");
 const notification_service_1 = require("../notification/notification.service");
+const checkSetting_1 = require("../../../helpers/checkSetting");
 // --- Wallet Management (formerly wallet.stripe.service.ts) ---
 const createTopUpPaymentIntent = async (userId, amount, userEmail) => {
+    await (0, checkSetting_1.checkWalletSetting)('topUp');
     try {
         const amountInCents = Math.round(amount * 100);
         const paymentIntent = await stripe_1.default.paymentIntents.create({
@@ -56,11 +58,49 @@ const verifyTopUpPayment = async (paymentIntentId) => {
 };
 // --- Connect Account Management (formerly stripe.connect.service.ts) ---
 const createExpressAccount = async (userId, email) => {
+    var _a;
     const user = await user_model_1.User.findById(userId);
     if (!user)
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "User not found");
     if (user.stripeAccountId) {
         return user.stripeAccountId;
+    }
+    // Prepare pre-filled data for Stripe
+    const individual = {};
+    if (user.email)
+        individual.email = user.email;
+    if (user.phone) {
+        // Stripe expects E.164 format, which our phone field should already be in (+...)
+        individual.phone = user.phone.startsWith('+') ? user.phone : `+${user.phone}`;
+    }
+    if (user.fullName) {
+        const nameParts = user.fullName.trim().split(/\s+/);
+        if (nameParts.length > 0) {
+            individual.first_name = nameParts[0];
+            if (nameParts.length > 1) {
+                individual.last_name = nameParts.slice(1).join(' ');
+            }
+        }
+    }
+    if (user.dateOfBirth) {
+        const dob = new Date(user.dateOfBirth);
+        individual.dob = {
+            day: dob.getUTCDate(),
+            month: dob.getUTCMonth() + 1,
+            year: dob.getUTCFullYear(),
+        };
+    }
+    if (user.gender) {
+        const gender = user.gender.toLowerCase();
+        if (gender === 'male' || gender === 'female') {
+            individual.gender = gender;
+        }
+    }
+    if ((_a = user.residentialAddress) === null || _a === void 0 ? void 0 : _a.address) {
+        individual.address = {
+            line1: user.residentialAddress.address,
+            // You can add city, state, postal_code here if you have separate fields for them
+        };
     }
     const account = await stripe_1.default.accounts.create({
         type: 'express',
@@ -69,20 +109,14 @@ const createExpressAccount = async (userId, email) => {
             card_payments: { requested: true },
             transfers: { requested: true },
         },
+        individual: Object.keys(individual).length > 0 ? individual : undefined,
+        business_type: 'individual',
     });
     user.stripeAccountId = account.id;
     await user.save();
     return account.id;
 };
-const createOnboardingLink = async (stripeAccountId, returnUrl, refreshUrl) => {
-    const accountLink = await stripe_1.default.accountLinks.create({
-        account: stripeAccountId,
-        refresh_url: refreshUrl,
-        return_url: returnUrl,
-        type: 'account_onboarding',
-    });
-    return accountLink.url;
-};
+// function removed
 const getAccount = async (stripeAccountId) => {
     return await stripe_1.default.accounts.retrieve(stripeAccountId);
 };
@@ -113,6 +147,7 @@ const createPayout = async (amount, stripeAccountId) => {
 };
 // --- Appointment Management (formerly appointment.stripe.service.ts) ---
 const createAppointmentPaymentIntent = async (appointmentId, userEmail) => {
+    await (0, checkSetting_1.checkCardPaymentSetting)();
     try {
         const appointment = await appointment_model_1.Appointment.findById(appointmentId).populate('provider');
         if (!appointment) {
@@ -121,6 +156,9 @@ const createAppointmentPaymentIntent = async (appointmentId, userEmail) => {
         const provider = await user_model_1.User.findById(appointment.provider);
         if (!provider) {
             throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "Provider not found");
+        }
+        if (!provider.isStripeConnected || !provider.stripeAccountId) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Provider has not connected their Stripe account yet. Payment cannot be processed.");
         }
         if (appointment.status !== 'awaiting_payment') {
             throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, `Payment not allowed for appointment in ${appointment.status} status`);
@@ -189,6 +227,43 @@ const handleSuccessfulAppointmentPayment = async (paymentIntent) => {
         type: "USER"
     });
 };
+const createAccountSession = async (stripeAccountId) => {
+    const accountSession = await stripe_1.default.accountSessions.create({
+        account: stripeAccountId,
+        components: {
+            account_onboarding: { enabled: true },
+        },
+    });
+    return accountSession.client_secret;
+};
+const getAccountStatus = async (userId) => {
+    var _a;
+    const user = await user_model_1.User.findById(userId);
+    if (!user)
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "User not found");
+    if (!user.stripeAccountId) {
+        return {
+            isConnected: false,
+            detailsSubmitted: false,
+            requirements: [],
+            stripeAccountId: null
+        };
+    }
+    const account = await stripe_1.default.accounts.retrieve(user.stripeAccountId);
+    // Sync local status with Stripe status
+    if (account.details_submitted && !user.isStripeConnected) {
+        user.isStripeConnected = true;
+        await user.save();
+    }
+    return {
+        isConnected: user.isStripeConnected,
+        detailsSubmitted: account.details_submitted,
+        requirements: ((_a = account.requirements) === null || _a === void 0 ? void 0 : _a.currently_due) || [],
+        stripeAccountId: user.stripeAccountId,
+        payoutsEnabled: account.payouts_enabled,
+        chargesEnabled: account.charges_enabled
+    };
+};
 exports.StripeService = {
     // Wallet topup
     createTopUpPaymentIntent,
@@ -196,7 +271,8 @@ exports.StripeService = {
     verifyTopUpPayment,
     // Connect
     createExpressAccount,
-    createOnboardingLink,
+    createAccountSession,
+    getAccountStatus,
     getAccount,
     handleAccountUpdate,
     createTransfer,

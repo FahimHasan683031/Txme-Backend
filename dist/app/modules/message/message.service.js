@@ -13,10 +13,12 @@ const wallet_service_1 = require("../wallet/wallet.service");
 const message_1 = require("../../../enums/message");
 const ApiErrors_1 = __importDefault(require("../../../errors/ApiErrors"));
 const http_status_codes_1 = require("http-status-codes");
+const checkSetting_1 = require("../../../helpers/checkSetting");
 const sendMessageToDB = async (payload) => {
     // Initialize readBy with sender's ID
     payload.readBy = [payload.sender];
     if (payload.type === message_1.MESSAGE.MoneyRequest) {
+        await (0, checkSetting_1.checkWalletSetting)('moneyRequest');
         if (!payload.amount || payload.amount <= 0) {
             throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount is required for money requests and must be greater than 0");
         }
@@ -41,6 +43,13 @@ const sendMessageToDB = async (payload) => {
     if (io && payload.chatId) {
         // Send message to specific Chat room
         io.emit(`getMessage::${payload === null || payload === void 0 ? void 0 : payload.chatId}`, response);
+        // Notify ALL participants to update their chat list (real-time sorting)
+        isExistChat.participants.forEach((participantId) => {
+            io.emit(`chatListUpdate::${participantId.toString()}`, {
+                chatId: payload.chatId,
+                lastMessage: response,
+            });
+        });
     }
     return response;
 };
@@ -142,6 +151,7 @@ const updateMoneyRequestStatusToDB = async (messageId, user, status) => {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.FORBIDDEN, "You cannot accept/reject your own money request");
     }
     if (status === 'accepted') {
+        await (0, checkSetting_1.checkWalletSetting)('moneyRequest');
         if (!message.amount) {
             throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Invalid money request: amount missing");
         }
@@ -155,6 +165,16 @@ const updateMoneyRequestStatusToDB = async (messageId, user, status) => {
     const io = global.io;
     if (io) {
         io.emit(`moneyRequestUpdate::${message.chatId}`, message);
+        // Also update chat list for participants (move to top)
+        const chat = await chat_model_1.Chat.findById(message.chatId);
+        if (chat) {
+            chat.participants.forEach((participantId) => {
+                io.emit(`chatListUpdate::${participantId.toString()}`, {
+                    chatId: message.chatId,
+                    lastMessageAt: new Date(),
+                });
+            });
+        }
     }
     return message;
 };

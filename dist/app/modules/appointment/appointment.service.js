@@ -8,6 +8,7 @@ const user_1 = require("../../../enums/user");
 const appointment_model_1 = require("./appointment.model");
 const user_model_1 = require("../user/user.model");
 const generateDailySlots_1 = require("../../../util/generateDailySlots");
+const checkSetting_1 = require("../../../helpers/checkSetting");
 const http_status_codes_1 = require("http-status-codes");
 const ApiErrors_1 = __importDefault(require("../../../errors/ApiErrors"));
 const wallet_service_1 = require("../wallet/wallet.service");
@@ -75,6 +76,12 @@ const createAppointment = async (customerId, data) => {
         screen: "APPOINTMENT",
         type: "USER"
     });
+    // Socket notification for real-time update in UI list (sorting)
+    //@ts-ignore
+    const io = global.io;
+    if (io) {
+        io.emit(`appointmentUpdate::${provider}`, appointment);
+    }
     return appointment;
 };
 exports.createAppointment = createAppointment;
@@ -128,6 +135,24 @@ const updateAppointmentStatus = async (appointmentId, status, userId, userRole, 
     }
     // 3. Status Specific Actions
     if (status === "in_progress") {
+        const activeAppointment = await appointment_model_1.Appointment.findOne({
+            provider: appointment.provider,
+            status: {
+                $in: [
+                    "in_progress",
+                    "work_completed",
+                    "awaiting_payment",
+                    "review_pending",
+                    "provider_review_pending",
+                    "cashPayment",
+                    "cashReceived",
+                ],
+            },
+            _id: { $ne: appointment._id },
+        });
+        if (activeAppointment) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Complete your previous work first! You already have an active appointment.");
+        }
         appointment.actualStartTime = formatTime(new Date());
         appointment.status = status;
     }
@@ -153,6 +178,13 @@ const updateAppointmentStatus = async (appointmentId, status, userId, userRole, 
     await appointment.save();
     // 4. Send Notifications
     await sendStatusNotification(appointment, status);
+    // 5. Socket notification for real-time update in UI list (sorting)
+    //@ts-ignore
+    const io = global.io;
+    if (io) {
+        io.emit(`appointmentUpdate::${appointment.customer.toString()}`, appointment);
+        io.emit(`appointmentUpdate::${appointment.provider.toString()}`, appointment);
+    }
     return appointment;
 };
 exports.updateAppointmentStatus = updateAppointmentStatus;
@@ -258,6 +290,7 @@ const payWithWallet = async (appointmentId, userId) => {
     // Use WalletService to transfer money from customer to provider
     // Note: We might want a specialized transaction type for appointments, 
     // but for now we follow the existing sendMoney pattern.
+    await (0, checkSetting_1.checkWalletSetting)('moneySend');
     await wallet_service_1.WalletService.sendMoney(appointment.customer.toString(), appointment.provider.toString(), appointment.totalCost);
     // Update appointment status
     appointment.status = 'review_pending';
@@ -280,6 +313,13 @@ const payWithWallet = async (appointmentId, userId) => {
         screen: "APPOINTMENT",
         type: "USER"
     });
+    // also emit socket for real-time update
+    //@ts-ignore
+    const io = global.io;
+    if (io) {
+        io.emit(`appointmentUpdate::${appointment.customer.toString()}`, appointment);
+        io.emit(`appointmentUpdate::${appointment.provider.toString()}`, appointment);
+    }
     return appointment;
 };
 const getMyAppointments = async (user, query) => {
@@ -292,7 +332,7 @@ const getMyAppointments = async (user, query) => {
     }
     const appointmentQuery = new QueryBuilder_1.default(appointment_model_1.Appointment.find().populate("customer provider"), query)
         .filter()
-        .sort()
+        .sort(query.sort || "-updatedAt")
         .paginate();
     const result = await appointmentQuery.modelQuery;
     const meta = await appointmentQuery.getPaginationInfo();
@@ -307,6 +347,34 @@ const getAllAppointmentsFromDB = async (query) => {
     const meta = await appointmentQuery.getPaginationInfo();
     return { result, meta };
 };
+const getCurrentAppointment = async (user) => {
+    const { role, id } = user;
+    const query = {
+        status: {
+            $in: [
+                "in_progress",
+                "work_completed",
+                "awaiting_payment",
+                "cashPayment",
+                "cashReceived",
+                "review_pending",
+                "provider_review_pending",
+                "customer_review_pending",
+            ],
+        },
+    };
+    if ((role === null || role === void 0 ? void 0 : role.toUpperCase()) === user_1.USER_ROLES.CUSTOMER) {
+        query.customer = id;
+    }
+    else if ((role === null || role === void 0 ? void 0 : role.toUpperCase()) === user_1.USER_ROLES.PROVIDER) {
+        query.provider = id;
+    }
+    const result = await appointment_model_1.Appointment.findOne(query)
+        .populate("customer", "fullName email phone profilePicture")
+        .populate("provider", "fullName email phone profilePicture providerProfile")
+        .sort("-updatedAt");
+    return result;
+};
 // Helper function to format time to "HH:MM" format
 function formatTime(time) {
     return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
@@ -316,5 +384,6 @@ exports.AppointmentService = {
     payWithWallet,
     updateAppointmentStatus: exports.updateAppointmentStatus,
     getMyAppointments,
-    getAllAppointmentsFromDB
+    getAllAppointmentsFromDB,
+    getCurrentAppointment
 };

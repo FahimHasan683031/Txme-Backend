@@ -5,6 +5,7 @@ import path from 'path'
 import fs from 'fs'
 import sharp from 'sharp'
 import ApiError from '../../errors/ApiErrors'
+import { uploadFileToS3 } from '../../helpers/s3Helper'
 
 type IFolderName =
   | 'image'
@@ -146,15 +147,13 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
             // Optimize ALL images in this field in parallel
             await Promise.all(
               fileArray.map(async (file) => {
-                const filePath = `/${fieldName}/${file.filename}`;
-                paths.push(filePath);
+                const fullPath = path.join(uploadsDir, fieldName, file.filename);
 
                 // Only optimize images (not PDFs or documents)
                 if (
                   ['image', 'idDocuments', 'addressDocuments', 'serviceimage', 'messageFiles'].includes(fieldName) &&
                   file.mimetype.startsWith('image/')
                 ) {
-                  const fullPath = path.join(uploadsDir, fieldName, file.filename);
                   const tempPath = fullPath + '.opt';
 
                   try {
@@ -175,10 +174,18 @@ export const fileAndBodyProcessorUsingDiskStorage = () => {
                     fs.unlinkSync(fullPath);
                     fs.renameSync(tempPath, fullPath);
                   } catch (err) {
-                    console.error(`Failed to optimize ${filePath}:`, err);
-                    // Don't fail upload if optimization fails
+                    console.error(`Failed to optimize ${file.filename}:`, err);
                   }
                 }
+
+                // Upload to S3 and Cleanup local
+                const s3Url = await uploadFileToS3(
+                  fullPath,
+                  fieldName,
+                  file.filename,
+                  file.mimetype
+                );
+                paths.push(s3Url);
               }),
             );
 

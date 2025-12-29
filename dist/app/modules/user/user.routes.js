@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserRoutes = void 0;
 const express_1 = __importDefault(require("express"));
+const http_status_codes_1 = require("http-status-codes");
 const user_1 = require("../../../enums/user");
 const user_controller_1 = require("./user.controller");
 const auth_1 = __importDefault(require("../../middlewares/auth"));
@@ -17,17 +18,23 @@ router.route('/')
     .get((0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN, user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), user_controller_1.UserController.getAllUsers)
     .patch((0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), (0, fileUploaderHandler_1.default)(), async (req, res, next) => {
     try {
-        const profile = (0, getFilePath_1.getSingleFilePath)(req.files, "image");
-        req.body = { profile, ...req.body };
+        const profilePicture = (0, getFilePath_1.getSingleFilePath)(req.files, "image");
+        req.body = { profilePicture, ...req.body };
         next();
     }
     catch (error) {
-        res.status(500).json({ message: "Failed to upload image" });
+        console.error("Profile update middleware error:", error);
+        res.status(http_status_codes_1.StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: "Failed to upload image",
+            error: error.message
+        });
     }
 }, user_controller_1.UserController.updateProfile);
 // get my profile
 router.patch('/fcm-token', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), user_controller_1.UserController.updateFcmToken);
 router.get('/my-profile', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), user_controller_1.UserController.getMyProfile);
+router.get('/me', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER, user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), user_controller_1.UserController.getMyProfile);
 // get single user
 router.get('/:id', 
 // auth(USER_ROLES.ADMIN, USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, USER_ROLES.SUPER_ADMIN),

@@ -50,26 +50,53 @@ const updateProfileToDB = async (
     unlinkFile(isExistUser.profilePicture);
   }
 
-  if (payload.providerProfile?.workingHours) {
-    const workingHours = payload.providerProfile.workingHours;
-    if (!workingHours.startTime || !workingHours.endTime || !workingHours.duration) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, "Working hours is required!");
+  if (payload.providerProfile) {
+    const { workingHours, hourlyRate, experience } = payload.providerProfile;
+
+    // Validate Working Hours
+    if (workingHours) {
+      if (!workingHours.startTime || !workingHours.endTime || !workingHours.duration) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Start time, end time, and slot duration are all required!");
+      }
+
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!timeRegex.test(workingHours.startTime) || !timeRegex.test(workingHours.endTime)) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid time format. Please use HH:MM (24-hour format).");
+      }
+
+      const [startH, startM] = workingHours.startTime.split(":").map(Number);
+      const [endH, endM] = workingHours.endTime.split(":").map(Number);
+
+      const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+      if (totalMinutes <= 0) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "End time must be after start time (same day only).");
+      }
+
+      const slotDurationMinutes = workingHours.duration * 60;
+      if (slotDurationMinutes <= 0) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Slot duration must be positive.");
+      }
+
+      if (totalMinutes < slotDurationMinutes) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Shift duration must be at least as long as a slot.");
+      }
+
+      if (totalMinutes % slotDurationMinutes !== 0) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          `Shift duration (${totalMinutes / 60}h) is not perfectly divisible by slot duration (${workingHours.duration}h).`
+        );
+      }
     }
 
-    const [startH, startM] = workingHours.startTime.split(":").map(Number);
-    const [endH, endM] = workingHours.endTime.split(":").map(Number);
-    const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-    const slotDurationMinutes = workingHours.duration * 60;
-
-    if (totalMinutes <= 0) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, "End time must be after start time");
+    // Validate Hourly Rate
+    if (hourlyRate !== undefined && hourlyRate <= 0) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Hourly rate must be a positive number.");
     }
 
-    if (totalMinutes % slotDurationMinutes !== 0) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        `The slot duration (${workingHours.duration} hours) does not fit perfectly into the working hours (${workingHours.startTime} - ${workingHours.endTime}).`
-      );
+    // Validate Experience
+    if (experience !== undefined && experience < 0) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Experience cannot be a negative number.");
     }
   }
 

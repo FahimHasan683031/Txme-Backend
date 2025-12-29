@@ -7,6 +7,7 @@ const config_1 = __importDefault(require("../../config"));
 const ApiErrors_1 = __importDefault(require("../../errors/ApiErrors"));
 const handleValidationError_1 = __importDefault(require("../../errors/handleValidationError"));
 const handleZodError_1 = __importDefault(require("../../errors/handleZodError"));
+const handleCastError_1 = __importDefault(require("../../errors/handleCastError"));
 const http_status_codes_1 = require("http-status-codes");
 const globalErrorHandler = (error, req, res, next) => {
     if (config_1.default.node_env === "development") {
@@ -40,6 +41,12 @@ const globalErrorHandler = (error, req, res, next) => {
     }
     else if (error.name === "ValidationError") {
         const simplifiedError = (0, handleValidationError_1.default)(error);
+        statusCode = simplifiedError.statusCode;
+        message = simplifiedError.message;
+        errorMessages = simplifiedError.errorMessages;
+    }
+    else if (error.name === "CastError") {
+        const simplifiedError = (0, handleCastError_1.default)(error);
         statusCode = simplifiedError.statusCode;
         message = simplifiedError.message;
         errorMessages = simplifiedError.errorMessages;

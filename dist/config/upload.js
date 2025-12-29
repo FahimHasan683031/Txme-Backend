@@ -15,7 +15,7 @@ cloudinary_1.v2.config({
 });
 const storage = new multer_storage_cloudinary_1.CloudinaryStorage({
     cloudinary: cloudinary_1.v2,
-    params: (req, file) => ({
+    params: (_req, _file) => ({
         folder: 'outfit_orbit',
         resource_type: 'auto'
     })

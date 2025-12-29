@@ -8,17 +8,6 @@ const catchAsync_1 = __importDefault(require("../../../shared/catchAsync"));
 const sendResponse_1 = __importDefault(require("../../../shared/sendResponse"));
 const stripe_service_1 = require("./stripe.service");
 const http_status_codes_1 = require("http-status-codes");
-const config_1 = __importDefault(require("../../../config"));
-const createStripeConnectAccount = (0, catchAsync_1.default)(async (req, res) => {
-    const stripeAccountId = await stripe_service_1.StripeService.createExpressAccount(req.user.id, req.user.email);
-    const onboardingUrl = await stripe_service_1.StripeService.createOnboardingLink(stripeAccountId, `${config_1.default.stripe.paymentSuccess}/stripe-connect/success`, `${config_1.default.stripe.paymentSuccess}/stripe-connect/refresh`);
-    (0, sendResponse_1.default)(res, {
-        success: true,
-        statusCode: http_status_codes_1.StatusCodes.OK,
-        message: "Onboarding link created",
-        data: { onboardingUrl },
-    });
-});
 const createTopUpPaymentIntent = (0, catchAsync_1.default)(async (req, res) => {
     const { amount } = req.body;
     const result = await stripe_service_1.StripeService.createTopUpPaymentIntent(req.user.id, amount, req.user.email);
@@ -49,8 +38,28 @@ const createAppointmentPaymentIntent = (0, catchAsync_1.default)(async (req, res
         data: result,
     });
 });
+const createAccountSession = (0, catchAsync_1.default)(async (req, res) => {
+    const stripeAccountId = await stripe_service_1.StripeService.createExpressAccount(req.user.id, req.user.email);
+    const clientSecret = await stripe_service_1.StripeService.createAccountSession(stripeAccountId);
+    (0, sendResponse_1.default)(res, {
+        success: true,
+        statusCode: http_status_codes_1.StatusCodes.OK,
+        message: "Account session created successfully",
+        data: { clientSecret, stripeAccountId },
+    });
+});
+const getAccountStatus = (0, catchAsync_1.default)(async (req, res) => {
+    const result = await stripe_service_1.StripeService.getAccountStatus(req.user.id);
+    (0, sendResponse_1.default)(res, {
+        success: true,
+        statusCode: http_status_codes_1.StatusCodes.OK,
+        message: "Account status retrieved successfully",
+        data: result,
+    });
+});
 exports.StripeController = {
-    createStripeConnectAccount,
+    createAccountSession,
+    getAccountStatus,
     createTopUpPaymentIntent,
     verifyTopUpPayment,
     createAppointmentPaymentIntent

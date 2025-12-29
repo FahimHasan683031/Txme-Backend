@@ -189,11 +189,72 @@ userSchema.pre("save", function (next) {
       );
     }
 
-    if (!profile.hourlyRate) {
+    // Validate working hours time format and same-day constraint
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!timeRegex.test(profile.workingHours.startTime) || !timeRegex.test(profile.workingHours.endTime)) {
       return next(
         new ApiError(
           StatusCodes.BAD_REQUEST,
-          "Hourly rate is required for providers"
+          "Invalid time format. Please use HH:MM (24-hour format)."
+        )
+      );
+    }
+
+    const [startH, startM] = profile.workingHours.startTime.split(":").map(Number);
+    const [endH, endM] = profile.workingHours.endTime.split(":").map(Number);
+    const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+    if (totalMinutes <= 0) {
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "End time must be after start time (same day only)."
+        )
+      );
+    }
+
+    const slotDurationMinutes = profile.workingHours.duration * 60;
+    if (slotDurationMinutes <= 0) {
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Slot duration must be positive."
+        )
+      );
+    }
+
+    if (totalMinutes < slotDurationMinutes) {
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Shift duration must be at least as long as a slot."
+        )
+      );
+    }
+
+    if (totalMinutes % slotDurationMinutes !== 0) {
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          `Shift duration (${totalMinutes / 60}h) is not perfectly divisible by slot duration (${profile.workingHours.duration}h).`
+        )
+      );
+    }
+
+    if (!profile.hourlyRate || profile.hourlyRate <= 0) {
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Hourly rate must be a positive number."
+        )
+      );
+    }
+
+    if (profile.experience !== undefined && profile.experience < 0) {
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "Experience cannot be negative."
         )
       );
     }

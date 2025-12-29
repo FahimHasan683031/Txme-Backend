@@ -13,12 +13,12 @@ const makeSupportInDB = async(payload: ISupport): Promise<ISupport>=>{
     return support;
 }
 
-const supportsFromDB = async(query: FilterQuery<any>): Promise<{supports: ISupport, pagination:any}>=>{
+const supportsFromDB = async(query: FilterQuery<any>)=>{
     const support = new QueryBuilder(Support.find(), query).paginate();
-    const supports = await support.queryModel;
+    const supports = await support.modelQuery;
     const pagination = await support.getPaginationInfo();
 
-    return { supports, pagination}
+    return { data:supports, meta:pagination}
 }
 
 export const SupportService = {

@@ -4,6 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import ApiError from '../../errors/ApiErrors';
+import { uploadFileToS3 } from '../../helpers/s3Helper';
 
 const fileUploadHandler = () => {
 
@@ -89,7 +90,43 @@ const fileUploadHandler = () => {
             { name: 'image', maxCount: 3 },
             { name: 'media', maxCount: 2 },
         ]);
-    return upload;
+
+    return (req: Request, res: any, next: any) => {
+        upload(req, res, async (err) => {
+            if (err) return next(err);
+
+            // Parse JSON wrapper for mobile applications
+            if (req.body?.data) {
+                try {
+                    req.body = JSON.parse(req.body.data);
+                } catch (e) {
+                    console.error("Failed to parse req.body.data:", e);
+                }
+            }
+
+            if (req.files) {
+                const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+                try {
+                    for (const fieldname in files) {
+                        for (const file of files[fieldname]) {
+                            const s3Url = await uploadFileToS3(
+                                file.path,
+                                fieldname,
+                                file.filename,
+                                file.mimetype
+                            );
+
+                            // Update file path to S3 URL for consistent downstream usage
+                            file.path = s3Url;
+                        }
+                    }
+                } catch (error) {
+                    return next(error);
+                }
+            }
+            next();
+        });
+    };
 
 };
 

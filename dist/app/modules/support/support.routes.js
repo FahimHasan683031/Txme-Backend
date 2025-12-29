@@ -21,5 +21,5 @@ router.route('/')
         res.status(500).json({ message: "Failed to submitted" });
     }
 }, (0, validateRequest_1.default)(support_validation_1.supportZodValidationSchema), support_controller_1.SupportController.makeSupport)
-    .get((0, auth_1.default)(user_1.USER_ROLES.ADMIN, user_1.USER_ROLES.SUPER_ADMIN), support_controller_1.SupportController.supports);
+    .get((0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), support_controller_1.SupportController.supports);
 exports.SupportRoutes = router;

@@ -10,6 +10,7 @@ const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const sharp_1 = __importDefault(require("sharp"));
 const ApiErrors_1 = __importDefault(require("../../errors/ApiErrors"));
+const s3Helper_1 = require("../../helpers/s3Helper");
 // ✅ Updated upload fields - messageFiles added
 const uploadFields = [
     { name: 'image', maxCount: 1 },
@@ -112,12 +113,10 @@ const fileAndBodyProcessorUsingDiskStorage = () => {
                     const paths = [];
                     // Optimize ALL images in this field in parallel
                     await Promise.all(fileArray.map(async (file) => {
-                        const filePath = `/${fieldName}/${file.filename}`;
-                        paths.push(filePath);
+                        const fullPath = path_1.default.join(uploadsDir, fieldName, file.filename);
                         // Only optimize images (not PDFs or documents)
                         if (['image', 'idDocuments', 'addressDocuments', 'serviceimage', 'messageFiles'].includes(fieldName) &&
                             file.mimetype.startsWith('image/')) {
-                            const fullPath = path_1.default.join(uploadsDir, fieldName, file.filename);
                             const tempPath = fullPath + '.opt';
                             try {
                                 let sharpInstance = (0, sharp_1.default)(fullPath)
@@ -137,10 +136,12 @@ const fileAndBodyProcessorUsingDiskStorage = () => {
                                 fs_1.default.renameSync(tempPath, fullPath);
                             }
                             catch (err) {
-                                console.error(`Failed to optimize ${filePath}:`, err);
-                                // Don't fail upload if optimization fails
+                                console.error(`Failed to optimize ${file.filename}:`, err);
                             }
                         }
+                        // Upload to S3 and Cleanup local
+                        const s3Url = await (0, s3Helper_1.uploadFileToS3)(fullPath, fieldName, file.filename, file.mimetype);
+                        paths.push(s3Url);
                     }));
                     processedFiles[fieldName] = maxCount > 1 ? paths : paths[0];
                 }));

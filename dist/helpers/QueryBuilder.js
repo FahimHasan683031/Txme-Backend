@@ -67,9 +67,9 @@ class QueryBuilder {
         return this;
     }
     // Sorting
-    sort() {
+    sort(sortStr) {
         var _a;
-        let sort = ((_a = this === null || this === void 0 ? void 0 : this.query) === null || _a === void 0 ? void 0 : _a.sort) || '-createdAt';
+        let sort = sortStr || ((_a = this === null || this === void 0 ? void 0 : this.query) === null || _a === void 0 ? void 0 : _a.sort) || '-createdAt';
         this.modelQuery = this.modelQuery.sort(sort);
         return this;
     }

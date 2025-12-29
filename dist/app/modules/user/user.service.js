@@ -26,7 +26,6 @@ const getAllUsers = async (user, query) => {
     return { data: users, meta: paginateInfo };
 };
 const updateProfileToDB = async (user, payload) => {
-    var _a;
     const { id } = user;
     const isExistUser = await user_model_1.User.findById(id);
     if (!isExistUser) {
@@ -36,20 +35,41 @@ const updateProfileToDB = async (user, payload) => {
     if (payload.profilePicture && isExistUser.profilePicture) {
         (0, unlinkFile_1.default)(isExistUser.profilePicture);
     }
-    if ((_a = payload.providerProfile) === null || _a === void 0 ? void 0 : _a.workingHours) {
-        const workingHours = payload.providerProfile.workingHours;
-        if (!workingHours.startTime || !workingHours.endTime || !workingHours.duration) {
-            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Working hours is required!");
+    if (payload.providerProfile) {
+        const { workingHours, hourlyRate, experience } = payload.providerProfile;
+        // Validate Working Hours
+        if (workingHours) {
+            if (!workingHours.startTime || !workingHours.endTime || !workingHours.duration) {
+                throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Start time, end time, and slot duration are all required!");
+            }
+            const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+            if (!timeRegex.test(workingHours.startTime) || !timeRegex.test(workingHours.endTime)) {
+                throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Invalid time format. Please use HH:MM (24-hour format).");
+            }
+            const [startH, startM] = workingHours.startTime.split(":").map(Number);
+            const [endH, endM] = workingHours.endTime.split(":").map(Number);
+            const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+            if (totalMinutes <= 0) {
+                throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "End time must be after start time (same day only).");
+            }
+            const slotDurationMinutes = workingHours.duration * 60;
+            if (slotDurationMinutes <= 0) {
+                throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Slot duration must be positive.");
+            }
+            if (totalMinutes < slotDurationMinutes) {
+                throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Shift duration must be at least as long as a slot.");
+            }
+            if (totalMinutes % slotDurationMinutes !== 0) {
+                throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, `Shift duration (${totalMinutes / 60}h) is not perfectly divisible by slot duration (${workingHours.duration}h).`);
+            }
         }
-        const [startH, startM] = workingHours.startTime.split(":").map(Number);
-        const [endH, endM] = workingHours.endTime.split(":").map(Number);
-        const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-        const slotDurationMinutes = workingHours.duration * 60;
-        if (totalMinutes <= 0) {
-            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "End time must be after start time");
+        // Validate Hourly Rate
+        if (hourlyRate !== undefined && hourlyRate <= 0) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Hourly rate must be a positive number.");
         }
-        if (totalMinutes % slotDurationMinutes !== 0) {
-            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, `The slot duration (${workingHours.duration} hours) does not fit perfectly into the working hours (${workingHours.startTime} - ${workingHours.endTime}).`);
+        // Validate Experience
+        if (experience !== undefined && experience < 0) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Experience cannot be a negative number.");
         }
     }
     const updatedUser = await user_model_1.User.findByIdAndUpdate(id, payload, {

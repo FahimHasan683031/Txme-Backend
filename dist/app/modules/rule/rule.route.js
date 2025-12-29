@@ -12,16 +12,16 @@ const router = express_1.default.Router();
 //about us
 router
     .route('/about')
-    .post((0, auth_1.default)(user_1.USER_ROLES.ADMIN, user_1.USER_ROLES.SUPER_ADMIN), rule_controller_1.RuleController.createAbout)
+    .post((0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), rule_controller_1.RuleController.createAbout)
     .get(rule_controller_1.RuleController.getAbout);
 //privacy policy
 router
     .route('/privacy-policy')
-    .post((0, auth_1.default)(user_1.USER_ROLES.ADMIN, user_1.USER_ROLES.SUPER_ADMIN), rule_controller_1.RuleController.createPrivacyPolicy)
+    .post((0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), rule_controller_1.RuleController.createPrivacyPolicy)
     .get(rule_controller_1.RuleController.getPrivacyPolicy);
 //terms and conditions
 router
     .route('/terms-and-conditions')
-    .post((0, auth_1.default)(user_1.USER_ROLES.ADMIN, user_1.USER_ROLES.SUPER_ADMIN), rule_controller_1.RuleController.createTermsAndCondition)
+    .post((0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), rule_controller_1.RuleController.createTermsAndCondition)
     .get(rule_controller_1.RuleController.getTermsAndCondition);
 exports.RuleRoutes = router;

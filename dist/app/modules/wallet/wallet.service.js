@@ -15,6 +15,7 @@ const ApiErrors_1 = __importDefault(require("../../../errors/ApiErrors"));
 const notification_service_1 = require("../notification/notification.service");
 const logger_1 = require("../../../shared/logger");
 const mongoose_2 = require("mongoose");
+const checkSetting_1 = require("../../../helpers/checkSetting");
 const getOrCreateWallet = async (userId) => {
     let wallet = await wallet_model_1.Wallet.findOne({ user: userId });
     if (!wallet) {
@@ -29,6 +30,7 @@ const getmyWallet = async (userId) => {
 // TOP UP
 const topUp = async (userId, amount) => {
     var _a;
+    await (0, checkSetting_1.checkWalletSetting)('topUp');
     console.log(`[WalletService] topUp called. User: ${userId}, Amount: ${amount}`);
     const session = await mongoose_1.default.startSession();
     session.startTransaction();
@@ -73,6 +75,7 @@ const topUp = async (userId, amount) => {
 };
 // SEND MONEY
 const sendMoney = async (senderId, receiverIdentifier, amount) => {
+    await (0, checkSetting_1.checkWalletSetting)('moneySend');
     // Use Promise.all for finding user by ID, email or phone
     const [userById, userByEmail, userByPhone] = await Promise.all([
         mongoose_2.Types.ObjectId.isValid(receiverIdentifier)
@@ -156,6 +159,7 @@ const sendMoney = async (senderId, receiverIdentifier, amount) => {
 };
 // WITHDRAW
 const withdraw = async (userId, amount) => {
+    await (0, checkSetting_1.checkWalletSetting)('withdraw');
     const wallet = await getOrCreateWallet(userId);
     if (wallet.balance < amount) {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Insufficient balance");

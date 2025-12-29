@@ -11,6 +11,7 @@ const user_1 = require("../../../enums/user");
 const router = express_1.default.Router();
 router.post('/create', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER), appointment_controller_1.AppointmentController.createAppointment);
 router.get('/my-appointments', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), appointment_controller_1.AppointmentController.getMyAppointments);
+router.get('/current-appointment', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), appointment_controller_1.AppointmentController.getCurrentAppointment);
 router.get('/', (0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), appointment_controller_1.AppointmentController.getAllAppointments);
 router.patch('/update-status/:appointmentId', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), appointment_controller_1.AppointmentController.updateAppointmentStatus);
 router.post('/pay-with-wallet/:appointmentId', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER), appointment_controller_1.AppointmentController.payWithWallet);
