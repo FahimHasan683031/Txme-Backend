@@ -117,7 +117,7 @@ const getMyReviews = async (user: JwtPayload, query: Record<string, unknown>) =>
     .sort()
     .paginate()
 
-  const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "name email profileImage");
+  const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "fullName email profilePicture");
   const paginateInfo = await reviewQeryBuilder.getPaginationInfo();
   return { data: result, pagination: paginateInfo };
 };
@@ -126,8 +126,8 @@ const getMyReviews = async (user: JwtPayload, query: Record<string, unknown>) =>
 const getUserReviews = async (userId: string, query: Record<string, unknown>) => {
   const reviewQueryBuilder = new QueryBuilder(
     Review.find({ reviewee: userId })
-      .populate("reviewer", "name email profileImage")
-      .populate("reviewee", "name email profileImage"),
+      .populate("reviewer", "fullName email profilePicture")
+      .populate("reviewee", "fullName email profilePicture"),
     query
   )
     .filter()

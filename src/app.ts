@@ -1,8 +1,7 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { StatusCodes } from "http-status-codes";
-import { Morgan } from "./shared/morgan";
-import router from './app/routes'; 
+import { Morgan } from "./shared/morgan"; 
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import requestIp from 'request-ip';
 import rateLimit from 'express-rate-limit';
@@ -10,6 +9,7 @@ import ApiError from "./errors/ApiErrors";
 import compression from "compression";
 import handleStripeWebhook from "./stripe/handleStripeWebhook";
 import cookieParser from "cookie-parser";
+import router from "./app/routes";
 const app = express();
 
 

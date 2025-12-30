@@ -10,6 +10,8 @@ import { JwtPayload } from 'jsonwebtoken';
 import ApiError from '../../../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
 import { checkWalletSetting } from '../../../helpers/checkSetting';
+import { PushNotificationService } from '../notification/pushNotification.service';
+import { User } from '../user/user.model';
 
 const sendMessageToDB = async (payload: any): Promise<IMessage> => {
   // Initialize readBy with sender's ID
@@ -54,6 +56,37 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
         lastMessage: response,
       });
     });
+  }
+
+  // Send Push Notification (No DB Storage)
+  try {
+    const recipientId = isExistChat.participants.find(
+      (p: any) => p.toString() !== payload.sender.toString()
+    );
+
+    if (recipientId) {
+      const recipient = await User.findById(recipientId).select('fcmToken');
+
+      if (recipient?.fcmToken) {
+        // Fetch sender details for better title
+        const sender = await User.findById(payload.sender).select('fullName');
+
+        const title = sender?.fullName || "New Message";
+        const body = payload.text ?
+          (payload.text.length > 50 ? payload.text.substring(0, 50) + "..." : payload.text) :
+          "Sent an attachment";
+
+        await PushNotificationService.sendPushNotification(
+          recipient.fcmToken,
+          title,
+          body,
+          { screen: "CHAT", chatId: payload.chatId }
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Failed to send push notification:", error);
+    // Don't block the response if notification fails
   }
 
   return response;
@@ -128,6 +161,12 @@ const updateMessageToDB = async (messageId: string, userId: string, payload: Par
     payload,
     { new: true }
   );
+
+  //@ts-ignore
+  const io = global.io;
+  if (io && updatedMessage) {
+    io.emit(`getMessage::${updatedMessage.chatId}`, updatedMessage);
+  }
 
   return updatedMessage;
 };

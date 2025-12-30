@@ -127,7 +127,7 @@ const sendMoney = async (
     await senderWallet.save({ session });
     await receiverWallet.save({ session });
 
-    await WalletTransaction.create(
+    const tx = await WalletTransaction.create(
       [
         {
           wallet: senderWallet._id,
@@ -173,7 +173,7 @@ const sendMoney = async (
       read: false
     });
 
-    return true;
+    return tx[0];
   } catch (e) {
     await session.abortTransaction();
     throw e;

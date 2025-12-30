@@ -16,6 +16,7 @@ import { SettingRoutes } from '../modules/setting/setting.route';
 import { AuditLogRoutes } from '../modules/auditLog/auditLog.route';
 import { TransactionRoutes } from '../modules/transaction/transaction.route';
 import { StripeRoutes } from '../modules/stripe/stripe.route';
+import { KycRoutes } from '../modules/kyc/kyc.route';
 const router = express.Router();
 
 const apiRoutes = [
@@ -36,6 +37,7 @@ const apiRoutes = [
     { path: "/audit-log", route: AuditLogRoutes },
     { path: "/transaction", route: TransactionRoutes },
     { path: "/stripe", route: StripeRoutes },
+    { path: "/kyc", route: KycRoutes },
 ]
 
 apiRoutes.forEach(route => router.use(route.path, route.route));

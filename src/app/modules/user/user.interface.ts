@@ -74,6 +74,8 @@ export interface IUser extends Document {
   stripeAccountId?: string;
   isStripeConnected?: boolean;
   fcmToken?: string;
+  complyCubeClientId?: string;
+  isIdentityVerified?: boolean;
 }
 
 export type UserModal = {
