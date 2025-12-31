@@ -19,6 +19,13 @@ router.get(
     TransactionController.getTransactionByReference
 );
 
+// Download transaction invoice (Customer & Provider)
+router.get(
+    "/invoice/:transactionId",
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+    TransactionController.downloadInvoice
+);
+
 // Get all transactions (Admin & Super Admin)
 router.get(
     "/",

@@ -4,17 +4,6 @@ import { WalletService } from "./wallet.service";
 import { StatusCodes } from "http-status-codes";
 import config from "../../../config";
 
-const topUp = catchAsync(async (req, res) => {
-  const result = await WalletService.topUp(req.user.id, req.body.amount);
-  sendResponse(res, {
-    success: true,
-    statusCode: StatusCodes.OK,
-    message: "Top up successful",
-    data: result,
-  });
-});
-
-// Get my wallet
 const getmyWallet = catchAsync(async (req, res) => {
   const result = await WalletService.getmyWallet(req.user.id);
   sendResponse(res, {
@@ -49,8 +38,7 @@ const withdraw = catchAsync(async (req, res) => {
 });
 
 export const WalletController = {
-  topUp,
+  getmyWallet,
   sendMoney,
   withdraw,
-  getmyWallet,
 };

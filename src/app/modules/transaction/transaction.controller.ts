@@ -38,8 +38,19 @@ const getTransactionByReference = catchAsync(async (req: Request, res: Response)
     });
 });
 
+const downloadInvoice = catchAsync(async (req: Request, res: Response) => {
+    const { transactionId } = req.params;
+    const doc = await TransactionService.generateInvoicePDF(transactionId);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=invoice-${transactionId}.pdf`);
+
+    doc.pipe(res);
+});
+
 export const TransactionController = {
     getAllTransactions,
     getMyTransactions,
-    getTransactionByReference
+    getTransactionByReference,
+    downloadInvoice
 };

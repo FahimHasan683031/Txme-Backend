@@ -125,9 +125,9 @@ export const updateAppointmentStatus = async (
 
   // New strict transition rules
   const allowedTransitions: Record<string, string[]> = {
-    pending: ["accepted", "rejected", "cancelled"], // Provider: accepted/rejected, Customer: cancelled
-    accepted: ["in_progress"],                      // Provider only
-    in_progress: ["work_completed"],                 // Provider only
+    pending: ["accepted", "rejected", "cancelled"],
+    accepted: ["in_progress"],
+    in_progress: ["work_completed"],
     work_completed: ["awaiting_payment"],
     awaiting_payment: ["review_pending", "cashPayment"],
     cashPayment: ["cashReceived"],
@@ -191,12 +191,12 @@ export const updateAppointmentStatus = async (
       );
     }
 
-    appointment.actualStartTime = formatTime(new Date());
+    appointment.actualStartTime = new Date();
     appointment.status = status;
   }
 
   if (status === "work_completed") {
-    appointment.actualEndTime = formatTime(new Date());
+    appointment.actualEndTime = new Date();
     await handleAppointmentCompletion(appointment);
     appointment.status = "awaiting_payment";
   }
@@ -241,13 +241,8 @@ export const updateAppointmentStatus = async (
 async function handleAppointmentCompletion(appointment: any) {
   const provider = await User.findById(appointment.provider);
   if (appointment.actualStartTime && appointment.actualEndTime) {
-    const start = new Date(appointment.date);
-    const [sHours, sMins] = appointment.actualStartTime.split(":");
-    start.setHours(Number(sHours), Number(sMins), 0, 0);
-
-    const end = new Date(appointment.date);
-    const [eHours, eMins] = appointment.actualEndTime.split(":");
-    end.setHours(Number(eHours), Number(eMins), 0, 0);
+    const start = new Date(appointment.actualStartTime);
+    const end = new Date(appointment.actualEndTime);
 
     const durationMs = end.getTime() - start.getTime();
     const hours = durationMs / (1000 * 60 * 60);

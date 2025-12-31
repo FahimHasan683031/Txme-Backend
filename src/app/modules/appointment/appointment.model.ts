@@ -31,11 +31,11 @@ const AppointmentSchema = new Schema<IAppointment>(
       required: true,
     },
     actualStartTime: {
-      type: String,
+      type: Date,
       required: false,
     },
     actualEndTime: {
-      type: String,
+      type: Date,
       required: false,
     },
     status: {

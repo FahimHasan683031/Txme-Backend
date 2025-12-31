@@ -14,9 +14,9 @@ router.get(
     WalletController.getmyWallet
 );
 
-// Stripe Payment Routes (Logic in Stripe Module)
+// Regular Wallet Routes
 router.post(
-    "/create-payment-intent",
+    "/topup",
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
     StripeController.createTopUpPaymentIntent
 );
@@ -27,8 +27,6 @@ router.post(
     StripeController.verifyTopUpPayment
 );
 
-// Regular Wallet Routes
-router.post("/topup", auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER), WalletController.topUp);
 router.post("/send", auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER), WalletController.sendMoney);
 router.post("/withdraw", auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER), WalletController.withdraw);
 

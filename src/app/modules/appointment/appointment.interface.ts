@@ -23,8 +23,8 @@ export interface IAppointment extends Document {
   date: Date;
   startTime?: string;
   endTime?: string;
-  actualStartTime?: string;
-  actualEndTime?: string;
+  actualStartTime?: Date;
+  actualEndTime?: Date;
   status: AppointmentStatus;
   totalWorkedTime?: number;
   totalCost?: number;
