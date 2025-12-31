@@ -25,7 +25,8 @@ const getmyWallet = async (userId: string) => {
 };
 
 // TOP UP
-const topUp = async (userId: string, amount: number) => {
+// TOP UP
+const topUp = async (userId: string, amount: number, reference: string = "topup") => {
   await checkWalletSetting('topUp');
   console.log(`[WalletService] topUp called. User: ${userId}, Amount: ${amount}`);
   const session = await mongoose.startSession();
@@ -44,6 +45,7 @@ const topUp = async (userId: string, amount: number) => {
           direction: "credit",
           status: "success",
           to: userId,
+          reference: reference // Use the passed reference
         },
       ],
       { session, ordered: true }
@@ -200,7 +202,10 @@ const withdraw = async (userId: string, amount: number) => {
     try {
       session.startTransaction();
 
-      // 1. Create successful transaction
+      // 1. Trigger Stripe Transfer (Platform -> Provider Account) FIRST to get reference
+      const transfer = await StripeService.createTransfer(amount, user.stripeAccountId, { type: 'withdrawal', userId });
+
+      // 2. Create successful transaction using Transfer ID as reference
       const tx = await WalletTransaction.create([
         {
           wallet: wallet._id,
@@ -209,16 +214,13 @@ const withdraw = async (userId: string, amount: number) => {
           direction: "debit",
           status: "success",
           from: userId,
-          reference: "Stripe Automated Withdrawal"
+          reference: transfer.id // Use Stripe Transfer ID
         }
       ], { session });
 
-      // 2. Deduct from wallet balance
+      // 3. Deduct from wallet balance
       wallet.balance -= amount;
       await wallet.save({ session });
-
-      // 3. Trigger Stripe Transfer (Platform -> Provider Account)
-      await StripeService.createTransfer(amount, user.stripeAccountId, { type: 'withdrawal', userId });
 
       // 4. Trigger Stripe Payout (Provider Account -> Card/Bank)
       // Note: This requires the connected account to have enough balance. 

@@ -50,60 +50,30 @@ const updateProfileToDB = async (
     unlinkFile(isExistUser.profilePicture);
   }
 
+  // Update fields
   if (payload.providerProfile) {
-    const { workingHours, hourlyRate, experience } = payload.providerProfile;
-
-    // Validate Working Hours
-    if (workingHours) {
-      if (!workingHours.startTime || !workingHours.endTime || !workingHours.duration) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, "Start time, end time, and slot duration are all required!");
-      }
-
-      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
-      if (!timeRegex.test(workingHours.startTime) || !timeRegex.test(workingHours.endTime)) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid time format. Please use HH:MM (24-hour format).");
-      }
-
-      const [startH, startM] = workingHours.startTime.split(":").map(Number);
-      const [endH, endM] = workingHours.endTime.split(":").map(Number);
-
-      const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-      if (totalMinutes <= 0) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, "End time must be after start time (same day only).");
-      }
-
-      const slotDurationMinutes = workingHours.duration * 60;
-      if (slotDurationMinutes <= 0) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, "Slot duration must be positive.");
-      }
-
-      if (totalMinutes < slotDurationMinutes) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, "Shift duration must be at least as long as a slot.");
-      }
-
-      if (totalMinutes % slotDurationMinutes !== 0) {
-        throw new ApiError(
-          StatusCodes.BAD_REQUEST,
-          `Shift duration (${totalMinutes / 60}h) is not perfectly divisible by slot duration (${workingHours.duration}h).`
-        );
+    if (!isExistUser.providerProfile) {
+      // If profile doesn't exist, create it with payload
+      isExistUser.providerProfile = payload.providerProfile as any;
+    } else {
+      // If profile exists, update specific fields
+      // We iterate keys to ensure we update the subdocument properties
+      for (const [key, value] of Object.entries(payload.providerProfile)) {
+        // @ts-ignore
+        isExistUser.providerProfile[key] = value;
       }
     }
-
-    // Validate Hourly Rate
-    if (hourlyRate !== undefined && hourlyRate <= 0) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, "Hourly rate must be a positive number.");
-    }
-
-    // Validate Experience
-    if (experience !== undefined && experience < 0) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, "Experience cannot be a negative number.");
-    }
+    // Remove from payload to prevent top-level overwrite attempt (though set handles paths)
+    delete payload.providerProfile;
   }
 
+  // Use Mongoose set for remaining top-level fields
+  if (Object.keys(payload).length > 0) {
+    isExistUser.set(payload);
+  }
 
-  const updatedUser = await User.findByIdAndUpdate(id, payload, {
-    new: true,
-  });
+  // Save triggers the pre-save hook for validation
+  const updatedUser = await isExistUser.save();
 
   return updatedUser;
 };

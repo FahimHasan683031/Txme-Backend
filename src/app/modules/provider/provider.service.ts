@@ -96,10 +96,30 @@ export const getPopularProvidersFromDB = async (query: Record<string, unknown>) 
     const result = await popularQuery.modelQuery;
     const meta = await popularQuery.getPaginationInfo();
 
-    return { data: result, pagination:meta };
+    return { data: result, pagination: meta };
+};
+
+const getDashboardStats = async (providerId: string) => {
+    const provider = await User.findById(providerId);
+    if (!provider) {
+        throw new ApiError(StatusCodes.NOT_FOUND, "Provider not found");
+    }
+
+    // Get Total Orders (Completed Appointments)
+    const totalOrders = await Appointment.countDocuments({
+        provider: providerId,
+        status: 'completed'
+    });
+
+    return {
+        averageRating: provider.review?.averageRating || 0,
+        totalOrders,
+        experience: provider.providerProfile?.experience || 0
+    };
 };
 
 export const proveiderServices = {
     getProviderCalendar,
-    getPopularProvidersFromDB
+    getPopularProvidersFromDB,
+    getDashboardStats
 }

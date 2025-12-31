@@ -12,6 +12,13 @@ router.get(
     TransactionController.getMyTransactions
 );
 
+// Get transaction by reference (Customer & Provider)
+router.get(
+    "/reference/:referenceId",
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+    TransactionController.getTransactionByReference
+);
+
 // Get all transactions (Admin & Super Admin)
 router.get(
     "/",

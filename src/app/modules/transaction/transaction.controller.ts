@@ -26,7 +26,20 @@ const getMyTransactions = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const getTransactionByReference = catchAsync(async (req: Request, res: Response) => {
+    const { referenceId } = req.params;
+    const result = await TransactionService.getTransactionByReference(referenceId);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: "Transaction retrieved successfully",
+        data: result,
+    });
+});
+
 export const TransactionController = {
     getAllTransactions,
     getMyTransactions,
+    getTransactionByReference
 };

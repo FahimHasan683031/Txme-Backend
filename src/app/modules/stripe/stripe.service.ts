@@ -9,6 +9,8 @@ import { NotificationService } from '../notification/notification.service';
 import config from '../../../config';
 import { emitAppointmentUpdate } from '../../../util/appointment.util';
 import { checkCardPaymentSetting, checkWalletSetting } from '../../../helpers/checkSetting';
+import { WalletTransaction } from '../transaction/transaction.model';
+import { IWalletTransaction } from '../transaction/transaction.interface';
 
 // --- Wallet Management (formerly wallet.stripe.service.ts) ---
 
@@ -54,18 +56,22 @@ const handleSuccessfulTopUpPayment = async (
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid payment metadata');
     }
 
-    await WalletService.topUp(userId, parseFloat(amount));
+    await WalletService.topUp(userId, parseFloat(amount), paymentIntent.id);
 };
 
 const verifyTopUpPayment = async (
     paymentIntentId: string
-): Promise<{ status: string; amount: number }> => {
+): Promise<{ status: string; amount: number; transaction?: IWalletTransaction | null }> => {
     try {
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+        // Find the transaction record using the paymentIntentId as reference
+        const transaction = await WalletTransaction.findOne({ reference: paymentIntentId });
 
         return {
             status: paymentIntent.status,
             amount: paymentIntent.amount / 100,
+            transaction: transaction || null
         };
     } catch (error: any) {
         throw new ApiError(

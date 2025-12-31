@@ -30,7 +30,19 @@ const getPopularProviders = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getDashboardStats = catchAsync(async (req: Request, res: Response) => {
+  const result = await proveiderServices.getDashboardStats(req.params.providerId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Provider stats retrieved successfully',
+    data: result
+  });
+});
+
 export const providerController = {
   getProviderCalendar,
-  getPopularProviders
+  getPopularProviders,
+  getDashboardStats
 }

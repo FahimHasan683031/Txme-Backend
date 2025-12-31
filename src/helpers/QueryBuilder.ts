@@ -29,6 +29,7 @@ class QueryBuilder<T> {
 
   // Filtering
   // Filtering
+  // Filtering
   filter() {
     const queryObj = { ...this.query }
     const excludeFields = [
@@ -49,20 +50,28 @@ class QueryBuilder<T> {
       'longitude',
       'radius',
       'language',
+      'serviceCategory', // Exclude to handle manually or via mapping
+      'skills'
     ]
     excludeFields.forEach(el => delete queryObj[el])
 
     const filters: Record<string, any> = cleanObject(queryObj)
 
+    // ✅ Handle provider specific nested fields if present in original query
+    if (this.query.serviceCategory) {
+      filters["providerProfile.serviceCategory"] = { $in: Array.isArray(this.query.serviceCategory) ? this.query.serviceCategory : [this.query.serviceCategory] };
+    }
+    if (this.query.skills) {
+      filters["providerProfile.skills"] = { $in: Array.isArray(this.query.skills) ? this.query.skills : [this.query.skills] };
+    }
+
     // Handle salary range filtering
     if (queryObj.minSalary || queryObj.maxSalary) {
       if (queryObj.minSalary) {
         filters.minSalary = { $gte: Number(queryObj.minSalary) }
-        delete queryObj.minSalary
       }
       if (queryObj.maxSalary) {
         filters.maxSalary = { $lte: Number(queryObj.maxSalary) }
-        delete queryObj.maxSalary
       }
     }
 
@@ -77,8 +86,6 @@ class QueryBuilder<T> {
     this.modelQuery = this.modelQuery.find(filters as FilterQuery<T>)
     return this
   }
-
-
 
   // Sorting
   sort(sortStr?: string) {
@@ -122,14 +129,14 @@ class QueryBuilder<T> {
   // Geolocation Search (Radius/Bounding Box)
   geolocation() {
     const { latitude, longitude, radius } = this.query;
-    if (latitude && longitude && radius) {
+    if (latitude != null && longitude != null && radius != null) {
       const lat = Number(latitude);
       const lon = Number(longitude);
       const rad = Number(radius); // in kilometers
 
-      // Approximate bounding box (1 degree latitude is ~111km)
-      const latDiff = rad / 111;
-      const lonDiff = rad / (111 * Math.cos(lat * (Math.PI / 180)));
+      // Approximate bounding box (1 degree latitude is ~111.32km)
+      const latDiff = rad / 111.32;
+      const lonDiff = rad / (111.32 * Math.cos(lat * (Math.PI / 180)));
 
       this.modelQuery = this.modelQuery.find({
         "residentialAddress.latitude": { $gte: lat - latDiff, $lte: lat + latDiff },
@@ -154,10 +161,13 @@ class QueryBuilder<T> {
       if (maxPrice) filters["providerProfile.hourlyRate"].$lte = Number(maxPrice);
     }
 
-    if (startTime) {
+    // ✅ Inclusion Range Search: Provider shift must be within the user's requested window
+    if (startTime && endTime) {
       filters["providerProfile.workingHours.startTime"] = { $gte: startTime };
-    }
-    if (endTime) {
+      filters["providerProfile.workingHours.endTime"] = { $lte: endTime };
+    } else if (startTime) {
+      filters["providerProfile.workingHours.startTime"] = { $gte: startTime };
+    } else if (endTime) {
       filters["providerProfile.workingHours.endTime"] = { $lte: endTime };
     }
 
