@@ -240,42 +240,75 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
 
                 if (decisionResponse.ok) {
                     const decision = await decisionResponse.json();
-                    console.log("Didit Decision Raw Data:", JSON.stringify(decision, null, 2));
+                    console.log("Didit Decision Raw Data Received.");
 
-                    // Robust extraction from multiple possible locations
-                    const data = decision.data || decision.extracted_data || decision;
+                    // 1. Accumulate data from all possible locations
+                    let combinedData: any = {};
+
+                    // Root and direct children
+                    Object.assign(combinedData, decision);
+                    if (decision.data) Object.assign(combinedData, decision.data);
+                    if (decision.extracted_data) Object.assign(combinedData, decision.extracted_data);
+                    if (decision.data && decision.data.extracted_data) Object.assign(combinedData, decision.data.extracted_data);
+
+                    // Search through verifications array (Highest Priority for PII)
+                    const verifications = decision.verifications || (decision.data && decision.data.verifications) || [];
+                    if (Array.isArray(verifications)) {
+                        verifications.forEach((v: any) => {
+                            if (v.extracted_data) Object.assign(combinedData, v.extracted_data);
+                            if (v.type?.toLowerCase().includes('document')) {
+                                Object.assign(combinedData, v);
+                            }
+                        });
+                    }
+
+                    // Search through results array
                     const results = decision.results || (decision.data && decision.data.results) || [];
-                    const documents = decision.documents || (decision.data && decision.data.documents) || [];
+                    if (Array.isArray(results)) {
+                        results.forEach((r: any) => {
+                            if (r.extracted_data) Object.assign(combinedData, r.extracted_data);
+                            if (r.data) Object.assign(combinedData, r.data);
+                        });
+                    }
 
-                    console.log("Extracted Source Data:", JSON.stringify(data, null, 2));
-
-                    // Map Document Type
-                    let idType: "nid" | "passport" | undefined = undefined;
-                    const rawType = (data.document_type || data.type || "").toString().toLowerCase();
-                    if (rawType.includes('passport')) idType = 'passport';
-                    else if (rawType.includes('id') || rawType.includes('license') || rawType.includes('card')) idType = 'nid';
-
-                    // Extract Images
+                    // 2. Extract Images
                     const idDocImages: string[] = [];
-                    if (documents && Array.isArray(documents)) {
+                    const documents = decision.documents || (decision.data && decision.data.documents) || [];
+                    if (Array.isArray(documents)) {
                         documents.forEach((doc: any) => {
                             if (doc.front_image || doc.front) idDocImages.push(doc.front_image || doc.front);
                             if (doc.back_image || doc.back) idDocImages.push(doc.back_image || doc.back);
                         });
                     }
 
-                    // Map ID Value
-                    const idValue = data.document_number || data.id_number || data.document_id || data.value;
+                    // Fallback to verifications for images
+                    if (idDocImages.length === 0 && Array.isArray(verifications)) {
+                        verifications.forEach((v: any) => {
+                            if (v.documents && Array.isArray(v.documents)) {
+                                v.documents.forEach((doc: any) => {
+                                    if (doc.front_image || doc.front) idDocImages.push(doc.front_image || doc.front);
+                                    if (doc.back_image || doc.back) idDocImages.push(doc.back_image || doc.back);
+                                });
+                            }
+                        });
+                    }
+
+                    // 3. Mapping Final Object
+                    const idValue = combinedData.document_number || combinedData.id_number || combinedData.document_id || combinedData.value;
+                    let idType: "nid" | "passport" | undefined = undefined;
+                    const rawType = (combinedData.document_type || combinedData.type || "").toString().toLowerCase();
+                    if (rawType.includes('passport')) idType = 'passport';
+                    else if (rawType.includes('id') || rawType.includes('license') || rawType.includes('card')) idType = 'nid';
 
                     kycData = {
-                        fullName: data.full_name ||
-                            (data.first_name ? `${data.first_name} ${data.last_name || ""}`.trim() : undefined) ||
-                            data.name,
-                        dateOfBirth: (data.date_of_birth || data.dob || data.birth_date) ? new Date(data.date_of_birth || data.dob || data.birth_date) : undefined,
-                        gender: data.gender || data.sex,
-                        nationality: data.nationality || data.country,
-                        countryOfResidence: data.country || data.issuing_country || data.country_of_residence,
-                        postalAddress: data.address || data.residential_address,
+                        fullName: combinedData.full_name ||
+                            (combinedData.first_name ? `${combinedData.first_name} ${combinedData.last_name || ""}`.trim() : undefined) ||
+                            combinedData.name,
+                        dateOfBirth: (combinedData.date_of_birth || combinedData.dob || combinedData.birth_date) ? new Date(combinedData.date_of_birth || combinedData.dob || combinedData.birth_date) : undefined,
+                        gender: combinedData.gender || combinedData.sex,
+                        nationality: combinedData.nationality || combinedData.country,
+                        countryOfResidence: combinedData.country || combinedData.issuing_country || combinedData.country_of_residence,
+                        postalAddress: combinedData.address || combinedData.residential_address,
                         ...(idValue && {
                             identification: {
                                 type: idType || 'nid',
@@ -288,8 +321,6 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
                     console.log("Final KYC Object for DB Update:", JSON.stringify(kycData, null, 2));
                 } else {
                     console.warn(`Failed to fetch decision data: Status ${decisionResponse.status}`);
-                    const errorText = await decisionResponse.text();
-                    console.warn(`Error Body: ${errorText}`);
                 }
             } catch (error) {
                 console.error("Error fetching Didit decision data:", error);
@@ -297,33 +328,23 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
 
             const updateData = {
                 isIdentityVerified: true,
-                // status: 'active', // Removed: User will be activated after complete-profile
                 ...kycData
             };
 
             if (userId && userId.length === 24) {
-                result = await User.findByIdAndUpdate(
-                    userId,
-                    updateData,
-                    { new: true }
-                );
-                console.log(`Update result using UserId: ${result ? 'Success' : 'Failed (Not Found)'}`);
+                result = await User.findByIdAndUpdate(userId, updateData, { new: true });
+                console.log(`Update result using UserId: ${result ? 'Success' : 'Failed'}`);
             }
 
-            // Fallback to session_id if userId didn't work or wasn't provided
             if (!result && session_id) {
-                result = await User.findOneAndUpdate(
-                    { diditSessionId: session_id },
-                    updateData,
-                    { new: true }
-                );
-                console.log(`Update result using SessionId: ${result ? 'Success' : 'Failed (Not Found)'}`);
+                result = await User.findOneAndUpdate({ diditSessionId: session_id }, updateData, { new: true });
+                console.log(`Update result using SessionId: ${result ? 'Success' : 'Failed'}`);
             }
 
             if (!result) {
-                console.error(`Could not find User to update for session ${session_id} or user ${userId}`);
+                console.error(`Could not find User to update for session ${session_id}`);
             } else {
-                console.log(`User ${result._id} successfully verified and activated.`);
+                console.log(`User ${result._id} successfully verified.`);
             }
         } else {
             console.log(`Status is not 'Approved' (received: ${status}). Skipping update.`);
