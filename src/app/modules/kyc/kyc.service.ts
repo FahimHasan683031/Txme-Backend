@@ -6,7 +6,6 @@ import { StatusCodes } from "http-status-codes";
 import crypto from 'crypto';
 
 // Initialize ComplyCube
-// Note: We need to ensure apiKey is present.
 const complycube = new ComplyCube({
     apiKey: config.complycube.apiKey as string,
 });
@@ -19,7 +18,6 @@ const getMobileToken = async (userId: string) => {
 
     let clientId = user.complyCubeClientId;
 
-    // 1. If user doesn't have a Client ID, create one
     if (!clientId) {
         try {
             const client = await complycube.client.create({
@@ -31,19 +29,15 @@ const getMobileToken = async (userId: string) => {
                 }
             });
             clientId = client.id;
-
-            // Save the new Client ID using findByIdAndUpdate to avoid triggering pre-save hooks
             await User.findByIdAndUpdate(userId, { complyCubeClientId: clientId });
-
         } catch (error: any) {
             throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Failed to create ComplyCube client: ${error.message}`);
         }
     }
 
-    // 2. Generate a Client Token for the Mobile SDK
     try {
         const token = await complycube.token.generate(clientId, {
-            referrer: "*://*/*" // Allow all referrers for mobile app usage
+            referrer: "*://*/*"
         });
         return { token: token.token, clientId };
     } catch (error: any) {
@@ -57,11 +51,8 @@ const getKycStatus = async (userId: string) => {
         throw new ApiError(StatusCodes.NOT_FOUND, "User or KYC profile not found");
     }
 
-    // Fetch the latest check from ComplyCube
     const checks = await complycube.check.list(user.complyCubeClientId);
-
-    // Find the latest completed identity check
-    const latestCheck = checks.find((c: any) => c.type === 'document_check' && c.status === 'complete') as any; // Adjust check type if needed
+    const latestCheck = checks.find((c: any) => c.type === 'document_check' && c.status === 'complete') as any;
 
     let kycDetails = null;
 
@@ -74,7 +65,7 @@ const getKycStatus = async (userId: string) => {
                 dateOfBirth: document.fields?.dob?.value ?
                     new Date(document.fields.dob.value).toISOString().split('T')[0] : undefined,
                 documentNumber: document.fields?.documentNumber?.value,
-                documentType: document.type, // passport, driving_license, etc.
+                documentType: document.type,
                 nationality: document.fields?.nationality?.value,
                 gender: document.fields?.gender?.value
             };
@@ -97,7 +88,6 @@ const handleWebhook = async (event: any) => {
         const { clientId, outcome } = event.payload;
 
         if (outcome === 'clear') {
-            // Update User Status only, do not save PII
             await User.findOneAndUpdate(
                 { complyCubeClientId: clientId },
                 {
@@ -109,19 +99,10 @@ const handleWebhook = async (event: any) => {
     }
 };
 
-// --- Didit KYC Integration ---
-
 const createDiditSessionToDB = async (userId: string) => {
     const user = await User.findById(userId);
     if (!user) {
         throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
-    }
-
-    const apiKey = config.didit.apiKey;
-    if (!apiKey) {
-        console.error("DIDIT_API_KEY is missing in config/env!");
-    } else {
-        console.log(`Using Didit API Key starting with: ${apiKey.substring(0, 5)}...`);
     }
 
     const payload: any = {
@@ -130,7 +111,6 @@ const createDiditSessionToDB = async (userId: string) => {
         callback: "txme://kyc-success"
     };
 
-    // Use workflowId if provided, otherwise fallback to features (for older/custom setups)
     if (config.didit.workflowId) {
         payload.workflow_id = config.didit.workflowId;
     } else {
@@ -138,15 +118,7 @@ const createDiditSessionToDB = async (userId: string) => {
     }
 
     try {
-        if (!config.didit.workflowId) {
-            console.warn("DIDIT_WORKFLOW_ID is missing. This might cause a 401/400 error in V2.");
-        }
-
-        console.log("Didit Request Payload:", JSON.stringify(payload));
-        const url = `${config.didit.baseUrl}/session/`;
-        console.log("Didit Request URL:", url);
-
-        const response = await fetch(url, {
+        const response = await fetch(`${config.didit.baseUrl}/session/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -157,27 +129,15 @@ const createDiditSessionToDB = async (userId: string) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`Didit API Error Status: ${response.status}`);
-            console.error(`Didit API Error Response: ${errorText}`);
-
-            let errorMessage = 'Failed to create Didit session';
-            try {
-                const errorData = JSON.parse(errorText);
-                errorMessage = errorData.message || errorMessage;
-            } catch (e) {
-                // ignore parse error, use default message
-            }
-            throw new Error(errorMessage);
+            throw new Error(`Didit API Error: ${errorText}`);
         }
 
         const data: any = await response.json();
-
-        // Save session ID to user
         await User.findByIdAndUpdate(userId, { diditSessionId: data.session_id });
 
         return {
             sessionId: data.session_id,
-            url: data.url // The verification URL to open in mobile browser
+            url: data.url
         };
     } catch (error: any) {
         throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Didit Session Error: ${error.message}`);
@@ -186,153 +146,110 @@ const createDiditSessionToDB = async (userId: string) => {
 
 const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?: Buffer) => {
     console.log("--- Didit Webhook Received ---");
-    console.log("Signature Header:", signature);
     console.log("Payload Body:", JSON.stringify(payload, null, 2));
-    if (rawBody) {
-        console.log("Raw Body Buffer Received (Length):", rawBody.length);
-    }
 
     // 1. Verify Signature
     if (config.didit.webhookSecret && signature) {
         const hmac = crypto.createHmac('sha256', config.didit.webhookSecret);
-        // Use rawBody if available, otherwise fallback to stringified JSON (less reliable)
         const dataToVerify = rawBody ? rawBody : JSON.stringify(payload);
         const digest = hmac.update(dataToVerify).digest('hex');
-
-        console.log("Calculated Digest:", digest);
-
         if (signature !== digest) {
             console.error("Signature Mismatch!");
             throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid Didit signature");
         }
     } else if (config.didit.webhookSecret && !signature) {
-        console.warn("Signature missing but secret configured!");
         throw new ApiError(StatusCodes.UNAUTHORIZED, "Didit signature missing");
-    } else {
-        console.warn("DIDIT_WEBHOOK_SECRET is missing. Skipping signature verification (Not recommended for Production).");
     }
 
     const eventType = payload.webhook_type || payload.event || payload.type;
-    console.log("Didit Webhook Event(Detected):", eventType);
 
-    // 2. Handle status.updated event
     if (eventType === 'status.updated') {
-        // Robust extraction: Check root AND payload.data
         const session_id = payload.session_id || (payload.data && payload.data.session_id);
         const status = payload.status || (payload.data && payload.data.status);
         const userId = payload.vendor_data || (payload.data && payload.data.vendor_data);
 
-        console.log(`Processing update for Session: ${session_id}, Status: ${status}, VendorData(UserId): ${userId}`);
+        console.log(`Processing update for Session: ${session_id}, Status: ${status}, UserId: ${userId}`);
 
         if (status && status.toString().toLowerCase() === 'approved') {
-            // Recommendation: Try to update by userId first (more reliable)
             let result = null;
-
-            // 3. Fetch extracted data from Didit Decision API
             let kycData: any = {};
+
             try {
-                console.log(`Fetching decision data for session: ${session_id}`);
                 const decisionResponse = await fetch(`${config.didit.baseUrl}/session/${session_id}/decision/`, {
-                    headers: {
-                        'x-api-key': config.didit.apiKey as string
-                    }
+                    headers: { 'x-api-key': config.didit.apiKey as string }
                 });
 
                 if (decisionResponse.ok) {
                     const decision = await decisionResponse.json();
 
-                    // 1. Aggressive Flattening strategy
-                    let combinedData: any = {};
-
-                    const sources = [
-                        decision,
-                        decision.document,
-                        decision.identity,
-                        decision.data,
-                        decision.extracted_data,
-                        ...(decision.data ? [decision.data.document, decision.data.identity, decision.data.extracted_data] : [])
-                    ];
-
-                    sources.forEach(source => {
-                        if (source && typeof source === 'object') {
-                            Object.assign(combinedData, source);
+                    const getValueDeep = (obj: any, targetKeys: string[]): any => {
+                        if (!obj || typeof obj !== 'object') return null;
+                        for (const k of targetKeys) {
+                            if (obj[k] && typeof obj[k] !== 'object' && obj[k] !== "") return obj[k];
                         }
-                    });
-
-                    // Search through verifications and results arrays
-                    const nestedArrays = [
-                        decision.verifications,
-                        decision.results,
-                        decision.data?.verifications,
-                        decision.data?.results
-                    ];
-
-                    nestedArrays.forEach(arr => {
-                        if (Array.isArray(arr)) {
-                            arr.forEach(item => {
-                                if (item.extracted_data) Object.assign(combinedData, item.extracted_data);
-                                if (item.data) Object.assign(combinedData, item.data);
-                                if (item.document) Object.assign(combinedData, item.document);
-                                if (item.full_name || item.document_number) Object.assign(combinedData, item);
-                            });
+                        for (const key in obj) {
+                            if (typeof obj[key] === 'object' && obj[key] !== null) {
+                                const found = getValueDeep(obj[key], targetKeys);
+                                if (found) return found;
+                            }
                         }
-                    });
+                        return null;
+                    };
 
-                    // 2. Specialized Image Extraction
-                    const idDocImages: string[] = [];
-                    const docSources = [
-                        decision.document,
-                        decision.identity,
-                        decision.data?.document,
-                        decision.data?.identity,
-                        ...(Array.isArray(decision.documents) ? decision.documents : []),
-                        ...(Array.isArray(decision.data?.documents) ? decision.data.documents : [])
-                    ];
-
-                    docSources.forEach(ds => {
-                        if (ds) {
-                            if (ds.front_image || ds.front) idDocImages.push(ds.front_image || ds.front);
-                            if (ds.back_image || ds.back) idDocImages.push(ds.back_image || ds.back);
+                    const getImagesDeep = (obj: any, collected: string[] = []) => {
+                        if (!obj || typeof obj !== 'object') return;
+                        if (Array.isArray(obj)) {
+                            obj.forEach(item => getImagesDeep(item, collected));
+                            return;
                         }
-                    });
+                        for (const key in obj) {
+                            const val = obj[key];
+                            if (typeof val === 'string' && val.startsWith('http') &&
+                                (key.includes('image') || key.includes('front') || key.includes('back') || key.includes('url'))) {
+                                collected.push(val);
+                            } else if (typeof val === 'object') {
+                                getImagesDeep(val, collected);
+                            }
+                        }
+                    };
 
-                    // 3. Mapping Final Object
-                    const idValue = combinedData.document_number || combinedData.id_number || combinedData.document_id || combinedData.value;
-                    let idType: "nid" | "passport" | undefined = undefined;
-                    const rawType = (combinedData.document_type || combinedData.type || "").toString().toLowerCase();
-                    if (rawType.includes('passport')) idType = 'passport';
-                    else if (rawType.includes('id') || rawType.includes('license') || rawType.includes('card')) idType = 'nid';
+                    const fullName = getValueDeep(decision, ['full_name', 'fullName', 'name']);
+                    const firstName = getValueDeep(decision, ['first_name', 'firstName']);
+                    const lastName = getValueDeep(decision, ['last_name', 'lastName']);
+                    const dob = getValueDeep(decision, ['date_of_birth', 'dob', 'birthDate', 'birth_date']);
+                    const docNumber = getValueDeep(decision, ['document_number', 'document_id', 'id_number', 'value']);
+                    const docType = getValueDeep(decision, ['document_type', 'type']);
+                    const address = getValueDeep(decision, ['address', 'postal_address', 'formatted_address']);
+                    const country = getValueDeep(decision, ['country', 'nationality', 'issuing_country']);
+                    const gender = getValueDeep(decision, ['gender', 'sex']);
+
+                    const images: string[] = [];
+                    getImagesDeep(decision, images);
+                    const uniqueImages = [...new Set(images)].filter(img => !img.toLowerCase().includes('liveness'));
+
+                    let idTypeMapped: "nid" | "passport" = 'nid';
+                    if (docType && docType.toString().toLowerCase().includes('passport')) idTypeMapped = 'passport';
 
                     kycData = {
-                        fullName: combinedData.full_name ||
-                            (combinedData.first_name ? `${combinedData.first_name} ${combinedData.last_name || ""}`.trim() : undefined) ||
-                            combinedData.name,
-                        dateOfBirth: (combinedData.date_of_birth || combinedData.dob || combinedData.birth_date) ? new Date(combinedData.date_of_birth || combinedData.dob || combinedData.birth_date) : undefined,
-                        gender: combinedData.gender || combinedData.sex,
-                        nationality: combinedData.nationality || combinedData.country,
-                        countryOfResidence: combinedData.country || combinedData.issuing_country || combinedData.country_of_residence,
-                        postalAddress: combinedData.address || combinedData.residential_address || combinedData.formatted_address,
-                        ...(idValue && {
-                            identification: {
-                                type: idType || 'nid',
-                                value: idValue
-                            }
+                        fullName: fullName || (firstName ? `${firstName} ${lastName || ""}`.trim() : undefined),
+                        dateOfBirth: dob ? new Date(dob) : undefined,
+                        gender,
+                        nationality: country,
+                        countryOfResidence: country,
+                        postalAddress: address,
+                        ...(docNumber && {
+                            identification: { type: idTypeMapped, value: docNumber }
                         }),
-                        ...(idDocImages.length > 0 && { idDocuments: idDocImages })
+                        ...(uniqueImages.length > 0 && { idDocuments: uniqueImages.slice(0, 5) })
                     };
 
                     console.log("Final KYC Object for DB Update:", JSON.stringify(kycData, null, 2));
-                } else {
-                    console.warn(`Failed to fetch decision data: Status ${decisionResponse.status}`);
                 }
             } catch (error) {
                 console.error("Error fetching Didit decision data:", error);
             }
 
-            const updateData = {
-                isIdentityVerified: true,
-                ...kycData
-            };
+            const updateData = { isIdentityVerified: true, ...kycData };
 
             if (userId && userId.length === 24) {
                 result = await User.findByIdAndUpdate(userId, updateData, { new: true });
