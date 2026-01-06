@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { StatusCodes } from "http-status-codes";
-import { Morgan } from "./shared/morgan"; 
+import { Morgan } from "./shared/morgan";
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import requestIp from 'request-ip';
 import rateLimit from 'express-rate-limit';
@@ -43,12 +43,16 @@ app.use(Morgan.errorHandler);
 
 //body parser
 app.use(
-  cors({
-    origin: ["http://localhost:3001", "http://localhost:3002"],
-    credentials: true,
-  })
+    cors({
+        origin: ["http://localhost:3001", "http://localhost:3002"],
+        credentials: true,
+    })
 );
-app.use(express.json());
+app.use(express.json({
+    verify: (req: any, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestIp.mw());
 app.use(cookieParser());

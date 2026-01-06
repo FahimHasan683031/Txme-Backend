@@ -183,22 +183,39 @@ const createDiditSessionToDB = async (userId: string) => {
     }
 };
 
-const handleDiditWebhookToDB = async (payload: any, signature: string) => {
-    // 1. Verify Signature
-    if (config.didit.webhookSecret) {
-        const hmac = crypto.createHmac('sha256', config.didit.webhookSecret);
-        const digest = Buffer.from(hmac.update(JSON.stringify(payload)).digest('hex'), 'utf8');
-        const signatureBuffer = Buffer.from(signature, 'utf8');
-
-        if (signatureBuffer.length !== digest.length || !crypto.timingSafeEqual(digest, signatureBuffer)) {
-            throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid Didit signature");
-        }
+const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?: Buffer) => {
+    console.log("--- Didit Webhook Received ---");
+    console.log("Signature Header:", signature);
+    console.log("Payload Body:", JSON.stringify(payload, null, 2));
+    if (rawBody) {
+        console.log("Raw Body Buffer Received (Length):", rawBody.length);
     }
 
-    console.log("Didit Webhook Event:", payload.event);
+    // 1. Verify Signature
+    if (config.didit.webhookSecret && signature) {
+        const hmac = crypto.createHmac('sha256', config.didit.webhookSecret);
+        // Use rawBody if available, otherwise fallback to stringified JSON (less reliable)
+        const dataToVerify = rawBody ? rawBody : JSON.stringify(payload);
+        const digest = hmac.update(dataToVerify).digest('hex');
+
+        console.log("Calculated Digest:", digest);
+
+        if (signature !== digest) {
+            console.error("Signature Mismatch!");
+            throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid Didit signature");
+        }
+    } else if (config.didit.webhookSecret && !signature) {
+        console.warn("Signature missing but secret configured!");
+        throw new ApiError(StatusCodes.UNAUTHORIZED, "Didit signature missing");
+    } else {
+        console.warn("DIDIT_WEBHOOK_SECRET is missing. Skipping signature verification (Not recommended for Production).");
+    }
+
+    const eventType = payload.event || payload.type;
+    console.log("Didit Webhook Event:", eventType);
 
     // 2. Handle status.updated event
-    if (payload.event === 'status.updated') {
+    if (eventType === 'status.updated') {
         const { session_id, status } = payload.data;
 
         if (status === 'Approved') {

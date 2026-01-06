@@ -67,8 +67,13 @@ const createDiditSession = catchAsync(async (req: Request, res: Response) => {
 });
 
 const handleDiditWebhook = catchAsync(async (req: Request, res: Response) => {
-    const signature = req.headers['x-signature'] as string;
-    await KycService.handleDiditWebhookToDB(req.body, signature);
+    // Log for debugging
+    console.log("--- Didit Webhook Request Received ---");
+    console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Body:", JSON.stringify(req.body, null, 2));
+
+    const signature = (req.headers['x-signature'] || req.headers['x-didit-signature']) as string;
+    await KycService.handleDiditWebhookToDB(req.body, signature, (req as any).rawBody);
 
     sendResponse(res, {
         success: true,
