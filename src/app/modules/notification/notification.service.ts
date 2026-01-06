@@ -24,6 +24,17 @@ const insertNotification = async (payload: Partial<INotification>): Promise<INot
         }
     }
 
+    // --- SOCKET NOTIFICATION ---
+    //@ts-ignore
+    const io = global.io;
+    if (io) {
+        if (result.type === 'ADMIN') {
+            io.emit('admin-notification', result);
+        } else if (result.receiver) {
+            io.emit(`notification::${result.receiver.toString()}`, result);
+        }
+    }
+
     return result;
 };
 
