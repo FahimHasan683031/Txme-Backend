@@ -107,8 +107,12 @@ const createDiditSessionToDB = async (userId: string) => {
 
     const payload: any = {
         vendor_data: userId,
-        callback: "txme://kyc-success",
-        callback_method: "both"
+        callback: "txme://app/kyc-success",
+        callback_url: "txme://app/kyc-success",
+        redirect_url: "txme://app/kyc-success",
+        success_url: "txme://app/kyc-success",
+        callback_method: "initiator",
+        allow_redirects: true
     };
 
     if (config.didit.workflowId) {
