@@ -76,6 +76,7 @@ export interface IUser extends Document {
   fcmToken?: string;
   complyCubeClientId?: string;
   isIdentityVerified?: boolean;
+  diditSessionId?: string;
 }
 
 export type UserModal = {

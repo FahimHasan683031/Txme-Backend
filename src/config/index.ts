@@ -46,5 +46,11 @@ export default {
     complycube: {
         apiKey: process.env.COMPLYCUBE_API_KEY,
         webhookSecret: process.env.COMPLYCUBE_WEBHOOK_SECRET
+    },
+    didit: {
+        apiKey: process.env.DIDIT_API_KEY,
+        webhookSecret: process.env.DIDIT_WEBHOOK_SECRET,
+        baseUrl: 'https://verification.didit.me/v2',
+        workflowId: process.env.DIDIT_WORKFLOW_ID
     }
 }

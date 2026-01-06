@@ -5,7 +5,7 @@ const auditLogSchema = new Schema<IAuditLog, AuditLogModel>(
     {
         user: {
             type: Schema.Types.ObjectId,
-            ref: 'User',
+            ref: 'Admin',
             required: true
         },
         action: {

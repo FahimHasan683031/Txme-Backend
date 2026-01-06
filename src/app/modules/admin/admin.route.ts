@@ -20,6 +20,12 @@ router.get(
   AdminController.getAllAdmins
 );
 
+router.get(
+  '/dashboard-overview',
+  auth(ADMIN_ROLES.SUPER_ADMIN),
+  AdminController.getDashboardOverview
+);
+
 
 
 router.post(

@@ -125,6 +125,18 @@ const deleteUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getDashboardOverview = catchAsync(async (req: Request, res: Response) => {
+  const year = Number(req.query.year) || new Date().getFullYear();
+  const result = await AdminService.getDashboardOverviewFromDB(year);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: StatusCodes.OK,
+    message: 'Dashboard overview fetched successfully.',
+    data: result,
+  });
+});
+
 export const AdminController = {
   verifyEmail,
   loginAdmin,
@@ -134,5 +146,6 @@ export const AdminController = {
   createAdmin,
   toggleUserStatus,
   deleteUser,
-  getAllAdmins
+  getAllAdmins,
+  getDashboardOverview
 };

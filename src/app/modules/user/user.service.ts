@@ -20,7 +20,9 @@ const getAllUsers = async (
     query.role = "PROVIDER";
   }
 
-  const userQueryBuilder = new QueryBuilder(User.find(), query)
+  const totalUsers = await User.countDocuments({status: {$ne: "deleted"}});
+
+  const userQueryBuilder = new QueryBuilder(User.find({status: {$ne: "deleted"}}), query)
     .geolocation()
     .providerFilter()
     .filter()
@@ -31,7 +33,7 @@ const getAllUsers = async (
   const users = await userQueryBuilder.modelQuery;
   const paginateInfo = await userQueryBuilder.getPaginationInfo();
 
-  return { data: users, pagination: paginateInfo };
+  return { data: users, pagination: {...paginateInfo, totalData: totalUsers} };
 };
 
 const updateProfileToDB = async (
@@ -88,7 +90,6 @@ const getmyProfile = async (user: JwtPayload): Promise<IUser | null> => {
   const result = await User.findById(id);
   return result;
 }
-
 
 
 // update user status

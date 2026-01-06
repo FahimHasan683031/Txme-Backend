@@ -153,6 +153,7 @@ const userSchema = new Schema<IUser>(
     fcmToken: { type: String, required: false },
     complyCubeClientId: { type: String, required: false },
     isIdentityVerified: { type: Boolean, default: false },
+    diditSessionId: { type: String, required: false },
   },
   {
     timestamps: true,

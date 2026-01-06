@@ -56,8 +56,31 @@ const getKycStatus = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const createDiditSession = catchAsync(async (req: Request, res: Response) => {
+    const result = await KycService.createDiditSessionToDB(req.user.id);
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Didit KYC Session created successfully",
+        data: result,
+    });
+});
+
+const handleDiditWebhook = catchAsync(async (req: Request, res: Response) => {
+    const signature = req.headers['x-signature'] as string;
+    await KycService.handleDiditWebhookToDB(req.body, signature);
+
+    sendResponse(res, {
+        success: true,
+        statusCode: StatusCodes.OK,
+        message: "Didit Webhook processed successfully",
+    });
+});
+
 export const KycController = {
     getMobileToken,
     handleWebhook,
-    getKycStatus
+    getKycStatus,
+    createDiditSession,
+    handleDiditWebhook
 };

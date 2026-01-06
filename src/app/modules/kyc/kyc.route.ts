@@ -23,4 +23,16 @@ router.get(
     KycController.getKycStatus
 );
 
+// --- Didit Routes ---
+router.post(
+    "/didit-session",
+    auth(USER_ROLES.PROVIDER, USER_ROLES.CUSTOMER),
+    KycController.createDiditSession
+);
+
+router.post(
+    "/didit-webhook",
+    KycController.handleDiditWebhook
+);
+
 export const KycRoutes = router;

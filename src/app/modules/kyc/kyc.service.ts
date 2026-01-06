@@ -3,6 +3,7 @@ import config from "../../../config";
 import { User } from "../user/user.model";
 import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
+import crypto from 'crypto';
 
 // Initialize ComplyCube
 // Note: We need to ensure apiKey is present.
@@ -108,8 +109,114 @@ const handleWebhook = async (event: any) => {
     }
 };
 
+// --- Didit KYC Integration ---
+
+const createDiditSessionToDB = async (userId: string) => {
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+    }
+
+    const apiKey = config.didit.apiKey;
+    if (!apiKey) {
+        console.error("DIDIT_API_KEY is missing in config/env!");
+    } else {
+        console.log(`Using Didit API Key starting with: ${apiKey.substring(0, 5)}...`);
+    }
+
+    const payload: any = {
+        vendor_data: userId,
+        callback_url: "txme://kyc-success"
+    };
+
+    // Use workflowId if provided, otherwise fallback to features (for older/custom setups)
+    if (config.didit.workflowId) {
+        payload.workflow_id = config.didit.workflowId;
+    } else {
+        payload.features = ["id-verification", "face-verification"];
+    }
+
+    try {
+        if (!config.didit.workflowId) {
+            console.warn("DIDIT_WORKFLOW_ID is missing. This might cause a 401/400 error in V2.");
+        }
+
+        console.log("Didit Request Payload:", JSON.stringify(payload));
+        const url = `${config.didit.baseUrl}/session/`;
+        console.log("Didit Request URL:", url);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': config.didit.apiKey as string
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Didit API Error Status: ${response.status}`);
+            console.error(`Didit API Error Response: ${errorText}`);
+
+            let errorMessage = 'Failed to create Didit session';
+            try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+                // ignore parse error, use default message
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data: any = await response.json();
+
+        // Save session ID to user
+        await User.findByIdAndUpdate(userId, { diditSessionId: data.session_id });
+
+        return {
+            sessionId: data.session_id,
+            url: data.url // The verification URL to open in mobile browser
+        };
+    } catch (error: any) {
+        throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Didit Session Error: ${error.message}`);
+    }
+};
+
+const handleDiditWebhookToDB = async (payload: any, signature: string) => {
+    // 1. Verify Signature
+    if (config.didit.webhookSecret) {
+        const hmac = crypto.createHmac('sha256', config.didit.webhookSecret);
+        const digest = Buffer.from(hmac.update(JSON.stringify(payload)).digest('hex'), 'utf8');
+        const signatureBuffer = Buffer.from(signature, 'utf8');
+
+        if (signatureBuffer.length !== digest.length || !crypto.timingSafeEqual(digest, signatureBuffer)) {
+            throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid Didit signature");
+        }
+    }
+
+    console.log("Didit Webhook Event:", payload.event);
+
+    // 2. Handle status.updated event
+    if (payload.event === 'status.updated') {
+        const { session_id, status } = payload.data;
+
+        if (status === 'Approved') {
+            await User.findOneAndUpdate(
+                { diditSessionId: session_id },
+                {
+                    isIdentityVerified: true,
+                    status: 'active'
+                }
+            );
+        }
+    }
+};
+
 export const KycService = {
     getMobileToken,
     handleWebhook,
-    getKycStatus
+    getKycStatus,
+    createDiditSessionToDB,
+    handleDiditWebhookToDB
 };

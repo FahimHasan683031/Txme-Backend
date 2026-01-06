@@ -14,6 +14,8 @@ import generateOTP from '../../../util/generateOTP'
 import cryptoToken from '../../../util/cryptoToken'
 import { ADMIN_ROLES } from '../../../enums/user'
 import QueryBuilder from '../../../helpers/QueryBuilder'
+import { Appointment } from '../appointment/appointment.model'
+import { ServiceModel } from '../service/service.model'
 
 
 
@@ -24,11 +26,17 @@ const createAdminToDB = async (payload: IAdmin) => {
 }
 
 // Get all admins
-const getAllAdminsFromDB = async (query:Record<string,any>) => {
-  const adninQuery = new QueryBuilder(Admin.find(),query)
+const getAllAdminsFromDB = async (query: Record<string, any>) => {
+  const totalAdmins = await Admin.countDocuments({status: {$ne: "deleted"}});
+  const totalInactiveAdmins = await Admin.countDocuments({status: "inactive"});
+  const totalActiveAdmins = await Admin.countDocuments({status: "active"});
+  const adninQuery = new QueryBuilder(Admin.find({status: {$ne: "deleted"}}), query)
+    .filter()
+    .sort()
+    .paginate()
   const admins = await adninQuery.modelQuery;
   const meta = await adninQuery.getPaginationInfo();
-  return {admins,meta}
+  return { admins, meta,totalAdmins,totalInactiveAdmins,totalActiveAdmins }
 }
 
 //login
@@ -54,7 +62,7 @@ const loginAdminFromDB = async (payload: ILoginData) => {
       'You don’t have permission to access this content.It looks like your account has been deactivated.',
     )
   }
-  if (isExistUser.status === 'inactive') {
+  if (isExistUser.status === "inactive") {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       'Your account is inactive. Please contact support to activate it.',
@@ -309,8 +317,12 @@ const toggleUserStatusInDB = async (userId: string) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!")
   }
 
+  if (user.role === ADMIN_ROLES.SUPER_ADMIN) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "You can't toggle super admin")
+  }
+
   // Toggle between active and blocked
-  const newStatus = user.status === 'active' ? 'blocked' : 'active'
+  const newStatus = user.status === 'active' ? 'inactive' : 'active'
 
   const updatedUser = await Admin.findByIdAndUpdate(
     userId,
@@ -327,7 +339,7 @@ const deleteUserFromDB = async (userId: string) => {
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User doesn't exist!")
   }
-  if(user.role === ADMIN_ROLES.SUPER_ADMIN){
+  if (user.role === ADMIN_ROLES.SUPER_ADMIN) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "You can't delete super admin")
   }
 
@@ -340,6 +352,87 @@ const deleteUserFromDB = async (userId: string) => {
   return { message: 'User deleted successfully' }
 }
 
+// get dashboard overview
+const getDashboardOverviewFromDB = async (year: number) => {
+  const currentYear = year || new Date().getFullYear();
+
+  // 1. Total Counts
+  const totalCompletedJobs = await Appointment.countDocuments({ status: 'completed' });
+  const totalUsers = await User.countDocuments({ status: { $ne: 'deleted' } });
+  const totalServices = await ServiceModel.countDocuments({ isActive: true });
+
+  // 2. Total Amount from completed jobs
+  const totalAmountResult = await Appointment.aggregate([
+    { $match: { status: 'completed' } },
+    { $group: { _id: null, total: { $sum: '$totalCost' } } }
+  ]);
+  const totalAmount = totalAmountResult.length > 0 ? totalAmountResult[0].total : 0;
+
+  // 3. Monthly Users Overview
+  const monthlyUsers = await User.aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: new Date(`${currentYear}-01-01`),
+          $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+        },
+        status: { $ne: 'deleted' }
+      }
+    },
+    {
+      $group: {
+        _id: { $month: '$createdAt' },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id': 1 } }
+  ]);
+
+  // 4. Monthly Completed Jobs Overview
+  const monthlyJobs = await Appointment.aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: new Date(`${currentYear}-01-01`),
+          $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+        },
+        status: 'completed'
+      }
+    },
+    {
+      $group: {
+        _id: { $month: '$createdAt' },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id': 1 } }
+  ]);
+
+  // Format charts to include all 12 months
+  const formatChartData = (data: any[]) => {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months.map((month, index) => {
+      const found = data.find(item => item._id === index + 1);
+      return {
+        month,
+        count: found ? found.count : 0
+      };
+    });
+  };
+
+  return {
+    totalCompletedJobs,
+    totalUsers,
+    totalServices,
+    totalAmount,
+    userOverview: formatChartData(monthlyUsers),
+    jobOverview: formatChartData(monthlyJobs)
+  };
+}
+
 export const AdminService = {
   verifyEmailToDB,
   loginAdminFromDB,
@@ -349,5 +442,6 @@ export const AdminService = {
   createAdminToDB,
   toggleUserStatusInDB,
   deleteUserFromDB,
-  getAllAdminsFromDB
+  getAllAdminsFromDB,
+  getDashboardOverviewFromDB
 }
