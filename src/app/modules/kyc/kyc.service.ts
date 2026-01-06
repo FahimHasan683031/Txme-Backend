@@ -216,13 +216,14 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
 
     // 2. Handle status.updated event
     if (eventType === 'status.updated') {
-        const { session_id, status } = payload.data || {};
-        // vendor_data could be at the root or inside data
+        // Robust extraction: Check root AND payload.data
+        const session_id = payload.session_id || (payload.data && payload.data.session_id);
+        const status = payload.status || (payload.data && payload.data.status);
         const userId = payload.vendor_data || (payload.data && payload.data.vendor_data);
 
         console.log(`Processing update for Session: ${session_id}, Status: ${status}, VendorData(UserId): ${userId}`);
 
-        if (status && status.toLowerCase() === 'approved') {
+        if (status && status.toString().toLowerCase() === 'approved') {
             // Recommendation: Try to update by userId first (more reliable)
             let result = null;
             if (userId && userId.length === 24) { // Basic check for MongoDB ObjectId length
