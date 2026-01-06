@@ -12,7 +12,7 @@ import { Admin } from './admin.model'
 import { User } from '../user/user.model'
 import generateOTP from '../../../util/generateOTP'
 import cryptoToken from '../../../util/cryptoToken'
-import { ADMIN_ROLES } from '../../../enums/user'
+import { ADMIN_ROLES, USER_ROLES } from '../../../enums/user'
 import QueryBuilder from '../../../helpers/QueryBuilder'
 import { Appointment } from '../appointment/appointment.model'
 import { ServiceModel } from '../service/service.model'
@@ -27,16 +27,16 @@ const createAdminToDB = async (payload: IAdmin) => {
 
 // Get all admins
 const getAllAdminsFromDB = async (query: Record<string, any>) => {
-  const totalAdmins = await Admin.countDocuments({status: {$ne: "deleted"}});
-  const totalInactiveAdmins = await Admin.countDocuments({status: "inactive"});
-  const totalActiveAdmins = await Admin.countDocuments({status: "active"});
-  const adninQuery = new QueryBuilder(Admin.find({status: {$ne: "deleted"}}), query)
+  const totalAdmins = await Admin.countDocuments({ status: { $ne: "deleted" } });
+  const totalInactiveAdmins = await Admin.countDocuments({ status: "inactive" });
+  const totalActiveAdmins = await Admin.countDocuments({ status: "active" });
+  const adninQuery = new QueryBuilder(Admin.find({ status: { $ne: "deleted" } }), query)
     .filter()
     .sort()
     .paginate()
   const admins = await adninQuery.modelQuery;
   const meta = await adninQuery.getPaginationInfo();
-  return { admins, meta,totalAdmins,totalInactiveAdmins,totalActiveAdmins }
+  return { admins, meta, totalAdmins, totalInactiveAdmins, totalActiveAdmins }
 }
 
 //login
@@ -368,15 +368,16 @@ const getDashboardOverviewFromDB = async (year: number) => {
   ]);
   const totalAmount = totalAmountResult.length > 0 ? totalAmountResult[0].total : 0;
 
-  // 3. Monthly Users Overview
-  const monthlyUsers = await User.aggregate([
+  // 3. Monthly Providers Overview
+  const monthlyProviders = await User.aggregate([
     {
       $match: {
         createdAt: {
           $gte: new Date(`${currentYear}-01-01`),
           $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
         },
-        status: { $ne: 'deleted' }
+        status: { $ne: 'deleted' },
+        role: USER_ROLES.PROVIDER
       }
     },
     {
@@ -388,7 +389,28 @@ const getDashboardOverviewFromDB = async (year: number) => {
     { $sort: { '_id': 1 } }
   ]);
 
-  // 4. Monthly Completed Jobs Overview
+  // 4. Monthly Customers Overview
+  const monthlyCustomers = await User.aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: new Date(`${currentYear}-01-01`),
+          $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+        },
+        status: { $ne: 'deleted' },
+        role: USER_ROLES.CUSTOMER
+      }
+    },
+    {
+      $group: {
+        _id: { $month: '$createdAt' },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id': 1 } }
+  ]);
+
+  // 5. Monthly Completed Jobs Overview
   const monthlyJobs = await Appointment.aggregate([
     {
       $match: {
@@ -428,7 +450,8 @@ const getDashboardOverviewFromDB = async (year: number) => {
     totalUsers,
     totalServices,
     totalAmount,
-    userOverview: formatChartData(monthlyUsers),
+    providerOverview: formatChartData(monthlyProviders),
+    customerOverview: formatChartData(monthlyCustomers),
     jobOverview: formatChartData(monthlyJobs)
   };
 }

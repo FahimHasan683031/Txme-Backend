@@ -211,21 +211,46 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
         console.warn("DIDIT_WEBHOOK_SECRET is missing. Skipping signature verification (Not recommended for Production).");
     }
 
-    const eventType = payload.event || payload.type;
-    console.log("Didit Webhook Event:", eventType);
+    const eventType = payload.webhook_type || payload.event || payload.type;
+    console.log("Didit Webhook Event(Detected):", eventType);
 
     // 2. Handle status.updated event
     if (eventType === 'status.updated') {
-        const { session_id, status } = payload.data;
+        const { session_id, status } = payload.data || {};
+        // vendor_data could be at the root or inside data
+        const userId = payload.vendor_data || (payload.data && payload.data.vendor_data);
 
-        if (status === 'Approved') {
-            await User.findOneAndUpdate(
-                { diditSessionId: session_id },
-                {
-                    isIdentityVerified: true,
-                    status: 'active'
-                }
-            );
+        console.log(`Processing update for Session: ${session_id}, Status: ${status}, VendorData(UserId): ${userId}`);
+
+        if (status && status.toLowerCase() === 'approved') {
+            // Recommendation: Try to update by userId first (more reliable)
+            let result = null;
+            if (userId && userId.length === 24) { // Basic check for MongoDB ObjectId length
+                result = await User.findByIdAndUpdate(
+                    userId,
+                    { isIdentityVerified: true, status: 'active' },
+                    { new: true }
+                );
+                console.log(`Update result using UserId: ${result ? 'Success' : 'Failed (Not Found)'}`);
+            }
+
+            // Fallback to session_id if userId didn't work or wasn't provided
+            if (!result && session_id) {
+                result = await User.findOneAndUpdate(
+                    { diditSessionId: session_id },
+                    { isIdentityVerified: true, status: 'active' },
+                    { new: true }
+                );
+                console.log(`Update result using SessionId: ${result ? 'Success' : 'Failed (Not Found)'}`);
+            }
+
+            if (!result) {
+                console.error(`Could not find User to update for session ${session_id} or user ${userId}`);
+            } else {
+                console.log(`User ${result._id} successfully verified and activated.`);
+            }
+        } else {
+            console.log(`Status is not 'Approved' (received: ${status}). Skipping update.`);
         }
     }
 };
