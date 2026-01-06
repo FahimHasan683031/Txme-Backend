@@ -240,6 +240,24 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
 
                 if (decisionResponse.ok) {
                     const decision = await decisionResponse.json();
+
+                    // --- DETAILED LOGS FOR DEBUGGING ---
+                    console.log("---------------- DIDIT DEBUG START ----------------");
+                    console.log("1. RAW DECISION:", JSON.stringify(decision, null, 2));
+
+                    if (decision.verifications) {
+                        console.log("2. VERIFICATIONS ARRAY:", JSON.stringify(decision.verifications, null, 2));
+                    }
+
+                    if (decision.results) {
+                        console.log("3. RESULTS ARRAY:", JSON.stringify(decision.results, null, 2));
+                    }
+
+                    if (decision.data) {
+                        console.log("4. DATA OBJECT:", JSON.stringify(decision.data, null, 2));
+                    }
+                    console.log("----------------- DIDIT DEBUG END -----------------");
+
                     console.log("Didit Decision Raw Data Received.");
 
                     // 1. Accumulate data from all possible locations
