@@ -431,28 +431,36 @@ const getDashboardOverviewFromDB = async (year: number) => {
   ]);
 
   // Format charts to include all 12 months
-  const formatChartData = (data: any[]) => {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months.map((month, index) => {
-      const found = data.find(item => item._id === index + 1);
-      return {
-        month,
-        count: found ? found.count : 0
-      };
-    });
-  };
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
+  const userOverview = months.map((month, index) => {
+    const providerFound = monthlyProviders.find(item => item._id === index + 1);
+    const customerFound = monthlyCustomers.find(item => item._id === index + 1);
+    return {
+      month,
+      provider: providerFound ? providerFound.count : 0,
+      customer: customerFound ? customerFound.count : 0
+    };
+  });
+
+  const jobOverview = months.map((month, index) => {
+    const found = monthlyJobs.find(item => item._id === index + 1);
+    return {
+      month,
+      count: found ? found.count : 0
+    };
+  });
 
   return {
     totalCompletedJobs,
     totalUsers,
     totalServices,
     totalAmount,
-    providerOverview: formatChartData(monthlyProviders),
-    customerOverview: formatChartData(monthlyCustomers),
-    jobOverview: formatChartData(monthlyJobs)
+    userOverview,
+    jobOverview
   };
 }
 

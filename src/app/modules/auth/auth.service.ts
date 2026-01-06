@@ -116,35 +116,25 @@ const verifyOtp = async (payload: {
   user.authentication = undefined as any;
   await user.save();
 
-  // ✅ Generate tokens for both login_otp AND email_verify purposes
+  // ✅ Generate tokens
   let tokens = null;
   let userInfo = null;
-  if (purpose === "login_otp" || purpose === "email_verify") {
+
+  // 1. Handle Login OTP
+  if (purpose === "login_otp") {
     const [accessToken, refreshToken, biometricToken] = await Promise.all([
       jwtHelper.createToken(
-        {
-          id: user._id,
-          role: user.role,
-          email: user.email,
-        },
+        { id: user._id, role: user.role, email: user.email },
         config.jwt.jwt_secret as Secret,
         config.jwt.jwt_expire_in as string
       ),
       jwtHelper.createToken(
-        {
-          id: user._id,
-          role: user.role,
-          email: user.email,
-        },
+        { id: user._id, role: user.role, email: user.email },
         config.jwt.jwtRefreshSecret as Secret,
         config.jwt.jwtRefreshExpiresIn as string
       ),
       jwtHelper.createToken(
-        {
-          id: user._id,
-          role: user.role,
-          email: user.email,
-        },
+        { id: user._id, role: user.role, email: user.email },
         config.jwt.jwtBiometricSecret as Secret,
         config.jwt.jwtBiometricExpiresIn as string
       ),
@@ -153,34 +143,35 @@ const verifyOtp = async (payload: {
     tokens = {
       accessToken,
       refreshToken,
-      ...(purpose === "login_otp" &&
-        user.biometricEnabled && { biometricToken }),
-    };
-    userInfo = {
-      userId: user._id,
-      email: user.email,
-      phone: user.phone,
-      fullName: user.fullName,
-      profilePicture: user.profilePicture,
-      role: user.role,
+      ...(user.biometricEnabled && { biometricToken }),
     };
   }
 
-  if (purpose === "biometric_enable") {
-    await User.findByIdAndUpdate(user.id, {
-      biometricEnabled: true,
-    });
+  // 2. Handle Email Verification (Onboarding)
+  if (purpose === "email_verify") {
+    const accessToken = await jwtHelper.createToken(
+      { id: user._id, role: user.role, email: user.email },
+      config.jwt.jwt_secret as Secret,
+      "1h" // Temporary token
+    );
 
-    const biometricToken = jwtHelper.createToken(
-      {
-        id: user._id,
-        role: user.role,
-        email: user.email,
-      },
+    tokens = { accessToken };
+  }
+
+  // 3. Handle Biometric Enable
+  if (purpose === "biometric_enable") {
+    await User.findByIdAndUpdate(user.id, { biometricEnabled: true });
+
+    const biometricToken = await jwtHelper.createToken(
+      { id: user._id, role: user.role, email: user.email },
       config.jwt.jwtBiometricSecret as Secret,
       config.jwt.jwtBiometricExpiresIn as string
     );
     tokens = { biometricToken };
+  }
+
+  // Common User Info
+  if (tokens) {
     userInfo = {
       userId: user._id,
       email: user.email,
@@ -380,6 +371,56 @@ const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
   Object.assign(userFromDB, payload);
   const res = await userFromDB.save();
 
+  // Check if this is a registration completion (Activation)
+  const isFirstTimeActivation =
+    userFromDB.status === 'pending' &&
+    userFromDB.isEmailVerified &&
+    // userFromDB.isPhoneVerified &&
+    userFromDB.isIdentityVerified;
+
+  if (isFirstTimeActivation) {
+    userFromDB.status = 'active';
+    await userFromDB.save();
+
+    // Generate Final Tokens (Access & Refresh)
+    const [accessToken, refreshToken] = await Promise.all([
+      jwtHelper.createToken(
+        {
+          id: userFromDB._id,
+          role: userFromDB.role,
+          email: userFromDB.email,
+        },
+        config.jwt.jwt_secret as Secret,
+        config.jwt.jwt_expire_in as string
+      ),
+      jwtHelper.createToken(
+        {
+          id: userFromDB._id,
+          role: userFromDB.role,
+          email: userFromDB.email,
+        },
+        config.jwt.jwtRefreshSecret as Secret,
+        config.jwt.jwtRefreshExpiresIn as string
+      ),
+    ]);
+
+    const userInfo = {
+      userId: userFromDB._id,
+      email: userFromDB.email,
+      phone: userFromDB.phone,
+      fullName: userFromDB.fullName,
+      profilePicture: userFromDB.profilePicture,
+      role: userFromDB.role,
+    };
+
+    return {
+      res,
+      tokens: { accessToken, refreshToken },
+      userInfo
+    };
+  }
+
+  // Regular profile update for already active users
   return { res };
 };
 

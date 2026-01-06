@@ -126,7 +126,8 @@ const createDiditSessionToDB = async (userId: string) => {
 
     const payload: any = {
         vendor_data: userId,
-        callback_url: "txme://kyc-success"
+        callback_url: "txme://kyc-success",
+        callback: "txme://kyc-success"
     };
 
     // Use workflowId if provided, otherwise fallback to features (for older/custom setups)
@@ -226,10 +227,48 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
         if (status && status.toString().toLowerCase() === 'approved') {
             // Recommendation: Try to update by userId first (more reliable)
             let result = null;
-            if (userId && userId.length === 24) { // Basic check for MongoDB ObjectId length
+
+            // 3. Fetch extracted data from Didit Decision API
+            let kycData: any = {};
+            try {
+                console.log(`Fetching decision data for session: ${session_id}`);
+                const decisionResponse = await fetch(`${config.didit.baseUrl}/session/${session_id}/decision/`, {
+                    headers: {
+                        'x-api-key': config.didit.apiKey as string
+                    }
+                });
+
+                if (decisionResponse.ok) {
+                    const decision = await decisionResponse.json();
+                    console.log("Didit Decision Data:", JSON.stringify(decision, null, 2));
+
+                    // Extract common fields (field names might vary based on your workflow)
+                    // Usually found in results or extracted_data
+                    const extracted = decision.extracted_data || {};
+                    kycData = {
+                        fullName: extracted.full_name || extracted.first_name + " " + extracted.last_name,
+                        dateOfBirth: extracted.date_of_birth ? new Date(extracted.date_of_birth) : undefined,
+                        gender: extracted.gender,
+                        nationality: extracted.nationality,
+                        countryOfResidence: extracted.country || extracted.issuing_country
+                    };
+                } else {
+                    console.warn(`Failed to fetch decision data: ${decisionResponse.status}`);
+                }
+            } catch (error) {
+                console.error("Error fetching Didit decision data:", error);
+            }
+
+            const updateData = {
+                isIdentityVerified: true,
+                // status: 'active', // Removed: User will be activated after complete-profile
+                ...kycData
+            };
+
+            if (userId && userId.length === 24) {
                 result = await User.findByIdAndUpdate(
                     userId,
-                    { isIdentityVerified: true, status: 'active' },
+                    updateData,
                     { new: true }
                 );
                 console.log(`Update result using UserId: ${result ? 'Success' : 'Failed (Not Found)'}`);
@@ -239,7 +278,7 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
             if (!result && session_id) {
                 result = await User.findOneAndUpdate(
                     { diditSessionId: session_id },
-                    { isIdentityVerified: true, status: 'active' },
+                    updateData,
                     { new: true }
                 );
                 console.log(`Update result using SessionId: ${result ? 'Success' : 'Failed (Not Found)'}`);
