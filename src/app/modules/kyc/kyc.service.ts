@@ -241,75 +241,60 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
                 if (decisionResponse.ok) {
                     const decision = await decisionResponse.json();
 
-                    // --- DETAILED LOGS FOR DEBUGGING ---
-                    console.log("---------------- DIDIT DEBUG START ----------------");
-                    console.log("1. RAW DECISION:", JSON.stringify(decision, null, 2));
-
-                    if (decision.verifications) {
-                        console.log("2. VERIFICATIONS ARRAY:", JSON.stringify(decision.verifications, null, 2));
-                    }
-
-                    if (decision.results) {
-                        console.log("3. RESULTS ARRAY:", JSON.stringify(decision.results, null, 2));
-                    }
-
-                    if (decision.data) {
-                        console.log("4. DATA OBJECT:", JSON.stringify(decision.data, null, 2));
-                    }
-                    console.log("----------------- DIDIT DEBUG END -----------------");
-
-                    console.log("Didit Decision Raw Data Received.");
-
-                    // 1. Accumulate data from all possible locations
+                    // 1. Aggressive Flattening strategy
                     let combinedData: any = {};
 
-                    // Root and direct children
-                    Object.assign(combinedData, decision);
-                    if (decision.data) Object.assign(combinedData, decision.data);
-                    if (decision.extracted_data) Object.assign(combinedData, decision.extracted_data);
-                    if (decision.data && decision.data.extracted_data) Object.assign(combinedData, decision.data.extracted_data);
+                    const sources = [
+                        decision,
+                        decision.document,
+                        decision.identity,
+                        decision.data,
+                        decision.extracted_data,
+                        ...(decision.data ? [decision.data.document, decision.data.identity, decision.data.extracted_data] : [])
+                    ];
 
-                    // Search through verifications array (Highest Priority for PII)
-                    const verifications = decision.verifications || (decision.data && decision.data.verifications) || [];
-                    if (Array.isArray(verifications)) {
-                        verifications.forEach((v: any) => {
-                            if (v.extracted_data) Object.assign(combinedData, v.extracted_data);
-                            if (v.type?.toLowerCase().includes('document')) {
-                                Object.assign(combinedData, v);
-                            }
-                        });
-                    }
+                    sources.forEach(source => {
+                        if (source && typeof source === 'object') {
+                            Object.assign(combinedData, source);
+                        }
+                    });
 
-                    // Search through results array
-                    const results = decision.results || (decision.data && decision.data.results) || [];
-                    if (Array.isArray(results)) {
-                        results.forEach((r: any) => {
-                            if (r.extracted_data) Object.assign(combinedData, r.extracted_data);
-                            if (r.data) Object.assign(combinedData, r.data);
-                        });
-                    }
+                    // Search through verifications and results arrays
+                    const nestedArrays = [
+                        decision.verifications,
+                        decision.results,
+                        decision.data?.verifications,
+                        decision.data?.results
+                    ];
 
-                    // 2. Extract Images
+                    nestedArrays.forEach(arr => {
+                        if (Array.isArray(arr)) {
+                            arr.forEach(item => {
+                                if (item.extracted_data) Object.assign(combinedData, item.extracted_data);
+                                if (item.data) Object.assign(combinedData, item.data);
+                                if (item.document) Object.assign(combinedData, item.document);
+                                if (item.full_name || item.document_number) Object.assign(combinedData, item);
+                            });
+                        }
+                    });
+
+                    // 2. Specialized Image Extraction
                     const idDocImages: string[] = [];
-                    const documents = decision.documents || (decision.data && decision.data.documents) || [];
-                    if (Array.isArray(documents)) {
-                        documents.forEach((doc: any) => {
-                            if (doc.front_image || doc.front) idDocImages.push(doc.front_image || doc.front);
-                            if (doc.back_image || doc.back) idDocImages.push(doc.back_image || doc.back);
-                        });
-                    }
+                    const docSources = [
+                        decision.document,
+                        decision.identity,
+                        decision.data?.document,
+                        decision.data?.identity,
+                        ...(Array.isArray(decision.documents) ? decision.documents : []),
+                        ...(Array.isArray(decision.data?.documents) ? decision.data.documents : [])
+                    ];
 
-                    // Fallback to verifications for images
-                    if (idDocImages.length === 0 && Array.isArray(verifications)) {
-                        verifications.forEach((v: any) => {
-                            if (v.documents && Array.isArray(v.documents)) {
-                                v.documents.forEach((doc: any) => {
-                                    if (doc.front_image || doc.front) idDocImages.push(doc.front_image || doc.front);
-                                    if (doc.back_image || doc.back) idDocImages.push(doc.back_image || doc.back);
-                                });
-                            }
-                        });
-                    }
+                    docSources.forEach(ds => {
+                        if (ds) {
+                            if (ds.front_image || ds.front) idDocImages.push(ds.front_image || ds.front);
+                            if (ds.back_image || ds.back) idDocImages.push(ds.back_image || ds.back);
+                        }
+                    });
 
                     // 3. Mapping Final Object
                     const idValue = combinedData.document_number || combinedData.id_number || combinedData.document_id || combinedData.value;
@@ -326,7 +311,7 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
                         gender: combinedData.gender || combinedData.sex,
                         nationality: combinedData.nationality || combinedData.country,
                         countryOfResidence: combinedData.country || combinedData.issuing_country || combinedData.country_of_residence,
-                        postalAddress: combinedData.address || combinedData.residential_address,
+                        postalAddress: combinedData.address || combinedData.residential_address || combinedData.formatted_address,
                         ...(idValue && {
                             identification: {
                                 type: idType || 'nid',
