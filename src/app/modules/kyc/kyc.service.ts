@@ -240,43 +240,56 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
 
                 if (decisionResponse.ok) {
                     const decision = await decisionResponse.json();
-                    console.log("Didit Decision Data:", JSON.stringify(decision, null, 2));
+                    console.log("Didit Decision Raw Data:", JSON.stringify(decision, null, 2));
 
-                    const extracted = decision.extracted_data || {};
-                    const documents = decision.documents || [];
+                    // Robust extraction from multiple possible locations
+                    const data = decision.data || decision.extracted_data || decision;
+                    const results = decision.results || (decision.data && decision.data.results) || [];
+                    const documents = decision.documents || (decision.data && decision.data.documents) || [];
 
-                    // Map Didit document type to our app's nid/passport
+                    console.log("Extracted Source Data:", JSON.stringify(data, null, 2));
+
+                    // Map Document Type
                     let idType: "nid" | "passport" | undefined = undefined;
-                    if (extracted.document_type) {
-                        const type = extracted.document_type.toLowerCase();
-                        if (type.includes('passport')) idType = 'passport';
-                        else if (type.includes('id') || type.includes('license')) idType = 'nid';
-                    }
+                    const rawType = (data.document_type || data.type || "").toString().toLowerCase();
+                    if (rawType.includes('passport')) idType = 'passport';
+                    else if (rawType.includes('id') || rawType.includes('license') || rawType.includes('card')) idType = 'nid';
 
-                    // Extract document images
+                    // Extract Images
                     const idDocImages: string[] = [];
-                    if (documents.length > 0) {
+                    if (documents && Array.isArray(documents)) {
                         documents.forEach((doc: any) => {
-                            if (doc.front_image) idDocImages.push(doc.front_image);
-                            if (doc.back_image) idDocImages.push(doc.back_image);
+                            if (doc.front_image || doc.front) idDocImages.push(doc.front_image || doc.front);
+                            if (doc.back_image || doc.back) idDocImages.push(doc.back_image || doc.back);
                         });
                     }
 
+                    // Map ID Value
+                    const idValue = data.document_number || data.id_number || data.document_id || data.value;
+
                     kycData = {
-                        fullName: extracted.full_name || (extracted.first_name ? (extracted.first_name + " " + (extracted.last_name || "")) : undefined),
-                        dateOfBirth: extracted.date_of_birth ? new Date(extracted.date_of_birth) : undefined,
-                        gender: extracted.gender,
-                        nationality: extracted.nationality,
-                        countryOfResidence: extracted.country || extracted.issuing_country,
-                        postalAddress: extracted.address,
-                        identification: {
-                            type: idType || 'nid',
-                            value: extracted.document_number
-                        },
-                        idDocuments: idDocImages.length > 0 ? idDocImages : undefined
+                        fullName: data.full_name ||
+                            (data.first_name ? `${data.first_name} ${data.last_name || ""}`.trim() : undefined) ||
+                            data.name,
+                        dateOfBirth: (data.date_of_birth || data.dob || data.birth_date) ? new Date(data.date_of_birth || data.dob || data.birth_date) : undefined,
+                        gender: data.gender || data.sex,
+                        nationality: data.nationality || data.country,
+                        countryOfResidence: data.country || data.issuing_country || data.country_of_residence,
+                        postalAddress: data.address || data.residential_address,
+                        ...(idValue && {
+                            identification: {
+                                type: idType || 'nid',
+                                value: idValue
+                            }
+                        }),
+                        ...(idDocImages.length > 0 && { idDocuments: idDocImages })
                     };
+
+                    console.log("Final KYC Object for DB Update:", JSON.stringify(kycData, null, 2));
                 } else {
-                    console.warn(`Failed to fetch decision data: ${decisionResponse.status}`);
+                    console.warn(`Failed to fetch decision data: Status ${decisionResponse.status}`);
+                    const errorText = await decisionResponse.text();
+                    console.warn(`Error Body: ${errorText}`);
                 }
             } catch (error) {
                 console.error("Error fetching Didit decision data:", error);
