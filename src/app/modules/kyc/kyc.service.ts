@@ -242,15 +242,38 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
                     const decision = await decisionResponse.json();
                     console.log("Didit Decision Data:", JSON.stringify(decision, null, 2));
 
-                    // Extract common fields (field names might vary based on your workflow)
-                    // Usually found in results or extracted_data
                     const extracted = decision.extracted_data || {};
+                    const documents = decision.documents || [];
+
+                    // Map Didit document type to our app's nid/passport
+                    let idType: "nid" | "passport" | undefined = undefined;
+                    if (extracted.document_type) {
+                        const type = extracted.document_type.toLowerCase();
+                        if (type.includes('passport')) idType = 'passport';
+                        else if (type.includes('id') || type.includes('license')) idType = 'nid';
+                    }
+
+                    // Extract document images
+                    const idDocImages: string[] = [];
+                    if (documents.length > 0) {
+                        documents.forEach((doc: any) => {
+                            if (doc.front_image) idDocImages.push(doc.front_image);
+                            if (doc.back_image) idDocImages.push(doc.back_image);
+                        });
+                    }
+
                     kycData = {
-                        fullName: extracted.full_name || extracted.first_name + " " + extracted.last_name,
+                        fullName: extracted.full_name || (extracted.first_name ? (extracted.first_name + " " + (extracted.last_name || "")) : undefined),
                         dateOfBirth: extracted.date_of_birth ? new Date(extracted.date_of_birth) : undefined,
                         gender: extracted.gender,
                         nationality: extracted.nationality,
-                        countryOfResidence: extracted.country || extracted.issuing_country
+                        countryOfResidence: extracted.country || extracted.issuing_country,
+                        postalAddress: extracted.address,
+                        identification: {
+                            type: idType || 'nid',
+                            value: extracted.document_number
+                        },
+                        idDocuments: idDocImages.length > 0 ? idDocImages : undefined
                     };
                 } else {
                     console.warn(`Failed to fetch decision data: ${decisionResponse.status}`);
