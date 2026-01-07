@@ -23,6 +23,10 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
       throw new ApiError(StatusCodes.BAD_REQUEST, "Amount is required for money requests and must be greater than 0");
     }
     payload.moneyRequestStatus = 'pending';
+
+    if(await Chat.findById(payload.chatId).isAdminSupport){
+      throw new ApiError(StatusCodes.BAD_REQUEST, "You can't send money request to admin support chat");
+    }
   }
 
   const isExistChat = await Chat.findById(payload.chatId);
@@ -56,6 +60,14 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
         lastMessage: response,
       });
     });
+
+    // If it's an admin support chat, also notify ALL admins
+    if (isExistChat.isAdminSupport) {
+      io.emit('adminChatListUpdate', {
+        chatId: payload.chatId,
+        lastMessage: response,
+      });
+    }
   }
 
   // Send Push Notification (No DB Storage)

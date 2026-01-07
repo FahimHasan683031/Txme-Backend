@@ -28,27 +28,29 @@ const createAdminSupport = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getChat = catchAsync(async (req: Request, res: Response) => {
-    const chatList = await ChatService.getChatFromDB(
+    const result = await ChatService.getChatFromDB(
         req.user as JwtPayload,
-        req.query.search as string
+        req.query
     );
 
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
         message: 'Chat Retrieve Successfully',
-        data: chatList
+        data: result.data,
+        pagination: result.pagination
     });
 });
 
 const getAdminSupportChats = catchAsync(async (req: Request, res: Response) => {
-    const chatList = await ChatService.getAdminSupportChats();
+    const result = await ChatService.getAdminSupportChats(req.query);
 
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
         message: 'Admin Support Chats Retrieved Successfully',
-        data: chatList
+        data: result.data,
+        pagination: result.pagination
     });
 });
 

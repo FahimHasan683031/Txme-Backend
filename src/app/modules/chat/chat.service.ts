@@ -55,31 +55,54 @@ const createAdminSupportChat = async (userId: string): Promise<IChat> => {
 
 const getChatFromDB = async (
     user: JwtPayload,
-    search: string
-): Promise<any[]> => {
+    query: Record<string, unknown>
+): Promise<any> => {
     // Build query to find chats where user is a participant
-    const query: FilterQuery<IChat> = {
+    const chatFilter: FilterQuery<IChat> = {
         participants: { $in: [user.id] },
     };
 
-    // Populate only the other participants (not the current user)
-    const chats = await Chat.find(query)
+    if (query.searchTerm) {
+        // Use QueryBuilder's native search implementation on the User model
+        const userQueryBuilder = new QueryBuilder(User.find(), query)
+            .search(['fullName', 'email']);
+
+        const matchingUsers = await userQueryBuilder.modelQuery
+            .select('_id')
+            .lean();
+
+        const matchingUserIds = matchingUsers.map((u: any) => u._id);
+
+        // Add to query: at least one of the OTHER participants must be in matchingUserIds
+        chatFilter.participants = {
+            $all: [user.id],
+            $in: matchingUserIds
+        };
+    }
+
+    const chatQueryBuilder = new QueryBuilder(Chat.find(chatFilter), query)
+        .filter()
+        .sort('-lastMessageAt')
+        .paginate();
+
+    const chats = await chatQueryBuilder.modelQuery
         .populate({
             path: 'participants',
-            select: '_id fullName profilePicture',
+            select: '_id fullName profilePicture role email',
             match: { _id: { $ne: user.id } }
         })
         .populate({
             path: 'lastMessage',
             select: 'text files type createdAt sender'
         })
-        .sort({ lastMessageAt: -1 }) // Sort by most recent message
         .select('participants status isAdminSupport lastMessage lastMessageAt')
         .lean();
 
+    const pagination = await chatQueryBuilder.getPaginationInfo();
+
     // Calculate unread count for each chat
     const chatsWithDetails = await Promise.all(
-        chats.map(async (chat) => {
+        chats.map(async (chat: any) => {
             const unreadCount = await Message.countDocuments({
                 chatId: chat._id,
                 sender: { $ne: new Types.ObjectId(user.id) },
@@ -95,26 +118,47 @@ const getChatFromDB = async (
 
     // Filter out chats where participants array is empty after filtering
     const filteredChats = chatsWithDetails.filter(
-        chat => chat.participants.length > 0 || chat.isAdminSupport
+        (chat: any) => chat.participants.length > 0 || chat.isAdminSupport
     );
 
-    return filteredChats;
+    return { data: filteredChats, pagination };
 };
 
 // Get all admin support chats (for admin panel)
-const getAdminSupportChats = async (): Promise<any[]> => {
-    const chats = await Chat.find({ isAdminSupport: true })
+const getAdminSupportChats = async (query: Record<string, unknown>): Promise<any> => {
+    const chatQuery: FilterQuery<IChat> = { isAdminSupport: true };
+
+    if (query.searchTerm) {
+        // Use QueryBuilder's native search implementation on the User model
+        const userQueryBuilder = new QueryBuilder(User.find(), query)
+            .search(['fullName', 'email']);
+
+        const matchingUsers = await userQueryBuilder.modelQuery
+            .select('_id')
+            .lean();
+
+        const matchingUserIds = matchingUsers.map((u: any) => u._id);
+        chatQuery.participants = { $in: matchingUserIds };
+    }
+
+    const chatQueryBuilder = new QueryBuilder(Chat.find(chatQuery), query)
+        .filter()
+        .sort('-lastMessageAt')
+        .paginate();
+
+    const chats = await chatQueryBuilder.modelQuery
         .populate({
             path: 'participants',
-            select: '_id fullName profilePicture email'
+            select: '_id fullName profilePicture email role'
         })
         .populate({
             path: 'lastMessage',
             select: 'text files type createdAt sender'
         })
-        .sort({ lastMessageAt: -1 })
         .select('participants status isAdminSupport lastMessage lastMessageAt')
         .lean();
+
+    const pagination = await chatQueryBuilder.getPaginationInfo();
 
     // Calculate unread count for each chat (from user's perspective)
     const chatsWithUnreadCount = await Promise.all(
@@ -132,7 +176,7 @@ const getAdminSupportChats = async (): Promise<any[]> => {
         })
     );
 
-    return chatsWithUnreadCount;
+    return { data: chatsWithUnreadCount, pagination };
 };
 
 // Delete a chat
