@@ -2,12 +2,14 @@
 import { Types } from "mongoose";
 
 export interface IWalletTransaction {
-  wallet: Types.ObjectId;
+  wallet?: Types.ObjectId;
   amount: number;
-  type: "topup" | "withdraw" | "send";
+  type: "topup" | "withdraw" | "send" | "promotion";
   direction: "credit" | "debit";
   status: "pending" | "success" | "failed";
   reference?: string;
   from?: Types.ObjectId;
   to?: Types.ObjectId;
+  platform?: "ios" | "android";
+  productId?: string;
 }

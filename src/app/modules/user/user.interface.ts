@@ -77,6 +77,8 @@ export interface IUser extends Document {
   complyCubeClientId?: string;
   isIdentityVerified?: boolean;
   diditSessionId?: string;
+  isPromoted?: boolean;
+  promotionExpiry?: Date;
 }
 
 export type UserModal = {

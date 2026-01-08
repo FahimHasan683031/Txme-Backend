@@ -154,6 +154,8 @@ const userSchema = new Schema<IUser>(
     complyCubeClientId: { type: String, required: false },
     isIdentityVerified: { type: Boolean, default: false },
     diditSessionId: { type: String, required: false },
+    isPromoted: { type: Boolean, default: false },
+    promotionExpiry: { type: Date, default: null },
   },
   {
     timestamps: true,

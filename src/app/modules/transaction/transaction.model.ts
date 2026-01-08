@@ -6,12 +6,12 @@ const transactionSchema = new Schema<IWalletTransaction>(
     wallet: {
       type: Schema.Types.ObjectId,
       ref: "Wallet",
-      required: true,
+      required: false,
     },
     amount: { type: Number, required: true },
     type: {
       type: String,
-      enum: ["topup", "withdraw", "send"],
+      enum: ["topup", "withdraw", "send", "promotion"],
       required: true,
     },
     direction: {
@@ -27,6 +27,8 @@ const transactionSchema = new Schema<IWalletTransaction>(
     reference: String,
     from: { type: Schema.Types.ObjectId, ref: "User" },
     to: { type: Schema.Types.ObjectId, ref: "User" },
+    platform: { type: String, enum: ["ios", "android"] },
+    productId: { type: String },
   },
   { timestamps: true }
 );

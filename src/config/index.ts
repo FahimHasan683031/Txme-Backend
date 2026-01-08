@@ -52,5 +52,11 @@ export default {
         webhookSecret: process.env.DIDIT_WEBHOOK_SECRET,
         baseUrl: 'https://verification.didit.me/v2',
         workflowId: process.env.DIDIT_WORKFLOW_ID
+    },
+    iap: {
+        appleSharedSecret: process.env.APPLE_IAP_SHARED_SECRET,
+        googleServiceAccountEmail: process.env.GOOGLE_IAP_SERVICE_ACCOUNT_EMAIL,
+        googlePrivateKey: process.env.GOOGLE_IAP_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        packageName: process.env.PACKAGE_NAME
     }
 }
