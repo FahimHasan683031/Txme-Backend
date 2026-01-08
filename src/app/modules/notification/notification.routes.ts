@@ -24,4 +24,6 @@ router.get('/admin/unread-count',
     NotificationController.adminGetUnreadCount
 );
 
+router.post('/test-push', NotificationController.sendTestPushNotification);
+
 export const NotificationRoutes = router;

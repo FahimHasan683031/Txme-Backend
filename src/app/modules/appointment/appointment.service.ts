@@ -81,14 +81,20 @@ export const createAppointment = async (customerId: string, data: any) => {
   });
 
   // Send Notification to Provider
-  await NotificationService.insertNotification({
-    title: "New Appointment Request",
-    message: `You have a new appointment request for ${service} on ${date}`,
-    receiver: provider,
-    referenceId: appointment._id,
-    screen: "APPOINTMENT",
-    type: "USER"
-  });
+  console.log(`[AppointmentService] Triggering notification for New Appointment. Provider: ${provider}`);
+  try {
+    await NotificationService.insertNotification({
+      title: "New Appointment Request",
+      message: `You have a new appointment request for ${service} on ${date}`,
+      receiver: provider,
+      referenceId: appointment._id,
+      screen: "APPOINTMENT",
+      type: "USER"
+    });
+    console.log(`[AppointmentService] Notification inserted successfully for provider`);
+  } catch (error) {
+    console.error(`[AppointmentService] Failed to insert new appointment notification:`, error);
+  }
 
   // Socket notification for real-time update in UI list (sorting)
   //@ts-ignore
@@ -303,14 +309,21 @@ async function sendStatusNotification(appointment: any, status: string) {
 
   const config = messages[status];
   if (config) {
-    await NotificationService.insertNotification({
-      title: config.title,
-      message: config.message,
-      receiver: config.receiver === "customer" ? appointment.customer : appointment.provider,
-      referenceId: appointment._id,
-      screen: "APPOINTMENT",
-      type: "USER",
-    });
+    const receiverId = config.receiver === "customer" ? appointment.customer : appointment.provider;
+    console.log(`[AppointmentService] Triggering status notification: ${status}. Receiver: ${receiverId}`);
+    try {
+      await NotificationService.insertNotification({
+        title: config.title,
+        message: config.message,
+        receiver: receiverId,
+        referenceId: appointment._id,
+        screen: "APPOINTMENT",
+        type: "USER",
+      });
+      console.log(`[AppointmentService] Status notification inserted successfully`);
+    } catch (error) {
+      console.error(`[AppointmentService] Failed to insert status notification:`, error);
+    }
   }
 }
 
@@ -355,24 +368,34 @@ const payWithWallet = async (appointmentId: string, userId: string) => {
   await appointment.save();
 
   // Notify Provider
-  await NotificationService.insertNotification({
-    title: "Payment Received",
-    message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
-    receiver: appointment.provider,
-    referenceId: appointment._id,
-    screen: "APPOINTMENT",
-    type: "USER"
-  });
+  console.log(`[AppointmentService] Triggering wallet payment notification for provider: ${appointment.provider}`);
+  try {
+    await NotificationService.insertNotification({
+      title: "Payment Received",
+      message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
+      receiver: appointment.provider,
+      referenceId: appointment._id,
+      screen: "APPOINTMENT",
+      type: "USER"
+    });
+  } catch (error) {
+    console.error(`[AppointmentService] Failed to notify provider:`, error);
+  }
 
   // Notify Customer
-  await NotificationService.insertNotification({
-    title: "Payment Successful",
-    message: `Your wallet payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
-    receiver: appointment.customer,
-    referenceId: appointment._id,
-    screen: "APPOINTMENT",
-    type: "USER"
-  });
+  console.log(`[AppointmentService] Triggering wallet payment notification for customer: ${appointment.customer}`);
+  try {
+    await NotificationService.insertNotification({
+      title: "Payment Successful",
+      message: `Your wallet payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
+      receiver: appointment.customer,
+      referenceId: appointment._id,
+      screen: "APPOINTMENT",
+      type: "USER"
+    });
+  } catch (error) {
+    console.error(`[AppointmentService] Failed to notify customer:`, error);
+  }
 
   // also emit socket for real-time update
   //@ts-ignore

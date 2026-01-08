@@ -70,7 +70,7 @@ const sendPhoneOtp = async (payload: { phone: string; id: string }) => {
   await user.save();
 
   // Send SMS after saving user
-  await sendSMS(payload.phone, otp.toString());
+  await sendSMS(payload.phone, `Your phone verification OTP is ${otp}. It is valid for 5 minutes.`);
 
   return { userId: user._id, phone: payload.phone };
 };
@@ -375,7 +375,7 @@ const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
   const isFirstTimeActivation =
     userFromDB.status === 'pending' &&
     userFromDB.isEmailVerified &&
-    // userFromDB.isPhoneVerified &&
+    userFromDB.isPhoneVerified &&
     userFromDB.isIdentityVerified;
 
   if (isFirstTimeActivation) {
@@ -496,7 +496,7 @@ const resendOtp = async (identifier: unknown) => {
       );
     }, 0);
   } else {
-    await sendSMS(numericValue, `Your OTP is ${newOtp}. Valid for 5 minutes.`);
+    await sendSMS(numericValue, `Your phone verification OTP is ${newOtp}. It is valid for 5 minutes.`);
   }
 
   return {

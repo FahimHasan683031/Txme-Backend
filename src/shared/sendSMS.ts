@@ -29,6 +29,10 @@ const sendSMS = async (to: string, message: string) => {
           DataType: 'String',
           StringValue: 'Transactional',
         },
+        'AWS.SNS.SMS.SenderID': {
+          DataType: 'String',
+          StringValue: 'TXMEAPP',
+        },
       },
     };
 

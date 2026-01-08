@@ -60,14 +60,20 @@ const topUp = async (userId: string, amount: number, reference: string = "topup"
     console.log('[WalletService] Transaction committed.');
 
     // Send Notification
-    await NotificationService.insertNotification({
-      title: "Wallet Top Up",
-      message: `Successfully added ${amount} to your wallet.`,
-      receiver: new Types.ObjectId(userId),
-      screen: "WALLET",
-      type: "USER",
-      read: false
-    });
+    console.log(`[WalletService] Triggering notification for Top Up. User: ${userId}, Amount: ${amount}`);
+    try {
+      const notification = await NotificationService.insertNotification({
+        title: "Wallet Top Up",
+        message: `Successfully added ${amount} to your wallet.`,
+        receiver: new Types.ObjectId(userId),
+        screen: "WALLET",
+        type: "USER",
+        read: false
+      });
+      console.log(`[WalletService] Notification inserted successfully`);
+    } catch (notificationError) {
+      console.error('[WalletService] Failed to insert top-up notification:', notificationError);
+    }
 
     return tx[0];
   } catch (e) {
@@ -184,7 +190,6 @@ const sendMoney = async (
   }
 };
 
-// WITHDRAW
 const withdraw = async (userId: string, amount: number) => {
   await checkWalletSetting('withdraw');
   const wallet = await getOrCreateWallet(userId);
@@ -196,45 +201,47 @@ const withdraw = async (userId: string, amount: number) => {
   const user = await User.findById(userId);
   if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
-  // If user is connected to Stripe, proceed with automated withdrawal
-  if (user.isStripeConnected && user.stripeAccountId) {
-    const session = await mongoose.startSession();
-    try {
-      session.startTransaction();
+  // Ensure user is connected to Stripe
+  if (!user.isStripeConnected || !user.stripeAccountId) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Please connect your Stripe account to withdraw funds.");
+  }
 
-      // 1. Trigger Stripe Transfer (Platform -> Provider Account) FIRST to get reference
-      const transfer = await StripeService.createTransfer(amount, user.stripeAccountId, { type: 'withdrawal', userId });
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
 
-      // 2. Create successful transaction using Transfer ID as reference
-      const tx = await WalletTransaction.create([
-        {
-          wallet: wallet._id,
-          amount,
-          type: "withdraw",
-          direction: "debit",
-          status: "success",
-          from: userId,
-          reference: transfer.id // Use Stripe Transfer ID
-        }
-      ], { session });
+    // 1. Trigger Stripe Transfer (Platform -> Provider Account) FIRST to get reference
+    const transfer = await StripeService.createTransfer(amount, user.stripeAccountId, { type: 'withdrawal', userId });
 
-      // 3. Deduct from wallet balance
-      wallet.balance -= amount;
-      await wallet.save({ session });
-
-      // 4. Trigger Stripe Payout (Provider Account -> Card/Bank)
-      // Note: This requires the connected account to have enough balance. 
-      // If we just transferred it, it might take a moment to be available.
-      // We'll attempt a payout.
-      try {
-        await StripeService.createPayout(amount, user.stripeAccountId);
-      } catch (payoutError) {
-        logger.error(`Automatic payout failed for user ${userId}: ${payoutError}. The transfer was still successful.`);
+    // 2. Create successful transaction using Transfer ID as reference
+    const tx = await WalletTransaction.create([
+      {
+        wallet: wallet._id,
+        amount,
+        type: "withdraw",
+        direction: "debit",
+        status: "success",
+        from: userId,
+        reference: transfer.id // Use Stripe Transfer ID
       }
+    ], { session });
 
-      await session.commitTransaction();
+    // 3. Deduct from wallet balance
+    wallet.balance -= amount;
+    await wallet.save({ session });
 
-      // Notify User (Successful)
+    // 4. Trigger Stripe Payout (Provider Account -> Card/Bank)
+    try {
+      await StripeService.createPayout(amount, user.stripeAccountId);
+    } catch (payoutError) {
+      logger.error(`Automatic payout failed for user ${userId}: ${payoutError}. The transfer was still successful.`);
+    }
+
+    await session.commitTransaction();
+
+    // Notify User
+    console.log(`[WalletService] Triggering withdrawal notification. User: ${userId}`);
+    try {
       await NotificationService.insertNotification({
         title: "Withdrawal Successful",
         message: `Your withdrawal of ${amount} has been successfully processed via Stripe.`,
@@ -243,37 +250,17 @@ const withdraw = async (userId: string, amount: number) => {
         type: "USER",
         read: false
       });
-
-      return tx[0];
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
+    } catch (notifError) {
+      console.error(`[WalletService] Withdrawal notification failed:`, notifError);
     }
+
+    return tx[0];
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  // Fallback: Manual withdrawal (just create pending transaction)
-  const tx = await WalletTransaction.create({
-    wallet: wallet._id,
-    amount,
-    type: "withdraw",
-    direction: "debit",
-    status: "pending",
-    from: userId,
-  });
-
-  // Notify User (Pending)
-  await NotificationService.insertNotification({
-    title: "Withdrawal Requested",
-    message: `Your request to withdraw ${amount} is pending approval from the admin.`,
-    receiver: new Types.ObjectId(userId),
-    screen: "WALLET",
-    type: "USER",
-    read: false
-  });
-
-  return tx;
 };
 
 export const WalletService = {

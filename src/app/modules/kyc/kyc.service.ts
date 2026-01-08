@@ -107,11 +107,8 @@ const createDiditSessionToDB = async (userId: string) => {
 
     const payload: any = {
         vendor_data: userId,
-        callback: "txme://app/kyc-success",
-        callback_url: "txme://app/kyc-success",
-        redirect_url: "txme://app/kyc-success",
-        success_url: "txme://app/kyc-success",
-        callback_method: "initiator",
+        callback_url: "https://api.txme-exchange.com/didit/callback",
+        redirect_url: "https://api.txme-exchange.com",
         allow_redirects: true
     };
 

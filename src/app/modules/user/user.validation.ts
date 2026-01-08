@@ -32,7 +32,6 @@ export const sendEmailOtpZod = z.object({
 export const sendPhoneOtpZod = z.object({
   body: z.object({
     phone: z.string(),
-    id: z.string(),
   }),
 });
 

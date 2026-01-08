@@ -54,7 +54,10 @@ const sendEmailOtp = catchAsync(async (req: Request, res: Response) => {
 });
 
 const sendPhoneOtp = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthService.sendPhoneOtp(req.body);
+  const result = await AuthService.sendPhoneOtp({
+    phone: req.body.phone,
+    id: (req.user as JwtPayload).id,
+  });
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
@@ -88,7 +91,7 @@ const sendNumberChangeOtp = catchAsync(async (req: Request, res: Response) => {
 
 // Common Verify Controller
 const verifyOtp = catchAsync(async (req: Request, res: Response) => {
-    
+
   const result = await AuthService.verifyOtp(req.body);
   sendResponse(res, {
     success: true,
@@ -99,7 +102,7 @@ const verifyOtp = catchAsync(async (req: Request, res: Response) => {
 });
 
 const completeProfile = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthService.completeProfile(req.user as JwtPayload,req.body);
+  const result = await AuthService.completeProfile(req.user as JwtPayload, req.body);
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,

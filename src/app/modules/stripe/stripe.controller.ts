@@ -86,7 +86,7 @@ const getAccountStatus = catchAsync(async (req, res) => {
 
 
 const handleConnectReturn = catchAsync(async (req, res) => {
-    const successUrl = "txme-app://stripe/success";
+    const successUrl = "txme://stripe/success";
     const html = `
     <!DOCTYPE html>
     <html>
@@ -113,7 +113,7 @@ const handleConnectReturn = catchAsync(async (req, res) => {
 });
 
 const handleConnectRefresh = catchAsync(async (req, res) => {
-    const refreshUrl = "txme-app://stripe/refresh";
+    const refreshUrl = "txme://stripe/refresh";
     const html = `
     <!DOCTYPE html>
     <html>

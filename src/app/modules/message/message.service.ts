@@ -12,6 +12,8 @@ import { StatusCodes } from 'http-status-codes';
 import { checkWalletSetting } from '../../../helpers/checkSetting';
 import { PushNotificationService } from '../notification/pushNotification.service';
 import { User } from '../user/user.model';
+import { ADMIN_ROLES } from '../../../enums/user';
+import { Admin } from '../admin/admin.model';
 
 const sendMessageToDB = async (payload: any): Promise<IMessage> => {
   // Initialize readBy with sender's ID
@@ -24,7 +26,7 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
     }
     payload.moneyRequestStatus = 'pending';
 
-    if(await Chat.findById(payload.chatId).isAdminSupport){
+    if (await Chat.findById(payload.chatId).isAdminSupport) {
       throw new ApiError(StatusCodes.BAD_REQUEST, "You can't send money request to admin support chat");
     }
   }
@@ -34,7 +36,9 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Chat doesn't exist!");
   }
 
-  if (!isExistChat.participants.includes(payload.sender)) {
+  const isExistAdmin = await Admin.findById(payload.sender);
+
+  if (!isExistChat.participants.includes(payload.sender)&&!isExistAdmin) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "You are not a participant!");
   }
 
@@ -70,30 +74,69 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
     }
   }
 
-  // Send Push Notification (No DB Storage)
+  // Send Push Notification
   try {
-    const recipientId = isExistChat.participants.find(
-      (p: any) => p.toString() !== payload.sender.toString()
-    );
+    const chatStatus = await Chat.findById(payload.chatId);
+    if (!chatStatus) return response;
 
-    if (recipientId) {
-      const recipient = await User.findById(recipientId).select('fcmToken');
+    // Fetch sender details for better title
+    const sender = await User.findById(payload.sender).select('fullName role');
+    const title = sender?.fullName || "New Message";
+    const body = payload.text ?
+      (payload.text.length > 50 ? payload.text.substring(0, 50) + "..." : payload.text) :
+      "Sent an attachment";
 
-      if (recipient?.fcmToken) {
-        // Fetch sender details for better title
-        const sender = await User.findById(payload.sender).select('fullName');
+    if (chatStatus.isAdminSupport) {
+      // For Admin Support, notify all admins except the sender (if sender is an admin)
+      // or all admins if sender is a user
+      const admins = await User.find({
+        role: { $in: [ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN] },
+        _id: { $ne: payload.sender }
+      }).select('fcmToken');
 
-        const title = sender?.fullName || "New Message";
-        const body = payload.text ?
-          (payload.text.length > 50 ? payload.text.substring(0, 50) + "..." : payload.text) :
-          "Sent an attachment";
+      const adminTokens = admins.map(a => a.fcmToken).filter(Boolean);
 
-        await PushNotificationService.sendPushNotification(
-          recipient.fcmToken,
-          title,
-          body,
-          { screen: "CHAT", chatId: payload.chatId }
-        );
+      // Send to each admin (Firebase Admin SDK .send() takes one token, or use .sendEachForMulticast)
+      if (adminTokens.length > 0) {
+        for (const token of adminTokens) {
+          await PushNotificationService.sendPushNotification(
+            token!,
+            `Support: ${title}`,
+            body,
+            { screen: "CHAT", chatId: payload.chatId?.toString() }
+          );
+        }
+      }
+
+      // If the sender is an admin, notify the user as well
+      const isSenderAdmin = [ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN].includes(sender?.role as any);
+      if (isSenderAdmin) {
+        const userParticipant = await User.findById(chatStatus.participants[0]).select('fcmToken');
+        if (userParticipant?.fcmToken) {
+          await PushNotificationService.sendPushNotification(
+            userParticipant.fcmToken,
+            title,
+            body,
+            { screen: "CHAT", chatId: payload.chatId?.toString() }
+          );
+        }
+      }
+    } else {
+      // Normal Chat recipient
+      const recipientId = chatStatus.participants.find(
+        (p: any) => p.toString() !== payload.sender.toString()
+      );
+
+      if (recipientId) {
+        const recipient = await User.findById(recipientId).select('fcmToken');
+        if (recipient?.fcmToken) {
+          await PushNotificationService.sendPushNotification(
+            recipient.fcmToken,
+            title,
+            body,
+            { screen: "CHAT", chatId: payload.chatId?.toString() }
+          );
+        }
       }
     }
   } catch (error) {

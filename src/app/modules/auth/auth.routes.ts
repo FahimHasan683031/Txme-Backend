@@ -24,6 +24,7 @@ router.post(
 );
 router.post(
   "/send-phone-otp",
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
   validateRequest(sendPhoneOtpZod),
   AuthController.sendPhoneOtp
 );
