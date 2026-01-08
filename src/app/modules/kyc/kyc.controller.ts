@@ -83,14 +83,25 @@ const handleDiditWebhook = catchAsync(async (req: Request, res: Response) => {
 });
 
 const handleDiditRedirect = catchAsync(async (req: Request, res: Response) => {
-    const mobileAppUrl = "txme://app/kyc-status";
+    // Didit sends 'status' query param: Approved, Declined, In Review
+    const status = (req.query.status as string) || "";
+    const isSuccess = status.toLowerCase() === "approved";
+    const resultParam = isSuccess ? "success" : "failed";
+
+    const mobileAppUrl = `txme://app/kyc-status?result=${resultParam}`;
+    const statusMessage = isSuccess ? "Verification Complete!" : "Verification Update";
+    const messageDetails = isSuccess
+        ? "You have successfully completed the KYC process."
+        : "There was an update to your verification status. Please check the app for details.";
+    const statusIcon = isSuccess ? "✅" : "ℹ️";
+
     const html = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verification Complete - Txme</title>
+        <title>Verification Status - Txme</title>
         <style>
             body {
                 margin: 0;
@@ -114,7 +125,7 @@ const handleDiditRedirect = catchAsync(async (req: Request, res: Response) => {
             }
             .icon {
                 font-size: 60px;
-                color: #4CAF50;
+                color: ${isSuccess ? '#4CAF50' : '#FFA000'};
                 margin-bottom: 20px;
             }
             h1 {
@@ -184,9 +195,9 @@ const handleDiditRedirect = catchAsync(async (req: Request, res: Response) => {
     </head>
     <body onclick="performRedirect()">
         <div class="card">
-            <div class="icon">✅</div>
-            <h1>Verification Complete!</h1>
-            <p>You have successfully completed the KYC process. We are taking you back to the Txme app.</p>
+            <div class="icon">${statusIcon}</div>
+            <h1>${statusMessage}</h1>
+            <p>${messageDetails} We are taking you back to the Txme app.</p>
             <a href="${mobileAppUrl}" class="btn">Return to App</a>
             <div class="loader">If the app doesn't open automatically, <br><strong>tap anywhere</strong> or click the button.</div>
         </div>
