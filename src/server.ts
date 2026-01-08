@@ -22,14 +22,13 @@ let server: any;
 async function main() {
     try {
 
-        // create super admin
-        seedSuperAdmin();
-        scheduleUnverifiedAccountCleanup();
-        checkPromotionExpiry();
-
-
         mongoose.connect(config.database_url as string);
         logger.info(colors.green('🚀 Database connected successfully'));
+
+        // create super admin
+        await seedSuperAdmin();
+        scheduleUnverifiedAccountCleanup();
+        checkPromotionExpiry();
 
         const port = typeof config.port === 'number' ? config.port : Number(config.port);
 

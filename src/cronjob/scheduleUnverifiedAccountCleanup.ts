@@ -3,22 +3,27 @@ import { User } from "../app/modules/user/user.model";
 import { logger } from "../shared/logger";
 
 export const scheduleUnverifiedAccountCleanup = () => {
-    const GRACE_PERIOD_MINUTES = 5;
+    // Grace period: 1 Hour
+    const GRACE_PERIOD_MS = 60 * 60 * 1000;
 
-    cron.schedule("* * * * *", async () => { // Runs every minute
+    // Run every 5 minutes
+    cron.schedule("*/5 * * * *", async () => {
         try {
-            const cutoffDate = new Date(Date.now() - GRACE_PERIOD_MINUTES * 60 * 1000);
+            const cutoffDate = new Date(Date.now() - GRACE_PERIOD_MS);
 
-            // Delete unverified accounts older than the grace period
-            // const result = await User.deleteMany({
-            //     verified: false,
-            //     createdAt: { $lt: cutoffDate }, // Only delete accounts created before the cutoff date    
-            // });
+            // Delete pending accounts older than 1 hour
+            const result = await User.deleteMany({
+                status: 'pending',
+                createdAt: { $lt: cutoffDate },
+            });
 
-            // logger.info(`Deleted ${result.deletedCount} unverified accounts.`);    
+            if (result.deletedCount > 0) {
+                logger.info(`[Cleanup Job] Deleted ${result.deletedCount} pending accounts older than 1 hour.`);
+            }
         } catch (error) {
-            logger.error("Error during unverified account cleanup:", error);    
+            logger.error("Error during pending account cleanup:", error);
         }
     });
-    logger.info("Unverified account cleanup job scheduled to run every minute.");    
+
+    logger.info("Pending account cleanup job scheduled (Runs every 5 minutes).");
 };
