@@ -1,3 +1,4 @@
+import { Request, Response } from "express";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { StripeService } from "./stripe.service";
@@ -85,26 +86,100 @@ const getAccountStatus = catchAsync(async (req, res) => {
 // Export moved to bottom
 
 
-const handleConnectReturn = catchAsync(async (req, res) => {
-    const successUrl = "txme://stripe/success";
+const handleConnectReturn = catchAsync(async (req: Request, res: Response) => {
+    const mobileAppUrl = "txme://stripe/onboarding?result=success";
     const html = `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>Stripe Connect Success</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Account Connected - Txme</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: #333;
+            }
+            .card {
+                background: white;
+                padding: 40px;
+                border-radius: 20px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                text-align: center;
+                max-width: 400px;
+                width: 90%;
+            }
+            .icon {
+                font-size: 60px;
+                color: #4CAF50;
+                margin-bottom: 20px;
+            }
+            h1 {
+                margin: 0 0 10px;
+                font-size: 24px;
+                color: #2D3748;
+            }
+            p {
+                margin: 0 0 30px;
+                color: #718096;
+                line-height: 1.5;
+            }
+            .btn {
+                display: inline-block;
+                padding: 15px 30px;
+                background-color: #4A90E2;
+                color: white;
+                text-decoration: none;
+                border-radius: 12px;
+                font-weight: bold;
+                transition: transform 0.2s, background-color 0.2s;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .btn:active {
+                transform: scale(0.98);
+                background-color: #357ABD;
+            }
+            .loader {
+                margin-top: 20px;
+                font-size: 14px;
+                color: #A0AEC0;
+            }
+        </style>
         <script>
-            window.location.href = "${successUrl}";
-            setTimeout(function() {
-                window.location.href = "${successUrl}";
-            }, 1000);
+            function performRedirect() {
+                try {
+                    window.location.href = "${mobileAppUrl}";
+                    if (window.top && window.top !== window) {
+                        window.top.location.href = "${mobileAppUrl}";
+                    }
+                    var link = document.createElement('a');
+                    link.href = "${mobileAppUrl}";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (e) {}
+            }
+            performRedirect();
+            window.addEventListener('load', function() {
+                setTimeout(performRedirect, 200);
+            });
+            setTimeout(performRedirect, 2000);
         </script>
     </head>
-    <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; text-align: center; background-color: #f0f2f5;">
-        <div style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h1 style="color: #28a745; margin-bottom: 10px;">Connection Successful!</h1>
-            <p style="color: #666; margin-bottom: 20px;">Redirecting back to the app...</p>
-            <a href="${successUrl}" style="padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Return to App</a>
+    <body onclick="performRedirect()">
+        <div class="card">
+            <div class="icon">✅</div>
+            <h1>Account Connected!</h1>
+            <p>Your Stripe account is successfully connected. We are taking you back to the Txme app.</p>
+            <a href="${mobileAppUrl}" class="btn">Return to App</a>
+            <div class="loader">If the app doesn't open automatically, <br><strong>tap anywhere</strong> or click the button.</div>
         </div>
     </body>
     </html>
@@ -113,25 +188,99 @@ const handleConnectReturn = catchAsync(async (req, res) => {
 });
 
 const handleConnectRefresh = catchAsync(async (req, res) => {
-    const refreshUrl = "txme://stripe/refresh";
+    const mobileAppUrl = "txme://stripe/onboarding?result=failed";
     const html = `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-        <title>Stripe Connect Refresh</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Connection Incomplete - Txme</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+                color: #333;
+            }
+            .card {
+                background: white;
+                padding: 40px;
+                border-radius: 20px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                text-align: center;
+                max-width: 400px;
+                width: 90%;
+            }
+            .icon {
+                font-size: 60px;
+                color: #FFA000;
+                margin-bottom: 20px;
+            }
+            h1 {
+                margin: 0 0 10px;
+                font-size: 24px;
+                color: #2D3748;
+            }
+            p {
+                margin: 0 0 30px;
+                color: #718096;
+                line-height: 1.5;
+            }
+            .btn {
+                display: inline-block;
+                padding: 15px 30px;
+                background-color: #4A90E2;
+                color: white;
+                text-decoration: none;
+                border-radius: 12px;
+                font-weight: bold;
+                transition: transform 0.2s, background-color 0.2s;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .btn:active {
+                transform: scale(0.98);
+                background-color: #357ABD;
+            }
+            .loader {
+                margin-top: 20px;
+                font-size: 14px;
+                color: #A0AEC0;
+            }
+        </style>
         <script>
-            window.location.href = "${refreshUrl}";
-            setTimeout(function() {
-                window.location.href = "${refreshUrl}";
-            }, 1000);
+            function performRedirect() {
+                try {
+                    window.location.href = "${mobileAppUrl}";
+                    if (window.top && window.top !== window) {
+                        window.top.location.href = "${mobileAppUrl}";
+                    }
+                    var link = document.createElement('a');
+                    link.href = "${mobileAppUrl}";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (e) {}
+            }
+            performRedirect();
+            window.addEventListener('load', function() {
+                setTimeout(performRedirect, 200);
+            });
+            setTimeout(performRedirect, 2000);
         </script>
     </head>
-    <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; text-align: center; background-color: #f0f2f5;">
-        <div style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <h1 style="color: #dc3545; margin-bottom: 10px;">Connection Incomplete</h1>
-            <p style="color: #666; margin-bottom: 20px;">We need to restart the process. Redirecting...</p>
-            <a href="${refreshUrl}" style="padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Try Again</a>
+    <body onclick="performRedirect()">
+        <div class="card">
+            <div class="icon">⚠️</div>
+            <h1>Connection Incomplete</h1>
+            <p>Your Stripe connection was not finished. Please return to the app to try again.</p>
+            <a href="${mobileAppUrl}" class="btn">Return to App</a>
+            <div class="loader">If the app doesn't open automatically, <br><strong>tap anywhere</strong> or click the button.</div>
         </div>
     </body>
     </html>
