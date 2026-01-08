@@ -9,6 +9,9 @@ import sendSMS from "../../../shared/sendSMS";
 import { emailHelper } from "../../../helpers/emailHelper";
 import { ADMIN_ROLES } from "../../../enums/user";
 import QueryBuilder from "../../../helpers/QueryBuilder";
+import { Appointment } from "../appointment/appointment.model";
+import { Review } from "../review/review.model";
+import { Types } from "mongoose";
 
 
 // get all users
@@ -20,9 +23,9 @@ const getAllUsers = async (
     query.role = "PROVIDER";
   }
 
-  const totalUsers = await User.countDocuments({status: {$ne: "deleted"}});
+  const totalUsers = await User.countDocuments({ status: { $ne: "deleted" } });
 
-  const userQueryBuilder = new QueryBuilder(User.find({status: {$ne: "deleted"}}), query)
+  const userQueryBuilder = new QueryBuilder(User.find({ status: { $ne: "deleted" } }), query)
     .geolocation()
     .providerFilter()
     .filter()
@@ -33,7 +36,7 @@ const getAllUsers = async (
   const users = await userQueryBuilder.modelQuery;
   const paginateInfo = await userQueryBuilder.getPaginationInfo();
 
-  return { data: users, pagination: {...paginateInfo, totalData: totalUsers} };
+  return { data: users, pagination: { ...paginateInfo, totalData: totalUsers } };
 };
 
 const updateProfileToDB = async (
@@ -80,15 +83,130 @@ const updateProfileToDB = async (
   return updatedUser;
 };
 
-const getSingleUser = async (id: string): Promise<IUser | null> => {
-  const user = await User.findById(id);
-  return user;
+const getSingleUser = async (id: string): Promise<any> => {
+  const user = await User.findById(id).select("-authentication");
+  if (!user) return null;
+
+  const stats = await getUserStats(user);
+  return {
+    ...user.toObject(),
+    ...stats
+  };
 }
 
-const getmyProfile = async (user: JwtPayload): Promise<IUser | null> => {
+const getmyProfile = async (user: JwtPayload): Promise<any> => {
   const { id } = user;
-  const result = await User.findById(id);
-  return result;
+  const result = await User.findById(id).select("-authentication");
+  if (!result) return null;
+
+  const stats = await getUserStats(result);
+  return {
+    ...result.toObject(),
+    ...stats
+  };
+}
+
+/**
+ * Helper to calculate user statistics
+ */
+async function getUserStats(user: any) {
+  const userId = user._id;
+  const role = user.role;
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  const paidStatuses = ["review_pending", "provider_review_pending", "customer_review_pending", "completed"];
+
+  if (role === "PROVIDER") {
+    // 1. Total Appointments
+    const totalAppointments = await Appointment.countDocuments({ provider: userId });
+
+    // 2. Total Appointments This Month
+    const totalAppointmentsThisMonth = await Appointment.countDocuments({
+      provider: userId,
+      createdAt: { $gte: startOfMonth }
+    });
+
+    // 3. Total Earning
+    const earningResult = await Appointment.aggregate([
+      { $match: { provider: new Types.ObjectId(userId), status: { $in: paidStatuses } } },
+      { $group: { _id: null, total: { $sum: "$totalCost" } } }
+    ]);
+    const totalEarning = earningResult.length > 0 ? earningResult[0].total : 0;
+
+    // 4. Total Earn This Month
+    const monthlyEarningResult = await Appointment.aggregate([
+      {
+        $match: {
+          provider: new Types.ObjectId(userId),
+          status: { $in: paidStatuses },
+          createdAt: { $gte: startOfMonth }
+        }
+      },
+      { $group: { _id: null, total: { $sum: "$totalCost" } } }
+    ]);
+    const totalEarnThisMonth = monthlyEarningResult.length > 0 ? monthlyEarningResult[0].total : 0;
+
+    // 5. Last 10 Reviews
+    const last10Reviews = await Review.find({ reviewee: userId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate("reviewer", "fullName profilePicture");
+
+    return {
+      totalAppointments,
+      totalAppointmentsThisMonth,
+      totalEarning,
+      totalEarnThisMonth,
+      last10Reviews
+    };
+  } else if (role === "CUSTOMER") {
+    // 1. Total Appointments Booked
+    const totalAppointmentsBooked = await Appointment.countDocuments({ customer: userId });
+
+    // 2. Total Appointment This Month
+    const totalAppointmentsThisMonth = await Appointment.countDocuments({
+      customer: userId,
+      createdAt: { $gte: startOfMonth }
+    });
+
+    // 3. Total Spend
+    const spendResult = await Appointment.aggregate([
+      { $match: { customer: new Types.ObjectId(userId), status: { $in: paidStatuses } } },
+      { $group: { _id: null, total: { $sum: "$totalCost" } } }
+    ]);
+    const totalSpend = spendResult.length > 0 ? spendResult[0].total : 0;
+
+    // 4. Total Spend This Month
+    const monthlySpendResult = await Appointment.aggregate([
+      {
+        $match: {
+          customer: new Types.ObjectId(userId),
+          status: { $in: paidStatuses },
+          createdAt: { $gte: startOfMonth }
+        }
+      },
+      { $group: { _id: null, total: { $sum: "$totalCost" } } }
+    ]);
+    const totalSpendThisMonth = monthlySpendResult.length > 0 ? monthlySpendResult[0].total : 0;
+
+    // 5. Last 10 Reviews
+    const last10Reviews = await Review.find({ reviewee: userId })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate("reviewer", "fullName profilePicture");
+
+    return {
+      totalAppointmentsBooked,
+      totalAppointmentsThisMonth,
+      totalSpend,
+      totalSpendThisMonth,
+      last10Reviews
+    };
+  }
+
+  return {};
 }
 
 
