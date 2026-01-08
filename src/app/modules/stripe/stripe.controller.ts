@@ -87,7 +87,7 @@ const getAccountStatus = catchAsync(async (req, res) => {
 
 
 const handleConnectReturn = catchAsync(async (req: Request, res: Response) => {
-    const mobileAppUrl = "txme://stripe/onboarding?result=success";
+    const mobileAppUrl = "txme://app/stripe-onboarding?result=success";
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -187,8 +187,8 @@ const handleConnectReturn = catchAsync(async (req: Request, res: Response) => {
     res.send(html);
 });
 
-const handleConnectRefresh = catchAsync(async (req, res) => {
-    const mobileAppUrl = "txme://stripe/onboarding?result=failed";
+const handleConnectRefresh = catchAsync(async (req: Request, res: Response) => {
+    const mobileAppUrl = "txme://app/stripe-onboarding?result=failed";
     const html = `
     <!DOCTYPE html>
     <html lang="en">

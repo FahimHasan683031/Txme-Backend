@@ -266,7 +266,6 @@ export const UserService = {
   updateProfileToDB,
   getSingleUser,
   getmyProfile,
-
   updateUserStatusInDB,
   deleteUserFromDB,
   updateFcmTokenToDB
