@@ -108,7 +108,7 @@ const createDiditSessionToDB = async (userId: string) => {
     const payload: any = {
         vendor_data: userId,
         callback_url: "https://api.txme-exchange.com/didit/callback",
-        redirect_url: "https://api.txme-exchange.com",
+        redirect_url: "https://api.txme-exchange.com/didit",
         allow_redirects: true
     };
 
