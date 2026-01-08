@@ -82,10 +82,41 @@ const handleDiditWebhook = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const handleDiditRedirect = catchAsync(async (req: Request, res: Response) => {
+    const mobileAppUrl = "txme://app/kyc-status";
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Verification Complete</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+            // Automatically try to redirect to the app
+            window.location.href = "${mobileAppUrl}";
+            
+            // Backup redirect after 2 seconds if first one fails
+            setTimeout(function() {
+                window.location.href = "${mobileAppUrl}";
+            }, 2000);
+        </script>
+    </head>
+    <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; text-align: center; background-color: #f0f2f5;">
+        <div style="padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h1 style="color: #28a745; margin-bottom: 10px;">Verification Done!</h1>
+            <p style="color: #666; margin-bottom: 20px;">Redirection back to the Txme App...</p>
+            <a href="${mobileAppUrl}" style="padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Return to App</a>
+        </div>
+    </body>
+    </html>
+    `;
+    res.send(html);
+});
+
 export const KycController = {
     getMobileToken,
     handleWebhook,
     getKycStatus,
     createDiditSession,
-    handleDiditWebhook
+    handleDiditWebhook,
+    handleDiditRedirect
 };

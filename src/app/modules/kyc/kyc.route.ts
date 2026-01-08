@@ -35,4 +35,9 @@ router.post(
     KycController.handleDiditWebhook
 );
 
+router.get(
+    "/redirect",
+    KycController.handleDiditRedirect
+);
+
 export const KycRoutes = router;
