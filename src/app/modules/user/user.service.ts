@@ -25,6 +25,12 @@ const getAllUsers = async (
 
   const totalUsers = await User.countDocuments({ status: { $ne: "deleted" } });
 
+  // ✅ Force sort by isPromoted first, then Rating, then user preference
+  if (query.role === "PROVIDER") {
+    const userSort = (query.sort as string) || '-createdAt';
+    query.sort = `-isPromoted -review.averageRating ${userSort}`;
+  }
+
   const userQueryBuilder = new QueryBuilder(User.find({ status: { $ne: "deleted" } }), query)
     .geolocation()
     .providerFilter()

@@ -415,7 +415,8 @@ const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
 
     return {
       res,
-      tokens: { accessToken, refreshToken },
+      accessToken,
+      refreshToken,
       userInfo
     };
   }
