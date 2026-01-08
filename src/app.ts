@@ -44,7 +44,7 @@ app.use(Morgan.errorHandler);
 //body parser
 app.use(
     cors({
-        origin: ["http://localhost:3001", "http://localhost:3002", "http://10.10.7.13:3001"],
+        origin: ["http://localhost:3001", "http://localhost:3002", "http://10.10.7.13:3001","https://txme-exchange.com"],
         credentials: true,
     })
 );
