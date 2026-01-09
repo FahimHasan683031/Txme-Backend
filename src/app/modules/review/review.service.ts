@@ -97,6 +97,14 @@ const createReview = async (payload: IReview, user: JwtPayload) => {
 
   await recalculateUserRating(reviewee);
 
+  // also emit socket for real-time update
+  //@ts-ignore
+  const io = global.io;
+  if (io) {
+    io.emit(`appointmentUpdate::${appointment.customer.toString()}`, appointment);
+    io.emit(`appointmentUpdate::${appointment.provider.toString()}`, appointment);
+  }
+
   // Send Notification to the reviewee
   await NotificationService.insertNotification({
     title: "New Review Received",
