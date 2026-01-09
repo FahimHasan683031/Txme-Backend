@@ -7,6 +7,7 @@ import { User } from '../user/user.model';
 import ApiError from '../../../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
 import QueryBuilder from '../../../helpers/QueryBuilder';
+import { Admin } from '../admin/admin.model';
 
 const createChatToDB = async (payload: {
     participants: string[];
@@ -192,7 +193,7 @@ const deleteChatFromDB = async (chatId: string, userId: string): Promise<void> =
         (p) => p.toString() === userId
     );
 
-    if (!isParticipant) {
+    if (!isParticipant&& await Admin.findById(userId)) {
         throw new ApiError(
             StatusCodes.FORBIDDEN,
             'You are not authorized to delete this chat'

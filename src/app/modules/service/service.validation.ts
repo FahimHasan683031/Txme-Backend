@@ -17,7 +17,7 @@ export const createServiceZod = z.object({
 
 // Update service validation
 export const updateServiceZod = z.object({
-  body: baseServiceSchema.partial().strict(), 
+  body: baseServiceSchema.partial(), 
 });
 
 
