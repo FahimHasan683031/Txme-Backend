@@ -418,7 +418,7 @@ const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) =
   }
 
   const appointmentQuery = new QueryBuilder(
-    Appointment.find().populate("customer provider"),
+    Appointment.find().populate("customer", "fullName email phone profilePicture").populate("provider", "fullName email phone profilePicture"),
     query
   )
     .filter()
@@ -433,7 +433,7 @@ const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) =
 
 const getAllAppointmentsFromDB = async (query: Record<string, any>) => {
   const appointmentQuery = new QueryBuilder(
-    Appointment.find().populate("customer provider"),
+    Appointment.find().populate("customer", "fullName email phone profilePicture").populate("provider", "fullName email phone profilePicture"),
     query
   )
     .filter()
