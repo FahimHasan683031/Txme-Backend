@@ -330,7 +330,7 @@ async function sendStatusNotification(appointment: any, status: string) {
 export const getAppointmentById = async (appointmentId: string) => {
   return await Appointment.findById(appointmentId)
     .populate("customer", "fullName email phone residentialAddress")
-    .populate("provider", "fullName email phone providerProfile residentialAddress");
+    .populate("provider", "fullName email phone providerProfile residentialAddress providerProfile");
 };
 
 
@@ -418,7 +418,7 @@ const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) =
   }
 
   const appointmentQuery = new QueryBuilder(
-    Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress"),
+    Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"),
     query
   )
     .filter()
@@ -433,7 +433,7 @@ const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) =
 
 const getAllAppointmentsFromDB = async (query: Record<string, any>) => {
   const appointmentQuery = new QueryBuilder(
-    Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress"),
+    Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"),
     query
   )
     .filter()
@@ -471,7 +471,7 @@ const getCurrentAppointment = async (user: JwtPayload) => {
 
   const result = await Appointment.findOne(query)
     .populate("customer", "fullName email phone profilePicture residentialAddress")
-    .populate("provider", "fullName email phone profilePicture providerProfile residentialAddress")
+    .populate("provider", "fullName email phone profilePicture providerProfile residentialAddress providerProfile")
     .sort("-updatedAt");
 
   return result;
