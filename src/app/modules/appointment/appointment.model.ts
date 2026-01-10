@@ -60,6 +60,10 @@ const AppointmentSchema = new Schema<IAppointment>(
       enum: ["wallet", "card", "cash"],
       required: false,
     },
+    note: {
+      type: String,
+      required: false,
+    },
     reason: {
       type: String,
       required: false,

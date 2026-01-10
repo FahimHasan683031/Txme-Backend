@@ -30,6 +30,7 @@ export interface IAppointment extends Document {
   totalCost?: number;
   address?: string;
   paymentMethod?: 'wallet' | 'card' | 'cash';
+  note?: string;
   reason?: string;
   createdAt: Date;
   updatedAt: Date;

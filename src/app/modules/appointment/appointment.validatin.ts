@@ -7,6 +7,7 @@ export const createAppointmentZod = z.object({
     service: z.string().min(1, "Service is required"),
     date: z.string().min(1, "Date is required"),
     paymentMethod: z.enum(["wallet", "card", "cash"]).optional(),
+    note: z.string().optional(),
   }),
 });
 
