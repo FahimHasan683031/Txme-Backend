@@ -38,7 +38,7 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
 
   const isExistAdmin = await Admin.findById(payload.sender);
 
-  if (!isExistChat.participants.includes(payload.sender)&&!isExistAdmin) {
+  if (!isExistChat.participants.includes(payload.sender) && !isExistAdmin) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "You are not a participant!");
   }
 
@@ -179,7 +179,7 @@ const getMessageFromDB = async (
   const result = new QueryBuilder(
     Message.find({ chatId: id })
       .populate('sender', 'fullName profilePicture')
-      .sort({ createdAt: 1 }),
+      .sort({ createdAt: -1 }),
     query
   ).paginate();
 
