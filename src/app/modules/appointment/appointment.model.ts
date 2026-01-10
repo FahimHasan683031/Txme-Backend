@@ -30,6 +30,9 @@ const AppointmentSchema = new Schema<IAppointment>(
       type: String,
       required: true,
     },
+    note: {
+      type: String,
+    },
     actualStartTime: {
       type: Date,
       required: false,
@@ -58,10 +61,6 @@ const AppointmentSchema = new Schema<IAppointment>(
     paymentMethod: {
       type: String,
       enum: ["wallet", "card", "cash"],
-      required: false,
-    },
-    note: {
-      type: String,
       required: false,
     },
     reason: {

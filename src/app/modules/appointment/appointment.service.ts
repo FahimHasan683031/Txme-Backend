@@ -1,4 +1,4 @@
-import { USER_ROLES } from "../../../enums/user";
+import { ADMIN_ROLES, USER_ROLES } from "../../../enums/user";
 import { Appointment } from "./appointment.model";
 import { User } from "../user/user.model";
 import { generateDailySlots } from "../../../util/generateDailySlots";
@@ -12,7 +12,7 @@ import QueryBuilder from "../../../helpers/QueryBuilder";
 
 
 export const createAppointment = async (customerId: string, data: any) => {
-  const { provider, date, startTime, endTime, service, paymentMethod } = data;
+  const { provider, date, startTime, endTime, service, paymentMethod, note } = data;
 
   // Validate provider exists and has provider profile
   const providerUser = await User.findOne({
@@ -76,6 +76,7 @@ export const createAppointment = async (customerId: string, data: any) => {
     endTime,
     service,
     paymentMethod,
+    note,
     status: "pending",
     price: providerUser.providerProfile.hourlyRate
   });
@@ -327,10 +328,29 @@ async function sendStatusNotification(appointment: any, status: string) {
   }
 }
 
-export const getAppointmentById = async (appointmentId: string) => {
-  return await Appointment.findById(appointmentId)
+export const getAppointmentById = async (appointmentId: string, user: JwtPayload) => {
+  const appointment = await Appointment.findById(appointmentId)
     .populate("customer", "fullName email phone residentialAddress")
     .populate("provider", "fullName email phone providerProfile residentialAddress providerProfile");
+
+  if (!appointment) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Appointment not found");
+  }
+
+  // Admin/SuperAdmin can access any appointment
+  if (user.role === ADMIN_ROLES.ADMIN || user.role === ADMIN_ROLES.SUPER_ADMIN) {
+    return appointment;
+  }
+
+  // Users can only access their own appointments
+  const isCustomer = appointment.customer._id.toString() === user.id;
+  const isProvider = appointment.provider._id.toString() === user.id;
+
+  if (!isCustomer && !isProvider) {
+    throw new ApiError(StatusCodes.FORBIDDEN, "You are not authorized to view this appointment");
+  }
+
+  return appointment;
 };
 
 
@@ -488,5 +508,6 @@ export const AppointmentService = {
   updateAppointmentStatus,
   getMyAppointments,
   getAllAppointmentsFromDB,
-  getCurrentAppointment
+  getCurrentAppointment,
+  getAppointmentById
 }

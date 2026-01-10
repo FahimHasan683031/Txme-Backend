@@ -85,11 +85,23 @@ const getCurrentAppointment = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+const getSingleAppointment = catchAsync(async (req: Request, res: Response) => {
+  const result = await AppointmentService.getAppointmentById(req.params.id, req.user);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Appointment retrieved successfully",
+    data: result,
+  });
+});
+
 export const AppointmentController = {
   createAppointment,
   payWithWallet,
   getMyAppointments,
   getAllAppointments,
   updateAppointmentStatus,
-  getCurrentAppointment
+  getCurrentAppointment,
+  getSingleAppointment
 }

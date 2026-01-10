@@ -36,4 +36,9 @@ router.post(
     AppointmentController.payWithWallet
 );
 
+router.get('/:id',
+    auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
+    AppointmentController.getSingleAppointment
+);
+
 export const AppointmentRoutes = router;
