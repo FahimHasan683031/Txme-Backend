@@ -183,8 +183,9 @@ const getMessageFromDB = async (
     query
   ).paginate();
 
-  const messages = await result.modelQuery;
+  let messages = await result.modelQuery;
   const pagination = await result.getPaginationInfo();
+  messages = messages.reverse();
 
   const participant = await Chat.findById(id).populate({
     path: 'participants',
