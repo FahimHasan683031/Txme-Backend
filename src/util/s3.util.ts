@@ -6,7 +6,7 @@ import ApiError from "../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 
 const s3Client = new S3Client({
-    region: config.aws.region || "us-east-1",
+    region: config.aws.s3.region || "us-east-1",
     credentials: {
         accessKeyId: config.aws.accessKeyId as string,
         secretAccessKey: config.aws.secretAccessKey as string,
@@ -46,7 +46,7 @@ export const uploadToS3 = async (
         await upload.done();
 
         // Return the public URL
-        return `https://${config.aws.bucket}.s3.${config.aws.region}.amazonaws.com/${fileName}`;
+        return `https://${config.aws.bucket}.s3.${config.aws.s3.region}.amazonaws.com/${fileName}`;
     } catch (error: any) {
         console.error("❌ S3 Upload Error:", error.message || error);
         throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Failed to upload to S3: ${error.message}`);

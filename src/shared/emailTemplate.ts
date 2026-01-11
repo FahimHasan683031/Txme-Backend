@@ -5,7 +5,7 @@ import config from '../config';
 const createAccount = (values: any) => {
   const data = {
     to: values.email,
-    subject: `Verify your Txme account, ${values.name}`,
+    subject: `Verify your Txme account`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -47,7 +47,7 @@ const createAccount = (values: any) => {
             <td style="padding:42px 45px; text-align:center;">
 
               <p style="font-size:16px; color:#444; line-height:1.7; margin:0 0 28px;">
-                Hi <strong style="color:#FF5A36;">${values.name}</strong>,<br />
+                Hi there,<br />
                 Welcome to <strong>Txme</strong> 👋  
                 Use the code below to verify your account.
               </p>
@@ -534,11 +534,10 @@ const resendOtp = (values: {
 
         <p style="color:#334f4e; font-size:16px; line-height:1.6; margin-bottom:25px; text-align:center;">
           Hi <strong>${values.name}</strong>, 👋<br>
-          ${
-            isReset
-              ? 'You requested to reset your password for your Just Breath account.'
-              : 'Welcome to <strong>Just Breath</strong> — your calm, your space, your journey begins here.'
-          }<br>
+          ${isReset
+        ? 'You requested to reset your password for your Just Breath account.'
+        : 'Welcome to <strong>Just Breath</strong> — your calm, your space, your journey begins here.'
+      }<br>
           Please use the code below to continue:
         </p>
 
@@ -1067,8 +1066,8 @@ const sendAdminPaymentNotificationEmail = (data: any) => {
 
 
 export const emailTemplate = {
-    createAccount,
-    resetPassword,
-    resendOtpEmail,
-    loginOtp
+  createAccount,
+  resetPassword,
+  resendOtpEmail,
+  loginOtp
 };

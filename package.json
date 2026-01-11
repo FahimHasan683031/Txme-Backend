@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",
+    "@aws-sdk/client-sesv2": "^3.966.0",
     "@aws-sdk/client-sns": "^3.958.0",
     "@aws-sdk/lib-storage": "^3.958.0",
     "@complycube/api": "^1.1.13",

@@ -36,7 +36,16 @@ export default {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         region: process.env.AWS_REGION,
-        bucket: process.env.AWS_S3_BUCKET
+        bucket: process.env.AWS_S3_BUCKET,
+        ses: {
+            region: process.env.AWS_SES_REGION || process.env.AWS_REGION
+        },
+        s3: {
+            region: process.env.AWS_S3_REGION || process.env.AWS_REGION
+        },
+        sns: {
+            region: process.env.AWS_SNS_REGION || process.env.AWS_REGION
+        }
     },
     cloudinary: {
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

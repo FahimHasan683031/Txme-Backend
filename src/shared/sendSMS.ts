@@ -4,7 +4,7 @@ import ApiError from '../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
 
 const snsClient = new SNSClient({
-  region: config.aws.region || 'us-east-1',
+  region: config.aws.sns.region || 'us-east-1',
   credentials: {
     accessKeyId: config.aws.accessKeyId as string,
     secretAccessKey: config.aws.secretAccessKey as string,
