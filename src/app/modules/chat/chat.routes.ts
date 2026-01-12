@@ -26,7 +26,7 @@ router.post(
 // Create admin support chat
 router.post(
   "/admin-support",
-  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER, ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN),
   ChatController.createAdminSupport
 );
 

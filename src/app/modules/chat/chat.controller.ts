@@ -18,13 +18,15 @@ const createChat = catchAsync(async (req: Request, res: Response) => {
 });
 
 const createAdminSupport = catchAsync(async (req: Request, res: Response) => {
+    console.log("hit...")
+    console.log(req.user.id)
     let chat;
-    if(req.user.role ===ADMIN_ROLES.ADMIN || req.user.role ===ADMIN_ROLES.SUPER_ADMIN){
+    if (req.user.role === ADMIN_ROLES.ADMIN || req.user.role === ADMIN_ROLES.SUPER_ADMIN) {
         chat = await ChatService.createAdminSupportChat(req.body.participant);
-    }else{
-        chat = await ChatService.createChatToDB(req.user.id);
+    } else {
+        chat = await ChatService.createAdminSupportChat(req.user.id);
     }
-    
+
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
