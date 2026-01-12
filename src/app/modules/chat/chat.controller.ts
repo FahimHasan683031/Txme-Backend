@@ -4,6 +4,7 @@ import sendResponse from "../../../shared/sendResponse";
 import { StatusCodes } from "http-status-codes";
 import { ChatService } from "./chat.service";
 import { JwtPayload } from "jsonwebtoken";
+import { ADMIN_ROLES } from "../../../enums/user";
 
 const createChat = catchAsync(async (req: Request, res: Response) => {
     const chat = await ChatService.createChatToDB(req.body);
@@ -17,8 +18,13 @@ const createChat = catchAsync(async (req: Request, res: Response) => {
 });
 
 const createAdminSupport = catchAsync(async (req: Request, res: Response) => {
-    const chat = await ChatService.createAdminSupportChat(req.user.id);
-
+    let chat;
+    if(req.user.role ===ADMIN_ROLES.ADMIN || req.user.role ===ADMIN_ROLES.SUPER_ADMIN){
+        chat = await ChatService.createAdminSupportChat(req.body.participant);
+    }else{
+        chat = await ChatService.createChatToDB(req.user.id);
+    }
+    
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
