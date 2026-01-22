@@ -83,7 +83,7 @@ const getChatFromDB = async (
 
     const chatQueryBuilder = new QueryBuilder(Chat.find(chatFilter), query)
         .filter()
-        .sort('-lastMessageAt')
+        .sort('-isAdminSupport -lastMessageAt')
         .paginate();
 
     const chats = await chatQueryBuilder.modelQuery

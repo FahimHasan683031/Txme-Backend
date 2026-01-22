@@ -133,7 +133,7 @@ export const updateAppointmentStatus = async (
   // New strict transition rules
   const allowedTransitions: Record<string, string[]> = {
     pending: ["accepted", "rejected", "cancelled"],
-    accepted: ["in_progress"],
+    accepted: ["in_progress", "cancelled"],
     in_progress: ["work_completed"],
     work_completed: ["awaiting_payment"],
     awaiting_payment: ["review_pending", "cashPayment"],
@@ -146,8 +146,22 @@ export const updateAppointmentStatus = async (
   }
 
   // Role-specific restrictions
-  if (status === "cancelled" && !isCustomer) {
-    throw new ApiError(StatusCodes.FORBIDDEN, "Only customers can cancel appointments.");
+  if (status === "cancelled") {
+    if (!isCustomer && !isProvider) {
+      throw new ApiError(StatusCodes.FORBIDDEN, "Only the assigned customer or provider can cancel this appointment.");
+    }
+    if (!["pending", "accepted"].includes(currentStatus)) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, `Cannot cancel appointment when it is already '${currentStatus}'.`);
+    }
+  }
+
+  if (status === "rejected") {
+    if (!isProvider) {
+      throw new ApiError(StatusCodes.FORBIDDEN, "Only providers can reject appointments.");
+    }
+    if (currentStatus !== "pending") {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Can only reject 'pending' appointments.");
+    }
   }
 
   if (["cancelled", "rejected"].includes(status)) {
@@ -157,11 +171,7 @@ export const updateAppointmentStatus = async (
     appointment.reason = reason;
   }
 
-  if (status === "cancelled" && isCustomer && currentStatus !== "pending") {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Can only cancel 'pending' appointments.");
-  }
-
-  if (["accepted", "rejected", "in_progress", "work_completed"].includes(status) && !isProvider) {
+  if (["accepted", "in_progress", "work_completed"].includes(status) && !isProvider) {
     throw new ApiError(StatusCodes.FORBIDDEN, `Only providers can set status to '${status}'.`);
   }
 
@@ -229,7 +239,7 @@ export const updateAppointmentStatus = async (
   await appointment.save();
 
   // 4. Send Notifications
-  await sendStatusNotification(appointment, status);
+  await sendStatusNotification(appointment, status, isCustomer);
 
   // 5. Socket notification for real-time update in UI list (sorting)
   //@ts-ignore
@@ -264,7 +274,7 @@ async function handleAppointmentCompletion(appointment: any) {
 /**
  * Centered notification logic
  */
-async function sendStatusNotification(appointment: any, status: string) {
+async function sendStatusNotification(appointment: any, status: string, isCustomer: boolean) {
   const messages: Record<string, { title: string; message: string; receiver: "customer" | "provider" }> = {
     accepted: {
       title: "Appointment Accepted",
@@ -288,8 +298,8 @@ async function sendStatusNotification(appointment: any, status: string) {
     },
     cancelled: {
       title: "Appointment Cancelled",
-      message: `The appointment for ${appointment.service} has been cancelled by the customer. Reason: ${appointment.reason || 'N/A'}`,
-      receiver: "provider"
+      message: `The appointment for ${appointment.service} has been cancelled. Reason: ${appointment.reason || 'N/A'}`,
+      receiver: isCustomer ? "provider" : "customer"
     },
     cashPayment: {
       title: "Payment Update: Cash",
