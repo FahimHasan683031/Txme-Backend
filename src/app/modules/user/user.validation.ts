@@ -95,12 +95,6 @@ export const completeProfileZod = z.object({
       longitude: z.number().min(-180).max(180),
     }).optional(),
     postalAddress: z.string().optional(),
-    identification: z
-      .object({
-        type: z.enum(["nid", "passport"]),
-        value: z.string().min(1, "Identification value is required"),
-      })
-      .optional(),
     maritalStatus: z.string().optional(),
     status: z.enum([
       "pending",
@@ -127,6 +121,13 @@ export const completeProfileZod = z.object({
       experience: z.number().min(0, "Experience cannot be negative").optional(),
       skills: z.array(z.string()).optional(),
       languages: z.array(z.enum(PROVIDER_LANGUAGES as unknown as [string, ...string[]])).optional(),
+      workLocation: z.object({
+        postCode: z.string().optional(),
+        radius: z.number().optional(),
+        latitude: z.number().optional(),
+        longitude: z.number().optional(),
+        address: z.string().optional(),
+      }).optional(),
     }).optional(),
   }).strict(),
 });

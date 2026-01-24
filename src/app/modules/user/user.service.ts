@@ -12,6 +12,7 @@ import QueryBuilder from "../../../helpers/QueryBuilder";
 import { Appointment } from "../appointment/appointment.model";
 import { Review } from "../review/review.model";
 import { Types } from "mongoose";
+import { geocodePostCode } from "../../../util/geocoding.util";
 
 
 // get all users
@@ -21,6 +22,23 @@ const getAllUsers = async (
 ) => {
   if (user.role === "CUSTOMER" || user.role === "PROVIDER") {
     query.role = "PROVIDER";
+  }
+
+  // ✅ Geocode search postCode ONLY if both postCode and radius are provided
+  if (query.postCode && query.radius) {
+    try {
+      const coords = await geocodePostCode(query.postCode as string);
+      query.latitude = coords.latitude;
+      query.longitude = coords.longitude;
+    } catch (error) {
+      console.error("[UserService] Geocoding in getAllUsers failed:", error);
+      throw error;
+    }
+  } else {
+    // Ensure no partial parameters trigger filtering
+    delete query.latitude;
+    delete query.longitude;
+    delete query.radius;
   }
 
   const totalUsers = await User.countDocuments({ status: { $ne: "deleted" } });

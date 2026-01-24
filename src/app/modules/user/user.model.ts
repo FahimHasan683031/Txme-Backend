@@ -6,10 +6,8 @@ import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import config from "../../../config";
 import { Wallet } from "../wallet/wallet.model";
-
-
-
 import { PROVIDER_LANGUAGES } from "../../../enums/languages";
+import { geocodePostCode } from "../../../util/geocoding.util";
 
 // Provider Profile Sub-document Schema
 const providerProfileSchema = new Schema(
@@ -22,11 +20,11 @@ const providerProfileSchema = new Schema(
     workingHours: {
       startTime: { type: String, required: true },
       endTime: { type: String, required: true },
-      duration: { type: Number, required: true, default: 2 }, // duration in hours (e.g., 1, 1.5, 2)
+      duration: { type: Number, required: true, default: 2 },
     },
     workingDays: [
       {
-        type: String, // e.g., "Monday", "Tuesday"
+        type: String,
         required: true,
         enum: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
       },
@@ -44,6 +42,13 @@ const providerProfileSchema = new Schema(
       type: String,
       enum: PROVIDER_LANGUAGES,
     }],
+    workLocation: {
+      postCode: { type: String },
+      radius: { type: Number },
+      latitude: { type: Number },
+      longitude: { type: Number },
+      address: { type: String },
+    },
   },
   { _id: false, timestamps: false }
 );
@@ -79,14 +84,6 @@ const userSchema = new Schema<IUser>(
       longitude: { type: Number, required: false },
     },
     postalAddress: { type: String },
-    identification: {
-      type: {
-        type: String,
-        enum: ["nid", "passport"],
-        required: false,
-      },
-      value: { type: String, required: false },
-    },
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
     maritalStatus: { type: String },
@@ -164,6 +161,26 @@ const userSchema = new Schema<IUser>(
 
 // pre save hook
 userSchema.pre("save", async function (next) {
+  const user = this as IUser & { isModified: (path: string) => boolean };
+
+  // Handle Geocoding for Provider Work Location PostCode
+  if (user.providerProfile?.workLocation?.postCode && user.isModified('providerProfile.workLocation.postCode')) {
+    try {
+      console.log(`[UserModel] Detected postCode change: ${user.providerProfile.workLocation.postCode}. Fetching coordinates...`);
+      const coords = await geocodePostCode(user.providerProfile.workLocation.postCode);
+
+      // We must check again if providerProfile still exists (though unlikely to disappear during hook)
+      if (user.providerProfile && user.providerProfile.workLocation) {
+        user.providerProfile.workLocation.latitude = coords.latitude;
+        user.providerProfile.workLocation.longitude = coords.longitude;
+        user.providerProfile.workLocation.address = coords.address;
+        console.log(`[UserModel] Successfully geocoded to: ${coords.latitude}, ${coords.longitude}`);
+      }
+    } catch (error: any) {
+      console.error(`[UserModel] Geocoding failed: ${error.message}`);
+      return next(error);
+    }
+  }
   next();
 });
 
@@ -268,15 +285,15 @@ userSchema.pre("save", function (next) {
 });
 
 
-// ✅ Index for residentialAddress coordinates (2dsphere for radius search)
-userSchema.index({
-  "residentialAddress.latitude": 1,
-  "residentialAddress.longitude": 1,
-});
-
 // ✅ Index for provider profile searches
 userSchema.index({
   "providerProfile.serviceCategory": 1,
+});
+
+// ✅ Index for workLocation coordinates
+userSchema.index({
+  "providerProfile.workLocation.latitude": 1,
+  "providerProfile.workLocation.longitude": 1,
 });
 
 // ALL OTHER STATICS AND HOOKS REMAIN EXACTLY SAME

@@ -67,5 +67,6 @@ export default {
         googleServiceAccountEmail: process.env.GOOGLE_IAP_SERVICE_ACCOUNT_EMAIL,
         googlePrivateKey: process.env.GOOGLE_IAP_PRIVATE_KEY?.replace(/\\n/g, '\n'),
         packageName: process.env.PACKAGE_NAME
-    }
+    },
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY
 }

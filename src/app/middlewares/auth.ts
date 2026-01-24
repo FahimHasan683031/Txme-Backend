@@ -30,6 +30,8 @@ const auth =
             // Set user to header
             req.user = verifyUser;
 
+            const isExistUser = await User.findOne({ _id: verifyUser._id });
+
             // Guard user
             if (roles.length && !roles.includes(verifyUser.role)) {
               throw new ApiError(

@@ -50,7 +50,8 @@ class QueryBuilder<T> {
       'longitude',
       'radius',
       'language',
-      'serviceCategory', // Exclude to handle manually or via mapping
+      'serviceCategory',
+      "postCode",
       'skills'
     ]
     excludeFields.forEach(el => delete queryObj[el])
@@ -132,15 +133,52 @@ class QueryBuilder<T> {
     if (latitude != null && longitude != null && radius != null) {
       const lat = Number(latitude);
       const lon = Number(longitude);
-      const rad = Number(radius); // in kilometers
+      const searchRadius = Number(radius); // in kilometers
 
       // Approximate bounding box (1 degree latitude is ~111.32km)
-      const latDiff = rad / 111.32;
-      const lonDiff = rad / (111.32 * Math.cos(lat * (Math.PI / 180)));
+      // We use a larger bounding box to account for provider's service radius (max 100km assumed for safety)
+      const maxProviderRadius = 100;
+      const totalRadius = searchRadius + maxProviderRadius;
+      const latDiff = totalRadius / 111.32;
+      const lonDiff = totalRadius / (111.32 * Math.cos(lat * (Math.PI / 180)));
 
+      // Primary filter using bounding box for performance (if indices exist)
+      // Then use $expr for precise distance calculation considering BOTH radii
       this.modelQuery = this.modelQuery.find({
-        "residentialAddress.latitude": { $gte: lat - latDiff, $lte: lat + latDiff },
-        "residentialAddress.longitude": { $gte: lon - lonDiff, $lte: lon + lonDiff },
+        "providerProfile.workLocation.latitude": { $gte: lat - latDiff, $lte: lat + latDiff },
+        "providerProfile.workLocation.longitude": { $gte: lon - lonDiff, $lte: lon + lonDiff },
+        $expr: {
+          $let: {
+            vars: {
+              // Distance formula (approximate, distance in km)
+              d_lat: { $subtract: ["$providerProfile.workLocation.latitude", lat] },
+              d_lon: { $subtract: ["$providerProfile.workLocation.longitude", lon] }
+            },
+            in: {
+              $let: {
+                vars: {
+                  // sqrt((d_lat*111.32)^2 + (d_lon*111.32*cos(lat))^2)
+                  dist: {
+                    $sqrt: {
+                      $add: [
+                        { $pow: [{ $multiply: ["$$d_lat", 111.32] }, 2] },
+                        { $pow: [{ $multiply: ["$$d_lon", 111.32, Math.cos(lat * (Math.PI / 180))] }, 2] }
+                      ]
+                    }
+                  }
+                },
+                in: {
+                  // ✅ Matches if distance is within PROVIDER service radius 
+                  // AND provider has at least the requested capacity (searchRadius)
+                  $and: [
+                    { $lte: ["$$dist", { $ifNull: ["$providerProfile.workLocation.radius", 0] }] },
+                    { $gte: [{ $ifNull: ["$providerProfile.workLocation.radius", 0] }, searchRadius] }
+                  ]
+                }
+              }
+            }
+          }
+        }
       } as FilterQuery<T>);
     }
     return this;

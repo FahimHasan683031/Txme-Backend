@@ -35,6 +35,13 @@ interface IProviderProfile {
   experience?: number;
   skills?: string[];
   languages?: IProviderLanguage[];
+  workLocation?: {
+    postCode?: string;
+    radius?: number;
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+  }
 }
 
 export interface IUser extends Document {
@@ -53,10 +60,6 @@ export interface IUser extends Document {
     longitude: number;
   };
   postalAddress?: string;
-  identification?: {
-    type: "nid" | "passport";
-    value: string;
-  };
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
   maritalStatus?: string;
