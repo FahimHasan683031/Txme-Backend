@@ -73,10 +73,22 @@ const deleteChat = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+const getSupportAvailability = catchAsync(async (req: Request, res: Response) => {
+    const isAvailable = await ChatService.getSupportAvailability();
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Support availability checked successfully',
+        data: isAvailable
+    });
+});
+
 export const ChatController = {
     createChat,
     createAdminSupport,
     getChat,
     getAdminSupportChats,
-    deleteChat
+    deleteChat,
+    getSupportAvailability
 };

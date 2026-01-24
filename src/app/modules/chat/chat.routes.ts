@@ -51,4 +51,11 @@ router.delete(
   ChatController.deleteChat
 );
 
+// Check support availability
+router.get(
+  "/support-availability",
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
+  ChatController.getSupportAvailability
+);
+
 export const ChatRoutes = router;

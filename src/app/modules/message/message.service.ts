@@ -65,8 +65,9 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
       });
     });
 
-    // If it's an admin support chat, also notify ALL admins
+    // If it's an admin support chat, also notify ALL admins (for admin dashboard update)
     if (isExistChat.isAdminSupport) {
+      console.log(`[Socket] Emitting adminChatListUpdate for chatId: ${payload.chatId}`);
       io.emit('adminChatListUpdate', {
         chatId: payload.chatId,
         lastMessage: response,

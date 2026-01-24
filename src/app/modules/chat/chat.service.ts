@@ -193,7 +193,7 @@ const deleteChatFromDB = async (chatId: string, userId: string): Promise<void> =
         (p) => p.toString() === userId
     );
 
-    if (!isParticipant&& await Admin.findById(userId)) {
+    if (!isParticipant && await Admin.findById(userId)) {
         throw new ApiError(
             StatusCodes.FORBIDDEN,
             'You are not authorized to delete this chat'
@@ -207,10 +207,37 @@ const deleteChatFromDB = async (chatId: string, userId: string): Promise<void> =
     await Chat.findByIdAndDelete(chatId);
 };
 
+// Check for support availability (09:00 - 16:00 CET, Mon-Fri)
+// Check for support availability (09:00 - 16:00 CET, Mon-Fri)
+const getSupportAvailability = async (): Promise<boolean> => {
+    const now = new Date();
+
+    // ✅ Robust way to get CET day and hour regardless of server locale
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'CET',
+        hour: 'numeric',
+        weekday: 'long',
+        hourCycle: 'h23'
+    });
+
+    const parts = formatter.formatToParts(now);
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+    const weekday = parts.find(p => p.type === 'weekday')?.value || '';
+
+    const workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const isWorkingDay = workingDays.includes(weekday);
+    const isWorkingHour = hour >= 9 && hour < 16;
+
+    console.log(`[SupportCheck] CET Weekday: ${weekday}, CET Hour: ${hour}, Result: ${isWorkingDay && isWorkingHour}`);
+
+    return isWorkingDay && isWorkingHour;
+};
+
 export const ChatService = {
     createChatToDB,
     createAdminSupportChat,
     getChatFromDB,
     getAdminSupportChats,
-    deleteChatFromDB
+    deleteChatFromDB,
+    getSupportAvailability
 };
