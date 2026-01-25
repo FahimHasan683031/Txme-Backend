@@ -32,7 +32,47 @@ const auth =
 
             const isExistUser = await User.findOne({ _id: verifyUser._id });
 
-            // Guard user
+            // Check if user exists
+            if (!isExistUser) {
+              throw new ApiError(
+                StatusCodes.NOT_FOUND,
+                "User not found"
+              );
+            }
+
+            // Check if user is active
+            const onboardingRoutes = [
+              '/api/v1/auth/send-phone-otp',
+              '/api/v1/kyc/didit-session'
+            ];
+
+            if (isExistUser.status !== 'active') {
+              // Allow 'pending' users for specific onboarding routes
+              const isPendingOnboarding =
+                isExistUser.status === 'pending' &&
+                onboardingRoutes.includes(req.originalUrl);
+
+              if (!isPendingOnboarding) {
+                const statusMessages: Record<string, string> = {
+                  'pending': 'Your account is pending verification. Please complete your profile and verification.',
+                  'rejected': 'Your account has been rejected. Please contact support for more information.',
+                  'suspended': 'Your account has been suspended. Please contact support.',
+                  'blocked': 'Your account has been blocked. Please contact support.',
+                  'deleted': 'Your account has been deleted.'
+                };
+
+                const message = isExistUser.status
+                  ? statusMessages[isExistUser.status] || 'Your account is not active.'
+                  : 'Your account is not active.';
+
+                throw new ApiError(
+                  StatusCodes.FORBIDDEN,
+                  message
+                );
+              }
+            }
+
+            // Guard user role
             if (roles.length && !roles.includes(verifyUser.role)) {
               throw new ApiError(
                 StatusCodes.FORBIDDEN,
