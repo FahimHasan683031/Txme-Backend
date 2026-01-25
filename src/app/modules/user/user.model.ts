@@ -144,6 +144,7 @@ const userSchema = new Schema<IUser>(
       },
       oneTimeCode: { type: Number },
       expireAt: { type: Date },
+      newPhone: { type: String, required: false },
     },
     stripeAccountId: { type: String, required: false },
     isStripeConnected: { type: Boolean, default: false },

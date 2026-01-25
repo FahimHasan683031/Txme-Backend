@@ -84,10 +84,21 @@ const verifyOtp = async (payload: {
 }) => {
   const { purpose, channel, identifier, oneTimeCode } = payload;
 
-  const query =
-    channel === "email" ? { email: identifier } : { phone: identifier };
+  let query;
+  let user;
 
-  const user = await User.findOne(query).select("+authentication");
+  // For number_change, the identifier is the NEW phone number
+  // which is stored in authentication.newPhone, not in the user.phone field yet
+  if (purpose === "number_change" && channel === "phone") {
+    user = await User.findOne({
+      "authentication.newPhone": identifier,
+      "authentication.purpose": "number_change"
+    }).select("+authentication");
+  } else {
+    query = channel === "email" ? { email: identifier } : { phone: identifier };
+    user = await User.findOne(query).select("+authentication");
+  }
+
   if (!user || !user.authentication) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User or OTP not found");
   }
@@ -111,6 +122,15 @@ const verifyOtp = async (payload: {
     await Wallet.create({ user: user._id });
   }
   if (purpose === "phone_verify") user.isPhoneVerified = true;
+
+  // Handle number change verification
+  if (purpose === "number_change") {
+    if (!user.authentication.newPhone) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "New phone number not found in session");
+    }
+    user.phone = user.authentication.newPhone;
+    user.isPhoneVerified = true;
+  }
 
   // Clear authentication
   user.authentication = undefined as any;
@@ -343,22 +363,36 @@ const sendPasswordResetOtp = async (email: string) => {
 };
 
 // Send OTP for number change
-const sendNumberChangeOtp = async (oldPhone: string, newPhone: string) => {
-  const user = await User.findOne({ phone: oldPhone });
-  if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "Old phone not found");
+const sendNumberChangeOtp = async (userId: string, newPhone: string) => {
+  // Check if phone number is already in use by another user
+  const isExcludedPhoneExist = await User.findOne({
+    phone: newPhone,
+    _id: { $ne: userId }
+  });
 
+  if (isExcludedPhoneExist) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Phone number already in use");
+  }
+
+  const user = await User.findById(userId).select("+authentication");
+  if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+
+
+  // Generate new OTP and save
   const otp = generateOTP();
   user.authentication = {
     purpose: "number_change",
     channel: "phone",
     oneTimeCode: otp,
     expireAt: new Date(Date.now() + 5 * 60 * 1000),
+    newPhone,
   };
 
   await user.save();
-  await sendSMS(newPhone, otp.toString());
 
-  return { oldPhone, newPhone };
+  await sendSMS(newPhone, `Your phone change verification OTP is ${otp}. It is valid for 5 minutes.`);
+
+  return { phone: newPhone };
 };
 
 

@@ -78,7 +78,7 @@ const sendPasswordResetOtp = catchAsync(async (req: Request, res: Response) => {
 
 const sendNumberChangeOtp = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthService.sendNumberChangeOtp(
-    req.body.oldPhone,
+    (req.user as JwtPayload).id,
     req.body.newPhone
   );
   sendResponse(res, {

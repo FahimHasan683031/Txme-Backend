@@ -233,15 +233,7 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
 
                     kycData = {
                         fullName: fullName || (firstName ? `${firstName} ${lastName || ""}`.trim() : undefined),
-                        dateOfBirth: dob ? new Date(dob) : undefined,
-                        gender,
-                        nationality: country,
-                        countryOfResidence: country,
-                        postalAddress: address,
-                        ...(docNumber && {
-                            identification: { type: idTypeMapped, value: docNumber }
-                        }),
-                        ...(uniqueImages.length > 0 && { idDocuments: uniqueImages.slice(0, 5) })
+                        dateOfBirth: dob ? new Date(dob) : undefined
                     };
 
                     console.log("Final KYC Object for DB Update:", JSON.stringify(kycData, null, 2));

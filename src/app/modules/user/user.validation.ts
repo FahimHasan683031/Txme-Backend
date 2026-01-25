@@ -45,7 +45,6 @@ export const sendPasswordResetOtpZod = z.object({
 // Send OTP for number change
 export const sendNumberChangeOtpZod = z.object({
   body: z.object({
-    oldPhone: z.string(),
     newPhone: z.string(),
   }),
 });

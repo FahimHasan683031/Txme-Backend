@@ -35,6 +35,7 @@ router.post(
 );
 router.post(
   "/send-number-change-otp",
+  auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
   validateRequest(sendNumberChangeOtpZod),
   AuthController.sendNumberChangeOtp
 );

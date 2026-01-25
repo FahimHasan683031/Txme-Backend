@@ -13,6 +13,7 @@ interface IAuthenticationProps {
   channel: "email" | "phone";
   oneTimeCode: number;
   expireAt: Date;
+  newPhone?: string;
 
 }
 
