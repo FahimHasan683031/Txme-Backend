@@ -30,7 +30,7 @@ const auth =
             // Set user to header
             req.user = verifyUser;
 
-            const isExistUser = await User.findOne({ _id: verifyUser._id });
+            const isExistUser = await User.findOne({ _id: verifyUser.id });
 
             // Check if user exists
             if (!isExistUser) {
