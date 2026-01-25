@@ -119,7 +119,6 @@ const verifyOtp = async (payload: {
   // ✅ Mark verified according to purpose
   if (purpose === "email_verify") {
     user.isEmailVerified = true;
-    await Wallet.create({ user: user._id });
   }
   if (purpose === "phone_verify") user.isPhoneVerified = true;
 
@@ -415,6 +414,7 @@ const completeProfile = async (user: JwtPayload, payload: Partial<IUser>) => {
   if (isFirstTimeActivation) {
     userFromDB.status = 'active';
     await userFromDB.save();
+    await Wallet.create({ user: user.id });
 
     // Generate Final Tokens (Access & Refresh)
     const [accessToken, refreshToken] = await Promise.all([
