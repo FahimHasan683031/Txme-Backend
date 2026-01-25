@@ -43,14 +43,23 @@ const auth =
             // Check if user is active
             const onboardingRoutes = [
               '/api/v1/auth/send-phone-otp',
-              '/api/v1/kyc/didit-session'
+              '/api/v1/kyc/didit-session',
+              '/api/v1/auth/complete-profile',
+              '/api/v1/user/me',
+              '/api/v1/user/my-profile'
             ];
 
             if (isExistUser.status !== 'active') {
               // Allow 'pending' users for specific onboarding routes
+              // Also allow GET /api/v1/user/:id for profile viewing during onboarding
+              const isUserPath = req.baseUrl + req.path;
+              const isSingleUserGet = isUserPath.startsWith('/api/v1/user/') && req.method === 'GET';
+
+              const currentPath = (req.baseUrl + req.path).replace(/\/$/, "");
+
               const isPendingOnboarding =
                 isExistUser.status === 'pending' &&
-                onboardingRoutes.includes(req.originalUrl);
+                (onboardingRoutes.includes(currentPath) || isSingleUserGet);
 
               if (!isPendingOnboarding) {
                 const statusMessages: Record<string, string> = {
