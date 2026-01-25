@@ -70,7 +70,7 @@ const sendPhoneOtp = async (payload: { phone: string; id: string }) => {
   await user.save();
 
   // Send SMS after saving user
-  await sendSMS(payload.phone, `Your phone verification OTP is ${otp}. It is valid for 5 minutes.`);
+  await sendSMS(payload.phone, `Your Txme phone verification OTP is ${otp}. It is valid for 5 minutes.`);
 
   return { userId: user._id, phone: payload.phone };
 };
@@ -389,7 +389,7 @@ const sendNumberChangeOtp = async (userId: string, newPhone: string) => {
 
   await user.save();
 
-  await sendSMS(newPhone, `Your phone change verification OTP is ${otp}. It is valid for 5 minutes.`);
+  await sendSMS(newPhone, `Your Txme phone change verification OTP is ${otp}. It is valid for 5 minutes.`);
 
   return { phone: newPhone };
 };
@@ -531,7 +531,7 @@ const resendOtp = async (identifier: unknown) => {
       );
     }, 0);
   } else {
-    await sendSMS(numericValue, `Your phone verification OTP is ${newOtp}. It is valid for 5 minutes.`);
+    await sendSMS(numericValue, `Your Txme phone verification OTP is ${newOtp}. It is valid for 5 minutes.`);
   }
 
   return {
