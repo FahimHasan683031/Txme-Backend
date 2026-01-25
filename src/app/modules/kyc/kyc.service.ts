@@ -1,108 +1,21 @@
-import { ComplyCube } from "@complycube/api";
 import config from "../../../config";
 import { User } from "../user/user.model";
 import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import crypto from 'crypto';
 
-// Initialize ComplyCube
-const complycube = new ComplyCube({
-    apiKey: config.complycube.apiKey as string,
-});
-
-const getMobileToken = async (userId: string) => {
-    const user = await User.findById(userId);
-    if (!user) {
-        throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
-    }
-
-    let clientId = user.complyCubeClientId;
-
-    if (!clientId) {
-        try {
-            const client = await complycube.client.create({
-                type: "person",
-                email: user.email,
-                personDetails: {
-                    firstName: user.fullName ? user.fullName.split(" ")[0] : "Unknown",
-                    lastName: user.fullName ? user.fullName.split(" ").slice(1).join(" ") : "User",
-                }
-            });
-            clientId = client.id;
-            await User.findByIdAndUpdate(userId, { complyCubeClientId: clientId });
-        } catch (error: any) {
-            throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Failed to create ComplyCube client: ${error.message}`);
-        }
-    }
-
-    try {
-        const token = await complycube.token.generate(clientId, {
-            referrer: "*://*/*"
-        });
-        return { token: token.token, clientId };
-    } catch (error: any) {
-        throw new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, `Failed to generate SDK token: ${error.message}`);
-    }
-};
-
-const getKycStatus = async (userId: string) => {
-    const user = await User.findById(userId);
-    if (!user || !user.complyCubeClientId) {
-        throw new ApiError(StatusCodes.NOT_FOUND, "User or KYC profile not found");
-    }
-
-    const checks = await complycube.check.list(user.complyCubeClientId);
-    const latestCheck = checks.find((c: any) => c.type === 'document_check' && c.status === 'complete') as any;
-
-    let kycDetails = null;
-
-    if (latestCheck && latestCheck.outcome === 'clear' && latestCheck.documentId) {
-        try {
-            const document: any = await complycube.document.get(latestCheck.documentId);
-            kycDetails = {
-                firstName: document.fields?.firstName?.value,
-                lastName: document.fields?.lastName?.value,
-                dateOfBirth: document.fields?.dob?.value ?
-                    new Date(document.fields.dob.value).toISOString().split('T')[0] : undefined,
-                documentNumber: document.fields?.documentNumber?.value,
-                documentType: document.type,
-                nationality: document.fields?.nationality?.value,
-                gender: document.fields?.gender?.value
-            };
-        } catch (error) {
-            console.error("Error fetching document details:", error);
-        }
-    }
-
-    return {
-        isVerified: user.isIdentityVerified || false,
-        status: user.status,
-        kycDetails
-    };
-};
-
-const handleWebhook = async (event: any) => {
-    console.log("ComplyCube Webhook Event:", event.type);
-
-    if (event.type === 'check.completed') {
-        const { clientId, outcome } = event.payload;
-
-        if (outcome === 'clear') {
-            await User.findOneAndUpdate(
-                { complyCubeClientId: clientId },
-                {
-                    isIdentityVerified: true,
-                    status: 'active'
-                }
-            );
-        }
-    }
-};
-
 const createDiditSessionToDB = async (userId: string) => {
     const user = await User.findById(userId);
     if (!user) {
         throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+    }
+
+    // Check if user is already verified
+    if (user.isIdentityVerified) {
+        throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            "Your identity has already been verified."
+        );
     }
 
     const payload: any = {
@@ -266,9 +179,6 @@ const handleDiditWebhookToDB = async (payload: any, signature: string, rawBody?:
 };
 
 export const KycService = {
-    getMobileToken,
-    handleWebhook,
-    getKycStatus,
     createDiditSessionToDB,
     handleDiditWebhookToDB
 };

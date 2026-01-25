@@ -52,10 +52,6 @@ export default {
         api_key: process.env.CLOUDINARY_API_KEY,
         api_secret: process.env.CLOUDINARY_API_SECRET
     },
-    complycube: {
-        apiKey: process.env.COMPLYCUBE_API_KEY,
-        webhookSecret: process.env.COMPLYCUBE_WEBHOOK_SECRET
-    },
     didit: {
         apiKey: process.env.DIDIT_API_KEY,
         webhookSecret: process.env.DIDIT_WEBHOOK_SECRET,
