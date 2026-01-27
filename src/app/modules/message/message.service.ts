@@ -11,6 +11,7 @@ import ApiError from '../../../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
 import { checkWalletSetting } from '../../../helpers/checkSetting';
 import { PushNotificationService } from '../notification/pushNotification.service';
+import { NotificationService } from '../notification/notification.service';
 import { User } from '../user/user.model';
 import { ADMIN_ROLES } from '../../../enums/user';
 import { Admin } from '../admin/admin.model';
@@ -321,6 +322,25 @@ const updateMoneyRequestStatusToDB = async (messageId: string, user: JwtPayload,
         });
       });
     }
+  }
+
+  // --- Send Push Notification to Request Sender ---
+  try {
+    const title = status === 'accepted' ? "Money Request Accepted" : "Money Request Rejected";
+    const body = status === 'accepted'
+      ? `Your request for ${message.amount} has been accepted.`
+      : `Your request for ${message.amount} has been rejected.`;
+
+    await NotificationService.insertNotification({
+      title,
+      message: body,
+      receiver: message.sender, // Notify the person who requested the money
+      referenceId: message.chatId, // Redirect to the chat
+      screen: "CHAT",
+      type: "USER"
+    });
+  } catch (error) {
+    console.error(`[MessageService] Failed to send money request notification:`, error);
   }
 
   return message;
