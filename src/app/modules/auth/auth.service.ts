@@ -133,6 +133,7 @@ const verifyOtp = async (payload: {
 
   // Clear authentication
   user.authentication = undefined as any;
+
   await user.save();
 
   // ✅ Generate tokens
@@ -267,6 +268,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
     success: true,
     message: "Login OTP sent to your email",
     userId: existingUser._id,
+    token: null // Explicitly return token null to avoid confusion
   };
 };
 
@@ -293,6 +295,7 @@ const biometricLogin = async (biometricToken: string) => {
       "Biometric login is not enabled for this user"
     );
   }
+
   const userInfo = {
     userId: user._id,
     email: user.email,

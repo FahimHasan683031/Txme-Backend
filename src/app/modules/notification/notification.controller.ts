@@ -53,6 +53,11 @@ const adminGetUnreadCount = catchAsync(async (req: Request, res: Response) => {
 const sendTestPushNotification = catchAsync(async (req: Request, res: Response) => {
     const { token, title, body } = req.body;
 
+    console.log("--- TEST PUSH NOTIFICATION REQUEST ---");
+    console.log("Received Token:", token);
+    console.log("Title:", title);
+    console.log("Body:", body);
+
     const result = await PushNotificationService.sendPushNotification(
         token || "c0UaCLXGSJ6JsC62K6NPq0:APA91bHzTTe3umtCk7TzNcOXN-aa3SPNQVOtgx6jwQvz1OiTDKLJEIPc-A-8Wn707pYzKnwDZA1nH2zDNvkxTPbpB7SUMAYO3odSW8PEFzCopYf930fNLHE",
         title || "Test Notification",

@@ -58,7 +58,7 @@ router.patch(
   "/complete-profile",
   auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
   fileAndBodyProcessorUsingDiskStorage(),
-  validateRequest(completeProfileZod),
+  // validateRequest(completeProfileZod),
   AuthController.completeProfile
 );
 

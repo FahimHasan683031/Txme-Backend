@@ -59,8 +59,14 @@ const sendPushNotification = async (
         const response = await admin.messaging().send(message);
         logger.info('Push notification sent successfully:', response);
         return response;
-    } catch (error) {
+    } catch (error: any) {
         logger.error('Error sending push notification:', error);
+        console.error("--- PUSH NOTIFICATION ERROR DETAIL ---");
+        console.error("Code:", error.code);
+        console.error("Message:", error.message);
+        if (error.errorInfo) {
+            console.error("ErrorInfo:", JSON.stringify(error.errorInfo, null, 2));
+        }
     }
 };
 
