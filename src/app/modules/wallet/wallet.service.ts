@@ -11,10 +11,11 @@ import { logger } from "../../../shared/logger";
 import { Types } from "mongoose";
 import { checkWalletSetting } from "../../../helpers/checkSetting";
 
-const getOrCreateWallet = async (userId: string) => {
-  let wallet = await Wallet.findOne({ user: userId });
+const getOrCreateWallet = async (userId: string, session?: mongoose.ClientSession) => {
+  let wallet = await Wallet.findOne({ user: userId }).session(session || null);
   if (!wallet) {
-    wallet = await Wallet.create({ user: userId });
+    const [newWallet] = await Wallet.create([{ user: userId }], { session });
+    wallet = newWallet;
   }
   return wallet;
 };
@@ -25,16 +26,28 @@ const getmyWallet = async (userId: string) => {
 };
 
 // TOP UP
-// TOP UP
 const topUp = async (userId: string, amount: number, reference: string = "topup") => {
+  if (amount <= 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
+  }
+
   await checkWalletSetting('topUp');
   console.log(`[WalletService] topUp called. User: ${userId}, Amount: ${amount}`);
+
+  const user = await User.findById(userId);
+  if (!user || user.status !== 'active') {
+    throw new ApiError(StatusCodes.FORBIDDEN, "User account is not active or not found");
+  }
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const wallet = await getOrCreateWallet(userId);
-    console.log(`[WalletService] Wallet found/created: ${wallet._id}`);
+    const wallet = await getOrCreateWallet(userId, session);
+
+    if (wallet.status === 'blocked') {
+      throw new ApiError(StatusCodes.FORBIDDEN, "Your wallet is blocked. Please contact support.");
+    }
 
     const tx = await WalletTransaction.create(
       [
@@ -45,24 +58,20 @@ const topUp = async (userId: string, amount: number, reference: string = "topup"
           direction: "credit",
           status: "success",
           to: userId,
-          reference: reference // Use the passed reference
+          reference: reference
         },
       ],
-      { session, ordered: true }
+      { session }
     );
-    console.log(`[WalletService] Transaction record created: ${tx[0]?._id}`);
 
     wallet.balance += amount;
     await wallet.save({ session });
-    console.log(`[WalletService] Wallet balance updated.`);
 
     await session.commitTransaction();
-    console.log('[WalletService] Transaction committed.');
 
     // Send Notification
-    console.log(`[WalletService] Triggering notification for Top Up. User: ${userId}, Amount: ${amount}`);
     try {
-      const notification = await NotificationService.insertNotification({
+      await NotificationService.insertNotification({
         title: "Wallet Top Up",
         message: `Successfully added ${amount} to your wallet.`,
         receiver: new Types.ObjectId(userId),
@@ -70,14 +79,12 @@ const topUp = async (userId: string, amount: number, reference: string = "topup"
         type: "USER",
         read: false
       });
-      console.log(`[WalletService] Notification inserted successfully`);
     } catch (notificationError) {
       console.error('[WalletService] Failed to insert top-up notification:', notificationError);
     }
 
     return tx[0];
   } catch (e) {
-    console.error('[WalletService] topUp failed:', e);
     await session.abortTransaction();
     throw e;
   } finally {
@@ -91,44 +98,68 @@ const sendMoney = async (
   receiverIdentifier: string,
   amount: number
 ) => {
-  await checkWalletSetting('moneySend');
-  // Use Promise.all for finding user by ID, email or phone
-  const [userById, userByEmail, userByPhone] = await Promise.all([
-    Types.ObjectId.isValid(receiverIdentifier)
-      ? User.findById(receiverIdentifier)
-      : Promise.resolve(null),
-    User.findOne({ email: receiverIdentifier }),
-    User.findOne({ phone: receiverIdentifier }),
-  ]);
+  if (amount <= 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
+  }
 
-  const receiver = userById || userByEmail || userByPhone;
+  await checkWalletSetting('moneySend');
+
+  console.log(`[WalletService] sendMoney: Sender: ${senderId}, Input: "${receiverIdentifier}", Amount: ${amount}`);
+
+  // Determine lookup strategy: Priority ID -> Email -> Phone
+  let receiver = null;
+
+  if (Types.ObjectId.isValid(receiverIdentifier)) {
+    receiver = await User.findById(receiverIdentifier);
+  }
+
+  if (!receiver) {
+    receiver = await User.findOne({
+      $or: [
+        { email: receiverIdentifier },
+        { phone: receiverIdentifier }
+      ]
+    });
+  }
 
   if (!receiver) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Receiver not found");
   }
 
-  const receiverId = receiver._id.toString();
+  const receiverId = receiver._id;
 
-  if (senderId === receiverId) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Cannot send to self");
+  if (senderId === receiverId.toString()) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Cannot send money to yourself");
+  }
+
+  if (receiver.status !== 'active') {
+    throw new ApiError(StatusCodes.BAD_REQUEST, `Receiver account is ${receiver.status}.`);
   }
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const sender = await User.findById(senderId);
-    if (!sender) {
-      throw new ApiError(StatusCodes.NOT_FOUND, "Sender not found");
+    const sender = await User.findById(senderId).session(session);
+    if (!sender || sender.status !== 'active') {
+      throw new ApiError(StatusCodes.FORBIDDEN, "Your account is not active.");
     }
 
-    const senderWallet = await getOrCreateWallet(senderId);
-    const receiverWallet = await getOrCreateWallet(receiverId);
+    const senderWallet = await getOrCreateWallet(senderId, session);
+    const receiverWallet = await getOrCreateWallet(receiverId.toString(), session);
+
+    if (senderWallet.status === 'blocked') {
+      throw new ApiError(StatusCodes.FORBIDDEN, "Your wallet is blocked.");
+    }
+    if (receiverWallet.status === 'blocked') {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Receiver's wallet is blocked.");
+    }
 
     if (senderWallet.balance < amount) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, "Insufficient balance");
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Insufficient wallet balance");
     }
 
+    // Perform transfer
     senderWallet.balance -= amount;
     receiverWallet.balance += amount;
 
@@ -161,25 +192,28 @@ const sendMoney = async (
 
     await session.commitTransaction();
 
-    // Notify Sender
-    await NotificationService.insertNotification({
-      title: "Money Sent",
-      message: `You have successfully sent ${amount} to ${receiver.fullName || "User"}.`,
-      receiver: new Types.ObjectId(senderId),
-      screen: "WALLET",
-      type: "USER",
-      read: false
-    });
+    // Notifications
+    try {
+      await NotificationService.insertNotification({
+        title: "Money Sent",
+        message: `You have successfully sent ${amount} to ${receiver.fullName || "User"}.`,
+        receiver: new Types.ObjectId(senderId),
+        screen: "WALLET",
+        type: "USER",
+        read: false
+      });
 
-    // Notify Receiver
-    await NotificationService.insertNotification({
-      title: "Money Received",
-      message: `${sender.fullName || "Someone"} has sent you ${amount} in your wallet.`,
-      receiver: receiver._id,
-      screen: "WALLET",
-      type: "USER",
-      read: false
-    });
+      await NotificationService.insertNotification({
+        title: "Money Received",
+        message: `${sender.fullName || "Someone"} has sent you ${amount} in your wallet.`,
+        receiver: receiverId,
+        screen: "WALLET",
+        type: "USER",
+        read: false
+      });
+    } catch (notifError) {
+      console.error('[WalletService] Notification error:', notifError);
+    }
 
     return tx[0];
   } catch (e) {
@@ -191,15 +225,25 @@ const sendMoney = async (
 };
 
 const withdraw = async (userId: string, amount: number) => {
+  if (amount <= 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
+  }
+
   await checkWalletSetting('withdraw');
+
+  const user = await User.findById(userId);
+  if (!user || user.status !== 'active') {
+    throw new ApiError(StatusCodes.FORBIDDEN, "User account is not active or not found");
+  }
+
   const wallet = await getOrCreateWallet(userId);
+  if (wallet.status === 'blocked') {
+    throw new ApiError(StatusCodes.FORBIDDEN, "Your wallet is blocked.");
+  }
 
   if (wallet.balance < amount) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Insufficient balance");
   }
-
-  const user = await User.findById(userId);
-  if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
   // Ensure user is connected to Stripe
   if (!user.isStripeConnected || !user.stripeAccountId) {
@@ -207,8 +251,8 @@ const withdraw = async (userId: string, amount: number) => {
   }
 
   const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    session.startTransaction();
 
     // 1. Trigger Stripe Transfer (Platform -> Provider Account) FIRST to get reference
     const transfer = await StripeService.createTransfer(amount, user.stripeAccountId, { type: 'withdrawal', userId });

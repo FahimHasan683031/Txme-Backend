@@ -17,7 +17,7 @@ const getmyWallet = catchAsync(async (req, res) => {
 
 
 const sendMoney = catchAsync(async (req, res) => {
-  const { receiverId: receiverIdentifier, amount } = req.body;
+  const { receiverIdOrEmail: receiverIdentifier, amount } = req.body;
   const result = await WalletService.sendMoney(req.user.id, receiverIdentifier, amount);
   sendResponse(res, {
     success: true,
