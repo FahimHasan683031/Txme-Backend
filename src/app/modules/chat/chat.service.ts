@@ -225,8 +225,8 @@ const getSupportAvailability = async (): Promise<boolean> => {
 
     const workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const isWorkingDay = workingDays.includes(weekday);
-    // const isWorkingHour = hour >= 9 && hour < 16;
-    const isWorkingHour = hour >= 5 && hour < 16;
+    const isWorkingHour = hour >= 9 && hour < 16;
+   
 
     console.log(`[SupportCheck] CET Weekday: ${weekday}, CET Hour: ${hour}, Result: ${isWorkingDay && isWorkingHour}`);
 
