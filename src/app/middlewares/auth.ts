@@ -4,8 +4,9 @@ import { JwtPayload, Secret } from "jsonwebtoken";
 import config from "../../config";
 import { jwtHelper } from "../../helpers/jwtHelper";
 import ApiError from "../../errors/ApiErrors";
-import { USER_ROLES } from "../../enums/user";
+import { ADMIN_ROLES, USER_ROLES } from "../../enums/user";
 import { User } from "../modules/user/user.model";
+import { Admin } from "../modules/admin/admin.model";
 
 const auth =
   (...roles: string[]) =>
@@ -30,7 +31,13 @@ const auth =
             // Set user to header
             req.user = verifyUser;
 
-            const isExistUser = await User.findOne({ _id: verifyUser.id });
+            let isExistUser;
+
+            if (verifyUser.role === ADMIN_ROLES.SUPER_ADMIN || verifyUser.role === ADMIN_ROLES.ADMIN) {
+              isExistUser= await Admin.findOne({ _id: verifyUser.id });
+            }
+
+             isExistUser = await User.findOne({ _id: verifyUser.id });
 
             // Check if user exists
             if (!isExistUser) {
