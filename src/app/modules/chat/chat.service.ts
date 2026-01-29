@@ -208,7 +208,6 @@ const deleteChatFromDB = async (chatId: string, userId: string): Promise<void> =
 };
 
 // Check for support availability (09:00 - 16:00 CET, Mon-Fri)
-// Check for support availability (09:00 - 16:00 CET, Mon-Fri)
 const getSupportAvailability = async (): Promise<boolean> => {
     const now = new Date();
 
@@ -226,7 +225,8 @@ const getSupportAvailability = async (): Promise<boolean> => {
 
     const workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     const isWorkingDay = workingDays.includes(weekday);
-    const isWorkingHour = hour >= 9 && hour < 16;
+    // const isWorkingHour = hour >= 9 && hour < 16;
+    const isWorkingHour = hour >= 5 && hour < 16;
 
     console.log(`[SupportCheck] CET Weekday: ${weekday}, CET Hour: ${hour}, Result: ${isWorkingDay && isWorkingHour}`);
 
