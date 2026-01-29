@@ -33,7 +33,7 @@ router.post(
 router.post(
     "/send",
     auth(USER_ROLES.CUSTOMER, USER_ROLES.PROVIDER),
-    // validateRequest(WalletValidation.sendMoney),
+    validateRequest(WalletValidation.sendMoney),
     WalletController.sendMoney
 );
 
