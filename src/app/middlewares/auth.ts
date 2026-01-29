@@ -31,13 +31,16 @@ const auth =
             // Set user to header
             req.user = verifyUser;
 
+
             let isExistUser;
 
             if (verifyUser.role === ADMIN_ROLES.SUPER_ADMIN || verifyUser.role === ADMIN_ROLES.ADMIN) {
-              isExistUser= await Admin.findOne({ _id: verifyUser.id });
+              isExistUser = await Admin.findOne({ _id: verifyUser.id });
+            } else {
+              isExistUser = await User.findOne({ _id: verifyUser.id });
             }
 
-             isExistUser = await User.findOne({ _id: verifyUser.id });
+
 
             // Check if user exists
             if (!isExistUser) {
@@ -87,6 +90,7 @@ const auth =
                 );
               }
             }
+
 
             // Guard user role
             if (roles.length && !roles.includes(verifyUser.role)) {
