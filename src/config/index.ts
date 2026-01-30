@@ -60,8 +60,7 @@ export default {
     },
     iap: {
         appleSharedSecret: process.env.APPLE_IAP_SHARED_SECRET,
-        googleServiceAccountEmail: process.env.GOOGLE_IAP_SERVICE_ACCOUNT_EMAIL,
-        googlePrivateKey: process.env.GOOGLE_IAP_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        googlePlayPublicKey: process.env.GOOGLE_PLAY_PUBLIC_KEY,
         packageName: process.env.PACKAGE_NAME
     },
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY
