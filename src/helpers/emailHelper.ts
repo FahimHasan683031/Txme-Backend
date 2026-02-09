@@ -26,6 +26,10 @@ const sendEmail = async (values: ISendEmail) => {
             to: values.to,
             subject: values.subject,
             html: values.html,
+            replyTo: 'oliver@txme.nl',
+            headers: {
+                'List-Unsubscribe': '<mailto:oliver@txme.nl?subject=unsubscribe>'
+            }
         });
 
         logger.info('Mail send successfully', info.messageId);
