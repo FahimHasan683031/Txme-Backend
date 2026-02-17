@@ -24,18 +24,28 @@ const getAllUsers = async (
     query.role = "PROVIDER";
   }
 
-  // ✅ Geocode search postCode ONLY if both postCode and radius are provided
-  if (query.postCode && query.radius) {
+  // Use query postCode or fallback to user's postalAddress
+  let searchPostCode = query.postCode as string;
+  if (!searchPostCode && user?.id) {
+    const currentUser = await User.findById(user.id).select("postalAddress");
+    if (currentUser?.postalAddress) {
+      searchPostCode = currentUser.postalAddress;
+    }
+  }
+
+  if (searchPostCode) {
     try {
-      const coords = await geocodePostCode(query.postCode as string);
+      const coords = await geocodePostCode(searchPostCode);
       query.latitude = coords.latitude;
       query.longitude = coords.longitude;
+      if (!query.radius) {
+        query.radius = 0;
+      }
     } catch (error) {
       console.error("[UserService] Geocoding in getAllUsers failed:", error);
       throw error;
     }
   } else {
-    // Ensure no partial parameters trigger filtering
     delete query.latitude;
     delete query.longitude;
     delete query.radius;
@@ -85,14 +95,12 @@ const updateProfileToDB = async (
       // If profile doesn't exist, create it with payload
       isExistUser.providerProfile = payload.providerProfile as any;
     } else {
-      // If profile exists, update specific fields
       // We iterate keys to ensure we update the subdocument properties
       for (const [key, value] of Object.entries(payload.providerProfile)) {
         // @ts-ignore
         isExistUser.providerProfile[key] = value;
       }
     }
-    // Remove from payload to prevent top-level overwrite attempt (though set handles paths)
     delete payload.providerProfile;
   }
 

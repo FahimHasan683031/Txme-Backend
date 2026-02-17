@@ -27,8 +27,7 @@ class QueryBuilder<T> {
     return this
   }
 
-  // Filtering
-  // Filtering
+
   // Filtering
   filter() {
     const queryObj = { ...this.query }
@@ -130,13 +129,12 @@ class QueryBuilder<T> {
   // Geolocation Search (Radius/Bounding Box)
   geolocation() {
     const { latitude, longitude, radius } = this.query;
-    if (latitude != null && longitude != null && radius != null) {
+    if (latitude != null && longitude != null) {
       const lat = Number(latitude);
       const lon = Number(longitude);
-      const searchRadius = Number(radius); // in kilometers
+      const searchRadius = radius ? Number(radius) : 0;
 
-      // Approximate bounding box (1 degree latitude is ~111.32km)
-      // We use a larger bounding box to account for provider's service radius (max 100km assumed for safety)
+      // Bounding box optimization (1 degree latitude ≈ 111.32km)
       const maxProviderRadius = 100;
       const totalRadius = searchRadius + maxProviderRadius;
       const latDiff = totalRadius / 111.32;
