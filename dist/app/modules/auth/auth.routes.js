@@ -14,9 +14,9 @@ const processReqBody_1 = require("../../middlewares/processReqBody");
 const router = express_1.default.Router();
 // Separate OTP Send APIs
 router.post("/send-email-otp", (0, validateRequest_1.default)(user_validation_1.sendEmailOtpZod), auth_controller_1.AuthController.sendEmailOtp);
-router.post("/send-phone-otp", (0, validateRequest_1.default)(user_validation_1.sendPhoneOtpZod), auth_controller_1.AuthController.sendPhoneOtp);
+router.post("/send-phone-otp", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), (0, validateRequest_1.default)(user_validation_1.sendPhoneOtpZod), auth_controller_1.AuthController.sendPhoneOtp);
 router.post("/send-password-otp", (0, validateRequest_1.default)(user_validation_1.sendPasswordResetOtpZod), auth_controller_1.AuthController.sendPasswordResetOtp);
-router.post("/send-number-change-otp", (0, validateRequest_1.default)(user_validation_1.sendNumberChangeOtpZod), auth_controller_1.AuthController.sendNumberChangeOtp);
+router.post("/send-number-change-otp", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), (0, validateRequest_1.default)(user_validation_1.sendNumberChangeOtpZod), auth_controller_1.AuthController.sendNumberChangeOtp);
 // Common Verify API
 router.post("/verify-otp", (0, validateRequest_1.default)(user_validation_1.verifyOtpZod), auth_controller_1.AuthController.verifyOtp);
 router.post("/login", (0, validateRequest_1.default)(user_validation_1.loginZod), auth_controller_1.AuthController.loginUser);

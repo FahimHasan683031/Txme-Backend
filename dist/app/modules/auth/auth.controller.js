@@ -46,7 +46,10 @@ const sendEmailOtp = (0, catchAsync_1.default)(async (req, res) => {
     });
 });
 const sendPhoneOtp = (0, catchAsync_1.default)(async (req, res) => {
-    const result = await auth_service_1.AuthService.sendPhoneOtp(req.body);
+    const result = await auth_service_1.AuthService.sendPhoneOtp({
+        phone: req.body.phone,
+        id: req.user.id,
+    });
     (0, sendResponse_1.default)(res, {
         success: true,
         statusCode: http_status_codes_1.StatusCodes.OK,
@@ -64,7 +67,7 @@ const sendPasswordResetOtp = (0, catchAsync_1.default)(async (req, res) => {
     });
 });
 const sendNumberChangeOtp = (0, catchAsync_1.default)(async (req, res) => {
-    const result = await auth_service_1.AuthService.sendNumberChangeOtp(req.body.oldPhone, req.body.newPhone);
+    const result = await auth_service_1.AuthService.sendNumberChangeOtp(req.user.id, req.body.newPhone);
     (0, sendResponse_1.default)(res, {
         success: true,
         statusCode: http_status_codes_1.StatusCodes.OK,

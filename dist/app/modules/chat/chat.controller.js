@@ -8,6 +8,7 @@ const catchAsync_1 = __importDefault(require("../../../shared/catchAsync"));
 const sendResponse_1 = __importDefault(require("../../../shared/sendResponse"));
 const http_status_codes_1 = require("http-status-codes");
 const chat_service_1 = require("./chat.service");
+const user_1 = require("../../../enums/user");
 const createChat = (0, catchAsync_1.default)(async (req, res) => {
     const chat = await chat_service_1.ChatService.createChatToDB(req.body);
     (0, sendResponse_1.default)(res, {
@@ -18,7 +19,15 @@ const createChat = (0, catchAsync_1.default)(async (req, res) => {
     });
 });
 const createAdminSupport = (0, catchAsync_1.default)(async (req, res) => {
-    const chat = await chat_service_1.ChatService.createAdminSupportChat(req.user.id);
+    console.log("hit...");
+    console.log(req.user.id);
+    let chat;
+    if (req.user.role === user_1.ADMIN_ROLES.ADMIN || req.user.role === user_1.ADMIN_ROLES.SUPER_ADMIN) {
+        chat = await chat_service_1.ChatService.createAdminSupportChat(req.body.participant);
+    }
+    else {
+        chat = await chat_service_1.ChatService.createAdminSupportChat(req.user.id);
+    }
     (0, sendResponse_1.default)(res, {
         statusCode: http_status_codes_1.StatusCodes.OK,
         success: true,
@@ -27,21 +36,23 @@ const createAdminSupport = (0, catchAsync_1.default)(async (req, res) => {
     });
 });
 const getChat = (0, catchAsync_1.default)(async (req, res) => {
-    const chatList = await chat_service_1.ChatService.getChatFromDB(req.user, req.query.search);
+    const result = await chat_service_1.ChatService.getChatFromDB(req.user, req.query);
     (0, sendResponse_1.default)(res, {
         statusCode: http_status_codes_1.StatusCodes.OK,
         success: true,
         message: 'Chat Retrieve Successfully',
-        data: chatList
+        data: result.data,
+        pagination: result.pagination
     });
 });
 const getAdminSupportChats = (0, catchAsync_1.default)(async (req, res) => {
-    const chatList = await chat_service_1.ChatService.getAdminSupportChats();
+    const result = await chat_service_1.ChatService.getAdminSupportChats(req.query);
     (0, sendResponse_1.default)(res, {
         statusCode: http_status_codes_1.StatusCodes.OK,
         success: true,
         message: 'Admin Support Chats Retrieved Successfully',
-        data: chatList
+        data: result.data,
+        pagination: result.pagination
     });
 });
 const deleteChat = (0, catchAsync_1.default)(async (req, res) => {
@@ -53,10 +64,20 @@ const deleteChat = (0, catchAsync_1.default)(async (req, res) => {
         data: null
     });
 });
+const getSupportAvailability = (0, catchAsync_1.default)(async (req, res) => {
+    const isAvailable = await chat_service_1.ChatService.getSupportAvailability();
+    (0, sendResponse_1.default)(res, {
+        statusCode: http_status_codes_1.StatusCodes.OK,
+        success: true,
+        message: 'Support availability checked successfully',
+        data: isAvailable
+    });
+});
 exports.ChatController = {
     createChat,
     createAdminSupport,
     getChat,
     getAdminSupportChats,
-    deleteChat
+    deleteChat,
+    getSupportAvailability
 };

@@ -11,7 +11,7 @@ const config_1 = __importDefault(require("../config"));
 const ApiErrors_1 = __importDefault(require("../errors/ApiErrors"));
 const http_status_codes_1 = require("http-status-codes");
 const s3Client = new client_s3_1.S3Client({
-    region: config_1.default.aws.region || "us-east-1",
+    region: config_1.default.aws.s3.region || "us-east-1",
     credentials: {
         accessKeyId: config_1.default.aws.accessKeyId,
         secretAccessKey: config_1.default.aws.secretAccessKey,
@@ -42,7 +42,7 @@ const uploadToS3 = async (filePath, fileName, mimeType) => {
         });
         await upload.done();
         // Return the public URL
-        return `https://${config_1.default.aws.bucket}.s3.${config_1.default.aws.region}.amazonaws.com/${fileName}`;
+        return `https://${config_1.default.aws.bucket}.s3.${config_1.default.aws.s3.region}.amazonaws.com/${fileName}`;
     }
     catch (error) {
         console.error("❌ S3 Upload Error:", error.message || error);

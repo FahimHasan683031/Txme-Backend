@@ -10,4 +10,5 @@ const router = express_1.default.Router();
 // get popular providers
 router.get('/popular', provider_controller_1.providerController.getPopularProviders);
 router.get('/:providerId/calendar', provider_controller_1.providerController.getProviderCalendar);
+router.get('/:providerId/statistics', provider_controller_1.providerController.getDashboardStats);
 exports.providerRoute = router;

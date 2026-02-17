@@ -13,4 +13,5 @@ router.get('/', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLE
 router.get('/admin', (0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), notification_controller_1.NotificationController.adminNotificationFromDB);
 router.get('/unread-count', (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), notification_controller_1.NotificationController.getUnreadCount);
 router.get('/admin/unread-count', (0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), notification_controller_1.NotificationController.adminGetUnreadCount);
+router.post('/test-push', notification_controller_1.NotificationController.sendTestPushNotification);
 exports.NotificationRoutes = router;

@@ -32,6 +32,7 @@ const getAllServices = async (req, res) => {
 const updateService = async (req, res) => {
     const id = req.params.id;
     const payload = req.body;
+    console.log({ payload, id });
     const result = await service_service_1.serviceService.updateService(id, payload);
     (0, sendResponse_1.default)(res, {
         statusCode: http_status_codes_1.StatusCodes.OK,

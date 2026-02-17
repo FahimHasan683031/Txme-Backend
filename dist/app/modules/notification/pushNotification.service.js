@@ -45,11 +45,13 @@ let isFirebaseInitialized = false;
 const initializeFirebase = () => {
     try {
         const serviceAccountPath = path_1.default.join(process.cwd(), 'serviceAccountKey.json');
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccountPath),
-        });
+        if (admin.apps.length === 0) {
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccountPath),
+            });
+            logger_1.logger.info('Firebase Admin initialized successfully');
+        }
         isFirebaseInitialized = true;
-        logger_1.logger.info('Firebase Admin initialized successfully');
     }
     catch (error) {
         logger_1.logger.error('Firebase Admin initialization failed:', error);
@@ -63,12 +65,19 @@ const sendPushNotification = async (fcmToken, title, body, data) => {
         logger_1.logger.warn('Push notification skipped: Firebase not initialized');
         return;
     }
+    // Convert all data values to strings (FCM requirement)
+    const stringifiedData = {};
+    if (data) {
+        Object.entries(data).forEach(([key, value]) => {
+            stringifiedData[key] = (value === null || value === void 0 ? void 0 : value.toString()) || '';
+        });
+    }
     const message = {
         notification: {
             title,
             body,
         },
-        data: data || {},
+        data: stringifiedData,
         token: fcmToken,
     };
     try {
@@ -78,6 +87,12 @@ const sendPushNotification = async (fcmToken, title, body, data) => {
     }
     catch (error) {
         logger_1.logger.error('Error sending push notification:', error);
+        console.error("--- PUSH NOTIFICATION ERROR DETAIL ---");
+        console.error("Code:", error.code);
+        console.error("Message:", error.message);
+        if (error.errorInfo) {
+            console.error("ErrorInfo:", JSON.stringify(error.errorInfo, null, 2));
+        }
     }
 };
 exports.PushNotificationService = {

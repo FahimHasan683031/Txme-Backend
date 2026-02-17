@@ -61,14 +61,26 @@ const sendPhoneOtp = async (payload) => {
     // Save the user (this will trigger validations)
     await user.save();
     // Send SMS after saving user
-    await (0, sendSMS_1.default)(payload.phone, otp.toString());
+    await (0, sendSMS_1.default)(payload.phone, `Your Txme phone verification OTP is ${otp}. It is valid for 5 minutes.`);
     return { userId: user._id, phone: payload.phone };
 };
 // Verify OTP
 const verifyOtp = async (payload) => {
     const { purpose, channel, identifier, oneTimeCode } = payload;
-    const query = channel === "email" ? { email: identifier } : { phone: identifier };
-    const user = await user_model_1.User.findOne(query).select("+authentication");
+    let query;
+    let user;
+    // For number_change, the identifier is the NEW phone number
+    // which is stored in authentication.newPhone, not in the user.phone field yet
+    if (purpose === "number_change" && channel === "phone") {
+        user = await user_model_1.User.findOne({
+            "authentication.newPhone": identifier,
+            "authentication.purpose": "number_change"
+        }).select("+authentication");
+    }
+    else {
+        query = channel === "email" ? { email: identifier } : { phone: identifier };
+        user = await user_model_1.User.findOne(query).select("+authentication");
+    }
     if (!user || !user.authentication) {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "User or OTP not found");
     }
@@ -87,59 +99,50 @@ const verifyOtp = async (payload) => {
     // ✅ Mark verified according to purpose
     if (purpose === "email_verify") {
         user.isEmailVerified = true;
-        await wallet_model_1.Wallet.create({ user: user._id });
     }
     if (purpose === "phone_verify")
         user.isPhoneVerified = true;
+    // Handle number change verification
+    if (purpose === "number_change") {
+        if (!user.authentication.newPhone) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "New phone number not found in session");
+        }
+        user.phone = user.authentication.newPhone;
+        user.isPhoneVerified = true;
+    }
     // Clear authentication
     user.authentication = undefined;
     await user.save();
-    // ✅ Generate tokens for both login_otp AND email_verify purposes
+    // ✅ Generate tokens
     let tokens = null;
     let userInfo = null;
-    if (purpose === "login_otp" || purpose === "email_verify") {
+    // 1. Handle Login OTP
+    if (purpose === "login_otp") {
         const [accessToken, refreshToken, biometricToken] = await Promise.all([
-            jwtHelper_1.jwtHelper.createToken({
-                id: user._id,
-                role: user.role,
-                email: user.email,
-            }, config_1.default.jwt.jwt_secret, config_1.default.jwt.jwt_expire_in),
-            jwtHelper_1.jwtHelper.createToken({
-                id: user._id,
-                role: user.role,
-                email: user.email,
-            }, config_1.default.jwt.jwtRefreshSecret, config_1.default.jwt.jwtRefreshExpiresIn),
-            jwtHelper_1.jwtHelper.createToken({
-                id: user._id,
-                role: user.role,
-                email: user.email,
-            }, config_1.default.jwt.jwtBiometricSecret, config_1.default.jwt.jwtBiometricExpiresIn),
+            jwtHelper_1.jwtHelper.createToken({ id: user._id, role: user.role, email: user.email }, config_1.default.jwt.jwt_secret, config_1.default.jwt.jwt_expire_in),
+            jwtHelper_1.jwtHelper.createToken({ id: user._id, role: user.role, email: user.email }, config_1.default.jwt.jwtRefreshSecret, config_1.default.jwt.jwtRefreshExpiresIn),
+            jwtHelper_1.jwtHelper.createToken({ id: user._id, role: user.role, email: user.email }, config_1.default.jwt.jwtBiometricSecret, config_1.default.jwt.jwtBiometricExpiresIn),
         ]);
         tokens = {
             accessToken,
             refreshToken,
-            ...(purpose === "login_otp" &&
-                user.biometricEnabled && { biometricToken }),
-        };
-        userInfo = {
-            userId: user._id,
-            email: user.email,
-            phone: user.phone,
-            fullName: user.fullName,
-            profilePicture: user.profilePicture,
-            role: user.role,
+            ...(user.biometricEnabled && { biometricToken }),
         };
     }
+    // 2. Handle Email Verification (Onboarding)
+    if (purpose === "email_verify") {
+        const accessToken = await jwtHelper_1.jwtHelper.createToken({ id: user._id, role: user.role, email: user.email }, config_1.default.jwt.jwt_secret, "1h" // Temporary token
+        );
+        tokens = { accessToken };
+    }
+    // 3. Handle Biometric Enable
     if (purpose === "biometric_enable") {
-        await user_model_1.User.findByIdAndUpdate(user.id, {
-            biometricEnabled: true,
-        });
-        const biometricToken = jwtHelper_1.jwtHelper.createToken({
-            id: user._id,
-            role: user.role,
-            email: user.email,
-        }, config_1.default.jwt.jwtBiometricSecret, config_1.default.jwt.jwtBiometricExpiresIn);
+        await user_model_1.User.findByIdAndUpdate(user.id, { biometricEnabled: true });
+        const biometricToken = await jwtHelper_1.jwtHelper.createToken({ id: user._id, role: user.role, email: user.email }, config_1.default.jwt.jwtBiometricSecret, config_1.default.jwt.jwtBiometricExpiresIn);
         tokens = { biometricToken };
+    }
+    // Common User Info
+    if (tokens) {
         userInfo = {
             userId: user._id,
             email: user.email,
@@ -201,6 +204,7 @@ const loginUserFromDB = async (payload) => {
         success: true,
         message: "Login OTP sent to your email",
         userId: existingUser._id,
+        token: null // Explicitly return token null to avoid confusion
     };
 };
 // Biometric login
@@ -260,20 +264,30 @@ const sendPasswordResetOtp = async (email) => {
     return { email };
 };
 // Send OTP for number change
-const sendNumberChangeOtp = async (oldPhone, newPhone) => {
-    const user = await user_model_1.User.findOne({ phone: oldPhone });
+const sendNumberChangeOtp = async (userId, newPhone) => {
+    // Check if phone number is already in use by another user
+    const isExcludedPhoneExist = await user_model_1.User.findOne({
+        phone: newPhone,
+        _id: { $ne: userId }
+    });
+    if (isExcludedPhoneExist) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Phone number already in use");
+    }
+    const user = await user_model_1.User.findById(userId).select("+authentication");
     if (!user)
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "Old phone not found");
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "User not found");
+    // Generate new OTP and save
     const otp = (0, generateOTP_1.default)();
     user.authentication = {
         purpose: "number_change",
         channel: "phone",
         oneTimeCode: otp,
         expireAt: new Date(Date.now() + 5 * 60 * 1000),
+        newPhone,
     };
     await user.save();
-    await (0, sendSMS_1.default)(newPhone, otp.toString());
-    return { oldPhone, newPhone };
+    await (0, sendSMS_1.default)(newPhone, `Your Txme phone change verification OTP is ${otp}. It is valid for 5 minutes.`);
+    return { phone: newPhone };
 };
 // Complete profile
 const completeProfile = async (user, payload) => {
@@ -283,6 +297,44 @@ const completeProfile = async (user, payload) => {
     // Update fields and trigger .save() for hooks
     Object.assign(userFromDB, payload);
     const res = await userFromDB.save();
+    // Check if this is a registration completion (Activation)
+    const isFirstTimeActivation = userFromDB.status === 'pending' &&
+        userFromDB.isEmailVerified &&
+        userFromDB.isPhoneVerified &&
+        userFromDB.isIdentityVerified;
+    if (isFirstTimeActivation) {
+        userFromDB.status = 'active';
+        await userFromDB.save();
+        await wallet_model_1.Wallet.create({ user: user.id });
+        // Generate Final Tokens (Access & Refresh)
+        const [accessToken, refreshToken] = await Promise.all([
+            jwtHelper_1.jwtHelper.createToken({
+                id: userFromDB._id,
+                role: userFromDB.role,
+                email: userFromDB.email,
+            }, config_1.default.jwt.jwt_secret, config_1.default.jwt.jwt_expire_in),
+            jwtHelper_1.jwtHelper.createToken({
+                id: userFromDB._id,
+                role: userFromDB.role,
+                email: userFromDB.email,
+            }, config_1.default.jwt.jwtRefreshSecret, config_1.default.jwt.jwtRefreshExpiresIn),
+        ]);
+        const userInfo = {
+            userId: userFromDB._id,
+            email: userFromDB.email,
+            phone: userFromDB.phone,
+            fullName: userFromDB.fullName,
+            profilePicture: userFromDB.profilePicture,
+            role: userFromDB.role,
+        };
+        return {
+            res,
+            accessToken,
+            refreshToken,
+            userInfo
+        };
+    }
+    // Regular profile update for already active users
     return { res };
 };
 // Resend OTP
@@ -330,7 +382,7 @@ const resendOtp = async (identifier) => {
         }, 0);
     }
     else {
-        await (0, sendSMS_1.default)(numericValue, `Your OTP is ${newOtp}. Valid for 5 minutes.`);
+        await (0, sendSMS_1.default)(numericValue, `Your Txme phone verification OTP is ${newOtp}. It is valid for 5 minutes.`);
     }
     return {
         success: true,

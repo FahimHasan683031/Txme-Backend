@@ -21,6 +21,9 @@ const setting_route_1 = require("../modules/setting/setting.route");
 const auditLog_route_1 = require("../modules/auditLog/auditLog.route");
 const transaction_route_1 = require("../modules/transaction/transaction.route");
 const stripe_route_1 = require("../modules/stripe/stripe.route");
+const kyc_route_1 = require("../modules/kyc/kyc.route");
+const promotion_route_1 = require("../modules/promotion/promotion.route");
+const invoice_route_1 = require("../modules/invoice/invoice.route");
 const router = express_1.default.Router();
 const apiRoutes = [
     { path: "/user", route: user_routes_1.UserRoutes },
@@ -40,6 +43,9 @@ const apiRoutes = [
     { path: "/audit-log", route: auditLog_route_1.AuditLogRoutes },
     { path: "/transaction", route: transaction_route_1.TransactionRoutes },
     { path: "/stripe", route: stripe_route_1.StripeRoutes },
+    { path: "/kyc", route: kyc_route_1.KycRoutes },
+    { path: "/promotion", route: promotion_route_1.PromotionRoutes },
+    { path: "/invoice", route: invoice_route_1.InvoiceRoutes },
 ];
 apiRoutes.forEach(route => router.use(route.path, route.route));
 exports.default = router;

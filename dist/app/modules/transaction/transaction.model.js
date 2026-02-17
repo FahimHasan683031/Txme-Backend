@@ -6,12 +6,12 @@ const transactionSchema = new mongoose_1.Schema({
     wallet: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: "Wallet",
-        required: true,
+        required: false,
     },
     amount: { type: Number, required: true },
     type: {
         type: String,
-        enum: ["topup", "withdraw", "send"],
+        enum: ["topup", "withdraw", "send", "promotion"],
         required: true,
     },
     direction: {
@@ -27,5 +27,7 @@ const transactionSchema = new mongoose_1.Schema({
     reference: String,
     from: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
     to: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
+    platform: { type: String, enum: ["ios", "android"] },
+    productId: { type: String },
 }, { timestamps: true });
 exports.WalletTransaction = (0, mongoose_1.model)("WalletTransaction", transactionSchema);

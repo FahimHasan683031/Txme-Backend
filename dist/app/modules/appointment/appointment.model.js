@@ -29,12 +29,15 @@ const AppointmentSchema = new mongoose_1.Schema({
         type: String,
         required: true,
     },
-    actualStartTime: {
+    note: {
         type: String,
+    },
+    actualStartTime: {
+        type: Date,
         required: false,
     },
     actualEndTime: {
-        type: String,
+        type: Date,
         required: false,
     },
     status: {

@@ -17,5 +17,5 @@ exports.createServiceZod = zod_1.z.object({
 });
 // Update service validation
 exports.updateServiceZod = zod_1.z.object({
-    body: baseServiceSchema.partial().strict(),
+    body: baseServiceSchema.partial(),
 });

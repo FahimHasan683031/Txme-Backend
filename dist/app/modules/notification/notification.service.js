@@ -10,13 +10,49 @@ const pushNotification_service_1 = require("./pushNotification.service");
 const user_model_1 = require("../user/user.model");
 // insert notification
 const insertNotification = async (payload) => {
-    var _a;
     const result = await notification_model_1.Notification.create(payload);
-    // If there's a receiver and title/message, try to send a push notification
-    if (result.receiver && result.title && result.message) {
-        const receiverUser = await user_model_1.User.findById(result.receiver).select('fcmToken');
-        if (receiverUser === null || receiverUser === void 0 ? void 0 : receiverUser.fcmToken) {
-            await pushNotification_service_1.PushNotificationService.sendPushNotification(receiverUser.fcmToken, result.title, result.message, { referenceId: ((_a = result.referenceId) === null || _a === void 0 ? void 0 : _a.toString()) || '', screen: result.screen || '' });
+    // --- PUSH NOTIFICATION ---
+    if (result.title && result.message) {
+        console.log(`[NotificationService] Processing push for: ${result.title}. Type: ${result.type}`);
+        if (result.type === 'ADMIN') {
+            const admins = await user_model_1.User.find({
+                role: { $in: ['ADMIN', 'SUPER_ADMIN'] }
+            }).select('fcmToken');
+            const adminTokens = admins.map(a => a.fcmToken).filter(Boolean);
+            console.log(`[NotificationService] Found ${adminTokens.length} admin tokens`);
+            if (adminTokens.length > 0) {
+                for (const token of adminTokens) {
+                    await pushNotification_service_1.PushNotificationService.sendPushNotification(token, `Admin: ${result.title}`, result.message, { referenceId: result.referenceId, screen: result.screen });
+                }
+            }
+        }
+        else if (result.receiver) {
+            const receiverId = result.receiver.toString();
+            console.log(`[NotificationService] Fetching token for receiver: ${receiverId}`);
+            const receiverUser = await user_model_1.User.findById(receiverId).select('fcmToken fullName');
+            if (receiverUser) {
+                if (receiverUser.fcmToken) {
+                    console.log(`[NotificationService] Sending push to ${receiverUser.fullName || 'User'} (Token found)`);
+                    await pushNotification_service_1.PushNotificationService.sendPushNotification(receiverUser.fcmToken, result.title, result.message, { referenceId: result.referenceId, screen: result.screen });
+                }
+                else {
+                    console.warn(`[NotificationService] Push skipped: No fcmToken found for user ${receiverId}`);
+                }
+            }
+            else {
+                console.error(`[NotificationService] Push error: Receiver user not found in DB: ${receiverId}`);
+            }
+        }
+    }
+    // --- SOCKET NOTIFICATION ---
+    //@ts-ignore
+    const io = global.io;
+    if (io) {
+        if (result.type === 'ADMIN') {
+            io.emit('admin-notification', result);
+        }
+        else if (result.receiver) {
+            io.emit(`notification::${result.receiver.toString()}`, result);
         }
     }
     return result;

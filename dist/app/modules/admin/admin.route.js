@@ -14,6 +14,7 @@ const router = express_1.default.Router();
 // create admin
 router.post('/', (0, auth_1.default)(user_1.ADMIN_ROLES.SUPER_ADMIN), (0, validateRequest_1.default)(admin_validation_1.AdminValidation.createAdminZodSchema), admin_controller_1.AdminController.createAdmin);
 router.get('/', (0, auth_1.default)(user_1.ADMIN_ROLES.SUPER_ADMIN), admin_controller_1.AdminController.getAllAdmins);
+router.get('/dashboard-overview', (0, auth_1.default)(user_1.ADMIN_ROLES.SUPER_ADMIN), admin_controller_1.AdminController.getDashboardOverview);
 router.post('/login', (0, validateRequest_1.default)(admin_validation_1.AdminValidation.loginZodSchema), admin_controller_1.AdminController.loginAdmin);
 router.post('/forget-password', (0, validateRequest_1.default)(admin_validation_1.AdminValidation.forgetPasswordZodSchema), admin_controller_1.AdminController.forgetPassword);
 router.post('/verify-otp', (0, validateRequest_1.default)(admin_validation_1.AdminValidation.verifyOTPZodSchema), admin_controller_1.AdminController.verifyEmail);

@@ -21,7 +21,6 @@ class QueryBuilder {
         return this;
     }
     // Filtering
-    // Filtering
     filter() {
         const queryObj = { ...this.query };
         const excludeFields = [
@@ -42,18 +41,26 @@ class QueryBuilder {
             'longitude',
             'radius',
             'language',
+            'serviceCategory',
+            "postCode",
+            'skills'
         ];
         excludeFields.forEach(el => delete queryObj[el]);
         const filters = cleanObject(queryObj);
+        // ✅ Handle provider specific nested fields if present in original query
+        if (this.query.serviceCategory) {
+            filters["providerProfile.serviceCategory"] = { $in: Array.isArray(this.query.serviceCategory) ? this.query.serviceCategory : [this.query.serviceCategory] };
+        }
+        if (this.query.skills) {
+            filters["providerProfile.skills"] = { $in: Array.isArray(this.query.skills) ? this.query.skills : [this.query.skills] };
+        }
         // Handle salary range filtering
         if (queryObj.minSalary || queryObj.maxSalary) {
             if (queryObj.minSalary) {
                 filters.minSalary = { $gte: Number(queryObj.minSalary) };
-                delete queryObj.minSalary;
             }
             if (queryObj.maxSalary) {
                 filters.maxSalary = { $lte: Number(queryObj.maxSalary) };
-                delete queryObj.maxSalary;
             }
         }
         // ✅ Add partial match for jobLocation
@@ -99,16 +106,52 @@ class QueryBuilder {
     // Geolocation Search (Radius/Bounding Box)
     geolocation() {
         const { latitude, longitude, radius } = this.query;
-        if (latitude && longitude && radius) {
+        if (latitude != null && longitude != null) {
             const lat = Number(latitude);
             const lon = Number(longitude);
-            const rad = Number(radius); // in kilometers
-            // Approximate bounding box (1 degree latitude is ~111km)
-            const latDiff = rad / 111;
-            const lonDiff = rad / (111 * Math.cos(lat * (Math.PI / 180)));
+            const searchRadius = radius ? Number(radius) : 0;
+            // Bounding box optimization (1 degree latitude ≈ 111.32km)
+            const maxProviderRadius = 100;
+            const totalRadius = searchRadius + maxProviderRadius;
+            const latDiff = totalRadius / 111.32;
+            const lonDiff = totalRadius / (111.32 * Math.cos(lat * (Math.PI / 180)));
+            // Primary filter using bounding box for performance (if indices exist)
+            // Then use $expr for precise distance calculation considering BOTH radii
             this.modelQuery = this.modelQuery.find({
-                "residentialAddress.latitude": { $gte: lat - latDiff, $lte: lat + latDiff },
-                "residentialAddress.longitude": { $gte: lon - lonDiff, $lte: lon + lonDiff },
+                "providerProfile.workLocation.latitude": { $gte: lat - latDiff, $lte: lat + latDiff },
+                "providerProfile.workLocation.longitude": { $gte: lon - lonDiff, $lte: lon + lonDiff },
+                $expr: {
+                    $let: {
+                        vars: {
+                            // Distance formula (approximate, distance in km)
+                            d_lat: { $subtract: ["$providerProfile.workLocation.latitude", lat] },
+                            d_lon: { $subtract: ["$providerProfile.workLocation.longitude", lon] }
+                        },
+                        in: {
+                            $let: {
+                                vars: {
+                                    // sqrt((d_lat*111.32)^2 + (d_lon*111.32*cos(lat))^2)
+                                    dist: {
+                                        $sqrt: {
+                                            $add: [
+                                                { $pow: [{ $multiply: ["$$d_lat", 111.32] }, 2] },
+                                                { $pow: [{ $multiply: ["$$d_lon", 111.32, Math.cos(lat * (Math.PI / 180))] }, 2] }
+                                            ]
+                                        }
+                                    }
+                                },
+                                in: {
+                                    // ✅ Matches if distance is within PROVIDER service radius 
+                                    // AND provider has at least the requested capacity (searchRadius)
+                                    $and: [
+                                        { $lte: ["$$dist", { $ifNull: ["$providerProfile.workLocation.radius", 0] }] },
+                                        { $gte: [{ $ifNull: ["$providerProfile.workLocation.radius", 0] }, searchRadius] }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
             });
         }
         return this;
@@ -127,10 +170,15 @@ class QueryBuilder {
             if (maxPrice)
                 filters["providerProfile.hourlyRate"].$lte = Number(maxPrice);
         }
-        if (startTime) {
+        // ✅ Inclusion Range Search: Provider shift must be within the user's requested window
+        if (startTime && endTime) {
+            filters["providerProfile.workingHours.startTime"] = { $gte: startTime };
+            filters["providerProfile.workingHours.endTime"] = { $lte: endTime };
+        }
+        else if (startTime) {
             filters["providerProfile.workingHours.startTime"] = { $gte: startTime };
         }
-        if (endTime) {
+        else if (endTime) {
             filters["providerProfile.workingHours.endTime"] = { $lte: endTime };
         }
         if (availableDate) {

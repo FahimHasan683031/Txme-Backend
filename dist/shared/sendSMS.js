@@ -8,7 +8,7 @@ const config_1 = __importDefault(require("../config"));
 const ApiErrors_1 = __importDefault(require("../errors/ApiErrors"));
 const http_status_codes_1 = require("http-status-codes");
 const snsClient = new client_sns_1.SNSClient({
-    region: config_1.default.aws.region || 'us-east-1',
+    region: config_1.default.aws.sns.region || 'us-east-1',
     credentials: {
         accessKeyId: config_1.default.aws.accessKeyId,
         secretAccessKey: config_1.default.aws.secretAccessKey,
@@ -29,6 +29,10 @@ const sendSMS = async (to, message) => {
                 'AWS.SNS.SMS.SMSType': {
                     DataType: 'String',
                     StringValue: 'Transactional',
+                },
+                'AWS.SNS.SMS.SenderID': {
+                    DataType: 'String',
+                    StringValue: 'Txme',
                 },
             },
         };

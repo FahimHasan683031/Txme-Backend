@@ -40,11 +40,32 @@ exports.default = {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         region: process.env.AWS_REGION,
-        bucket: process.env.AWS_S3_BUCKET
+        bucket: process.env.AWS_S3_BUCKET,
+        ses: {
+            region: process.env.AWS_SES_REGION || process.env.AWS_REGION
+        },
+        s3: {
+            region: process.env.AWS_S3_REGION || process.env.AWS_REGION
+        },
+        sns: {
+            region: process.env.AWS_SNS_REGION || process.env.AWS_REGION
+        }
     },
     cloudinary: {
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
         api_key: process.env.CLOUDINARY_API_KEY,
         api_secret: process.env.CLOUDINARY_API_SECRET
-    }
+    },
+    didit: {
+        apiKey: process.env.DIDIT_API_KEY,
+        webhookSecret: process.env.DIDIT_WEBHOOK_SECRET,
+        baseUrl: 'https://verification.didit.me/v2',
+        workflowId: process.env.DIDIT_WORKFLOW_ID
+    },
+    iap: {
+        appleSharedSecret: process.env.APPLE_IAP_SHARED_SECRET,
+        googlePlayPublicKey: process.env.GOOGLE_PLAY_PUBLIC_KEY,
+        packageName: process.env.PACKAGE_NAME
+    },
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY
 };

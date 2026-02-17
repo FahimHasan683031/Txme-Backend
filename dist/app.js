@@ -7,13 +7,13 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const http_status_codes_1 = require("http-status-codes");
 const morgan_1 = require("./shared/morgan");
-const routes_1 = __importDefault(require("./app/routes"));
 const globalErrorHandler_1 = __importDefault(require("./app/middlewares/globalErrorHandler"));
 const request_ip_1 = __importDefault(require("request-ip"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const ApiErrors_1 = __importDefault(require("./errors/ApiErrors"));
 const handleStripeWebhook_1 = __importDefault(require("./stripe/handleStripeWebhook"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
+const routes_1 = __importDefault(require("./app/routes"));
 const app = (0, express_1.default)();
 const limiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -37,10 +37,14 @@ app.use(morgan_1.Morgan.successHandler);
 app.use(morgan_1.Morgan.errorHandler);
 //body parser
 app.use((0, cors_1.default)({
-    origin: ["http://localhost:3001", "http://localhost:3002"],
+    origin: ["http://localhost:3001", "http://localhost:3002", "http://10.10.7.13:3001", "https://txme-exchange.com"],
     credentials: true,
 }));
-app.use(express_1.default.json());
+app.use(express_1.default.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use(request_ip_1.default.mw());
 app.use((0, cookie_parser_1.default)());

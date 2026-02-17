@@ -27,7 +27,17 @@ const getPopularProviders = (0, catchAsync_1.default)(async (req, res) => {
         ...result
     });
 });
+const getDashboardStats = (0, catchAsync_1.default)(async (req, res) => {
+    const result = await provider_service_1.proveiderServices.getDashboardStats(req.params.providerId);
+    (0, sendResponse_1.default)(res, {
+        success: true,
+        statusCode: http_status_codes_1.StatusCodes.OK,
+        message: 'Provider stats retrieved successfully',
+        data: result
+    });
+});
 exports.providerController = {
     getProviderCalendar,
-    getPopularProviders
+    getPopularProviders,
+    getDashboardStats
 };

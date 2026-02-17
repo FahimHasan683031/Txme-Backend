@@ -10,6 +10,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const ApiErrors_1 = __importDefault(require("../../../errors/ApiErrors"));
 const http_status_codes_1 = require("http-status-codes");
 const languages_1 = require("../../../enums/languages");
+const geocoding_util_1 = require("../../../util/geocoding.util");
 // Provider Profile Sub-document Schema
 const providerProfileSchema = new mongoose_1.Schema({
     serviceCategory: {
@@ -20,11 +21,11 @@ const providerProfileSchema = new mongoose_1.Schema({
     workingHours: {
         startTime: { type: String, required: true },
         endTime: { type: String, required: true },
-        duration: { type: Number, required: true, default: 2 }, // duration in hours (e.g., 1, 1.5, 2)
+        duration: { type: Number, required: true, default: 2 },
     },
     workingDays: [
         {
-            type: String, // e.g., "Monday", "Tuesday"
+            type: String,
             required: true,
             enum: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
         },
@@ -42,6 +43,13 @@ const providerProfileSchema = new mongoose_1.Schema({
             type: String,
             enum: languages_1.PROVIDER_LANGUAGES,
         }],
+    workLocation: {
+        postCode: { type: String },
+        radius: { type: Number },
+        latitude: { type: Number },
+        longitude: { type: Number },
+        address: { type: String },
+    },
 }, { _id: false, timestamps: false });
 // Main User Schema
 const userSchema = new mongoose_1.Schema({
@@ -73,14 +81,6 @@ const userSchema = new mongoose_1.Schema({
         longitude: { type: Number, required: false },
     },
     postalAddress: { type: String },
-    identification: {
-        type: {
-            type: String,
-            enum: ["nid", "passport"],
-            required: false,
-        },
-        value: { type: String, required: false },
-    },
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
     maritalStatus: { type: String },
@@ -139,15 +139,41 @@ const userSchema = new mongoose_1.Schema({
         },
         oneTimeCode: { type: Number },
         expireAt: { type: Date },
+        newPhone: { type: String, required: false },
     },
     stripeAccountId: { type: String, required: false },
     isStripeConnected: { type: Boolean, default: false },
     fcmToken: { type: String, required: false },
+    complyCubeClientId: { type: String, required: false },
+    isIdentityVerified: { type: Boolean, default: false },
+    diditSessionId: { type: String, required: false },
+    isPromoted: { type: Boolean, default: false },
+    promotionExpiry: { type: Date, default: null },
 }, {
     timestamps: true,
 });
 // pre save hook
 userSchema.pre("save", async function (next) {
+    var _a, _b;
+    const user = this;
+    // Handle Geocoding for Provider Work Location PostCode
+    if (((_b = (_a = user.providerProfile) === null || _a === void 0 ? void 0 : _a.workLocation) === null || _b === void 0 ? void 0 : _b.postCode) && user.isModified('providerProfile.workLocation.postCode')) {
+        try {
+            console.log(`[UserModel] Detected postCode change: ${user.providerProfile.workLocation.postCode}. Fetching coordinates...`);
+            const coords = await (0, geocoding_util_1.geocodePostCode)(user.providerProfile.workLocation.postCode);
+            // We must check again if providerProfile still exists (though unlikely to disappear during hook)
+            if (user.providerProfile && user.providerProfile.workLocation) {
+                user.providerProfile.workLocation.latitude = coords.latitude;
+                user.providerProfile.workLocation.longitude = coords.longitude;
+                user.providerProfile.workLocation.address = coords.address;
+                console.log(`[UserModel] Successfully geocoded to: ${coords.latitude}, ${coords.longitude}`);
+            }
+        }
+        catch (error) {
+            console.error(`[UserModel] Geocoding failed: ${error.message}`);
+            return next(error);
+        }
+    }
     next();
 });
 userSchema.pre("save", function (next) {
@@ -193,14 +219,14 @@ userSchema.pre("save", function (next) {
     }
     next();
 });
-// ✅ Index for residentialAddress coordinates (2dsphere for radius search)
-userSchema.index({
-    "residentialAddress.latitude": 1,
-    "residentialAddress.longitude": 1,
-});
 // ✅ Index for provider profile searches
 userSchema.index({
     "providerProfile.serviceCategory": 1,
+});
+// ✅ Index for workLocation coordinates
+userSchema.index({
+    "providerProfile.workLocation.latitude": 1,
+    "providerProfile.workLocation.longitude": 1,
 });
 // ALL OTHER STATICS AND HOOKS REMAIN EXACTLY SAME
 userSchema.statics.isExistUserById = async (id) => {

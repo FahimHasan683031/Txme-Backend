@@ -12,6 +12,7 @@ const wallet_service_1 = require("../wallet/wallet.service");
 const appointment_model_1 = require("../appointment/appointment.model");
 const notification_service_1 = require("../notification/notification.service");
 const checkSetting_1 = require("../../../helpers/checkSetting");
+const transaction_model_1 = require("../transaction/transaction.model");
 // --- Wallet Management (formerly wallet.stripe.service.ts) ---
 const createTopUpPaymentIntent = async (userId, amount, userEmail) => {
     await (0, checkSetting_1.checkWalletSetting)('topUp');
@@ -42,14 +43,17 @@ const handleSuccessfulTopUpPayment = async (paymentIntent) => {
     if (!userId || !amount) {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, 'Invalid payment metadata');
     }
-    await wallet_service_1.WalletService.topUp(userId, parseFloat(amount));
+    await wallet_service_1.WalletService.topUp(userId, parseFloat(amount), paymentIntent.id);
 };
 const verifyTopUpPayment = async (paymentIntentId) => {
     try {
         const paymentIntent = await stripe_1.default.paymentIntents.retrieve(paymentIntentId);
+        // Find the transaction record using the paymentIntentId as reference
+        const transaction = await transaction_model_1.WalletTransaction.findOne({ reference: paymentIntentId });
         return {
             status: paymentIntent.status,
             amount: paymentIntent.amount / 100,
+            transaction: transaction || null
         };
     }
     catch (error) {
@@ -69,10 +73,13 @@ const createExpressAccount = async (userId, email) => {
     const individual = {};
     if (user.email)
         individual.email = user.email;
+    // Commeted out phone pre-filling because Stripe can be very strict with regional formats (e.g., +880 for BD)
+    // and this causes the entire account creation to fail. User can enter it during onboarding.
+    /*
     if (user.phone) {
-        // Stripe expects E.164 format, which our phone field should already be in (+...)
         individual.phone = user.phone.startsWith('+') ? user.phone : `+${user.phone}`;
     }
+    */
     if (user.fullName) {
         const nameParts = user.fullName.trim().split(/\s+/);
         if (nameParts.length > 0) {
@@ -209,23 +216,35 @@ const handleSuccessfulAppointmentPayment = async (paymentIntent) => {
     appointment.status = 'review_pending';
     await appointment.save();
     // Notify Provider
-    await notification_service_1.NotificationService.insertNotification({
-        title: "Payment Received (Card)",
-        message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
-        receiver: appointment.provider,
-        referenceId: appointment._id,
-        screen: "APPOINTMENT",
-        type: "USER"
-    });
+    console.log(`[StripeService] Triggering appointment payment notification (Provider): ${appointment.provider}`);
+    try {
+        await notification_service_1.NotificationService.insertNotification({
+            title: "Payment Received (Card)",
+            message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
+            receiver: appointment.provider,
+            referenceId: appointment._id,
+            screen: "APPOINTMENT",
+            type: "USER"
+        });
+    }
+    catch (error) {
+        console.error(`[StripeService] Failed to notify provider:`, error);
+    }
     // Notify Customer
-    await notification_service_1.NotificationService.insertNotification({
-        title: "Payment Successful",
-        message: `Your payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
-        receiver: appointment.customer,
-        referenceId: appointment._id,
-        screen: "APPOINTMENT",
-        type: "USER"
-    });
+    console.log(`[StripeService] Triggering appointment payment notification (Customer): ${appointment.customer}`);
+    try {
+        await notification_service_1.NotificationService.insertNotification({
+            title: "Payment Successful",
+            message: `Your payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
+            receiver: appointment.customer,
+            referenceId: appointment._id,
+            screen: "APPOINTMENT",
+            type: "USER"
+        });
+    }
+    catch (error) {
+        console.error(`[StripeService] Failed to notify customer:`, error);
+    }
 };
 const createAccountLink = async (stripeAccountId, returnUrl, refreshUrl) => {
     const accountLink = await stripe_1.default.accountLinks.create({

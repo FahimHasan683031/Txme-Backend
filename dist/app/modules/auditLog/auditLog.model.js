@@ -5,7 +5,7 @@ const mongoose_1 = require("mongoose");
 const auditLogSchema = new mongoose_1.Schema({
     user: {
         type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Admin',
         required: true
     },
     action: {

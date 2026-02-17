@@ -12,6 +12,7 @@ const socketHelper_1 = require("./helpers/socketHelper");
 const socket_io_1 = require("socket.io");
 const DB_1 = __importDefault(require("./DB"));
 const scheduleUnverifiedAccountCleanup_1 = require("./cronjob/scheduleUnverifiedAccountCleanup");
+const checkPromotionExpiry_1 = __importDefault(require("./cronjob/checkPromotionExpiry"));
 //uncaught exception
 process.on('uncaughtException', error => {
     logger_1.errorLogger.error('uncaughtException Detected', error);
@@ -20,11 +21,12 @@ process.on('uncaughtException', error => {
 let server;
 async function main() {
     try {
-        // create super admin
-        (0, DB_1.default)();
-        (0, scheduleUnverifiedAccountCleanup_1.scheduleUnverifiedAccountCleanup)();
         mongoose_1.default.connect(config_1.default.database_url);
         logger_1.logger.info(colors_1.default.green('🚀 Database connected successfully'));
+        // create super admin
+        await (0, DB_1.default)();
+        (0, scheduleUnverifiedAccountCleanup_1.scheduleUnverifiedAccountCleanup)();
+        (0, checkPromotionExpiry_1.default)();
         const port = typeof config_1.default.port === 'number' ? config_1.default.port : Number(config_1.default.port);
         server = app_1.default.listen(port, config_1.default.ip_address, () => {
             logger_1.logger.info(colors_1.default.yellow(`♻️  Application listening on port:${config_1.default.port}`));

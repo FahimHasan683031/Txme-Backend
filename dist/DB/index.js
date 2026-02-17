@@ -23,5 +23,11 @@ const seedSuperAdmin = async () => {
         await admin_model_1.Admin.create(superAdmin);
         logger_1.logger.info(colors_1.default.green('✔ Super admin created successfully!'));
     }
+    else {
+        logger_1.logger.info(colors_1.default.green('ℹ Super admin already exists!'));
+    }
 };
-exports.default = seedSuperAdmin;
+const seed = async () => {
+    await seedSuperAdmin();
+};
+exports.default = seed;

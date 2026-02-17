@@ -16,7 +16,7 @@ const notification_service_1 = require("../notification/notification.service");
 const QueryBuilder_1 = __importDefault(require("../../../helpers/QueryBuilder"));
 const createAppointment = async (customerId, data) => {
     var _a;
-    const { provider, date, startTime, endTime, service, paymentMethod } = data;
+    const { provider, date, startTime, endTime, service, paymentMethod, note } = data;
     // Validate provider exists and has provider profile
     const providerUser = await user_model_1.User.findOne({
         _id: provider,
@@ -64,18 +64,26 @@ const createAppointment = async (customerId, data) => {
         endTime,
         service,
         paymentMethod,
+        note,
         status: "pending",
         price: providerUser.providerProfile.hourlyRate
     });
     // Send Notification to Provider
-    await notification_service_1.NotificationService.insertNotification({
-        title: "New Appointment Request",
-        message: `You have a new appointment request for ${service} on ${date}`,
-        receiver: provider,
-        referenceId: appointment._id,
-        screen: "APPOINTMENT",
-        type: "USER"
-    });
+    console.log(`[AppointmentService] Triggering notification for New Appointment. Provider: ${provider}`);
+    try {
+        await notification_service_1.NotificationService.insertNotification({
+            title: "New Appointment Request",
+            message: `You have a new appointment request for ${service} on ${date}`,
+            receiver: provider,
+            referenceId: appointment._id,
+            screen: "APPOINTMENT",
+            type: "USER"
+        });
+        console.log(`[AppointmentService] Notification inserted successfully for provider`);
+    }
+    catch (error) {
+        console.error(`[AppointmentService] Failed to insert new appointment notification:`, error);
+    }
     // Socket notification for real-time update in UI list (sorting)
     //@ts-ignore
     const io = global.io;
@@ -100,9 +108,9 @@ const updateAppointmentStatus = async (appointmentId, status, userId, userRole, 
     const currentStatus = appointment.status;
     // New strict transition rules
     const allowedTransitions = {
-        pending: ["accepted", "rejected", "cancelled"], // Provider: accepted/rejected, Customer: cancelled
-        accepted: ["in_progress"], // Provider only
-        in_progress: ["work_completed"], // Provider only
+        pending: ["accepted", "rejected", "cancelled"],
+        accepted: ["in_progress", "cancelled"],
+        in_progress: ["work_completed"],
         work_completed: ["awaiting_payment"],
         awaiting_payment: ["review_pending", "cashPayment"],
         cashPayment: ["cashReceived"],
@@ -112,8 +120,21 @@ const updateAppointmentStatus = async (appointmentId, status, userId, userRole, 
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, `Cannot move appointment from '${currentStatus}' to '${status}'.`);
     }
     // Role-specific restrictions
-    if (status === "cancelled" && !isCustomer) {
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.FORBIDDEN, "Only customers can cancel appointments.");
+    if (status === "cancelled") {
+        if (!isCustomer && !isProvider) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.FORBIDDEN, "Only the assigned customer or provider can cancel this appointment.");
+        }
+        if (!["pending", "accepted"].includes(currentStatus)) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, `Cannot cancel appointment when it is already '${currentStatus}'.`);
+        }
+    }
+    if (status === "rejected") {
+        if (!isProvider) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.FORBIDDEN, "Only providers can reject appointments.");
+        }
+        if (currentStatus !== "pending") {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Can only reject 'pending' appointments.");
+        }
     }
     if (["cancelled", "rejected"].includes(status)) {
         if (!reason) {
@@ -121,10 +142,7 @@ const updateAppointmentStatus = async (appointmentId, status, userId, userRole, 
         }
         appointment.reason = reason;
     }
-    if (status === "cancelled" && isCustomer && currentStatus !== "pending") {
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Can only cancel 'pending' appointments.");
-    }
-    if (["accepted", "rejected", "in_progress", "work_completed"].includes(status) && !isProvider) {
+    if (["accepted", "in_progress", "work_completed"].includes(status) && !isProvider) {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.FORBIDDEN, `Only providers can set status to '${status}'.`);
     }
     if (["review_pending", "cashPayment"].includes(status) && !isCustomer) {
@@ -153,11 +171,11 @@ const updateAppointmentStatus = async (appointmentId, status, userId, userRole, 
         if (activeAppointment) {
             throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Complete your previous work first! You already have an active appointment.");
         }
-        appointment.actualStartTime = formatTime(new Date());
+        appointment.actualStartTime = new Date();
         appointment.status = status;
     }
     if (status === "work_completed") {
-        appointment.actualEndTime = formatTime(new Date());
+        appointment.actualEndTime = new Date();
         await handleAppointmentCompletion(appointment);
         appointment.status = "awaiting_payment";
     }
@@ -177,7 +195,7 @@ const updateAppointmentStatus = async (appointmentId, status, userId, userRole, 
     }
     await appointment.save();
     // 4. Send Notifications
-    await sendStatusNotification(appointment, status);
+    await sendStatusNotification(appointment, status, isCustomer);
     // 5. Socket notification for real-time update in UI list (sorting)
     //@ts-ignore
     const io = global.io;
@@ -195,12 +213,8 @@ async function handleAppointmentCompletion(appointment) {
     var _a;
     const provider = await user_model_1.User.findById(appointment.provider);
     if (appointment.actualStartTime && appointment.actualEndTime) {
-        const start = new Date(appointment.date);
-        const [sHours, sMins] = appointment.actualStartTime.split(":");
-        start.setHours(Number(sHours), Number(sMins), 0, 0);
-        const end = new Date(appointment.date);
-        const [eHours, eMins] = appointment.actualEndTime.split(":");
-        end.setHours(Number(eHours), Number(eMins), 0, 0);
+        const start = new Date(appointment.actualStartTime);
+        const end = new Date(appointment.actualEndTime);
         const durationMs = end.getTime() - start.getTime();
         const hours = durationMs / (1000 * 60 * 60);
         appointment.totalWorkedTime = parseFloat(hours.toFixed(2));
@@ -212,7 +226,7 @@ async function handleAppointmentCompletion(appointment) {
 /**
  * Centered notification logic
  */
-async function sendStatusNotification(appointment, status) {
+async function sendStatusNotification(appointment, status, isCustomer) {
     const messages = {
         accepted: {
             title: "Appointment Accepted",
@@ -236,8 +250,8 @@ async function sendStatusNotification(appointment, status) {
         },
         cancelled: {
             title: "Appointment Cancelled",
-            message: `The appointment for ${appointment.service} has been cancelled by the customer. Reason: ${appointment.reason || 'N/A'}`,
-            receiver: "provider"
+            message: `The appointment for ${appointment.service} has been cancelled. Reason: ${appointment.reason || 'N/A'}`,
+            receiver: isCustomer ? "provider" : "customer"
         },
         cashPayment: {
             title: "Payment Update: Cash",
@@ -257,20 +271,42 @@ async function sendStatusNotification(appointment, status) {
     };
     const config = messages[status];
     if (config) {
-        await notification_service_1.NotificationService.insertNotification({
-            title: config.title,
-            message: config.message,
-            receiver: config.receiver === "customer" ? appointment.customer : appointment.provider,
-            referenceId: appointment._id,
-            screen: "APPOINTMENT",
-            type: "USER",
-        });
+        const receiverId = config.receiver === "customer" ? appointment.customer : appointment.provider;
+        console.log(`[AppointmentService] Triggering status notification: ${status}. Receiver: ${receiverId}`);
+        try {
+            await notification_service_1.NotificationService.insertNotification({
+                title: config.title,
+                message: config.message,
+                receiver: receiverId,
+                referenceId: appointment._id,
+                screen: "APPOINTMENT",
+                type: "USER",
+            });
+            console.log(`[AppointmentService] Status notification inserted successfully`);
+        }
+        catch (error) {
+            console.error(`[AppointmentService] Failed to insert status notification:`, error);
+        }
     }
 }
-const getAppointmentById = async (appointmentId) => {
-    return await appointment_model_1.Appointment.findById(appointmentId)
-        .populate("customer", "fullName email phone")
-        .populate("provider", "fullName email phone providerProfile");
+const getAppointmentById = async (appointmentId, user) => {
+    const appointment = await appointment_model_1.Appointment.findById(appointmentId)
+        .populate("customer", "fullName email phone residentialAddress")
+        .populate("provider", "fullName email phone providerProfile residentialAddress providerProfile");
+    if (!appointment) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "Appointment not found");
+    }
+    // Admin/SuperAdmin can access any appointment
+    if (user.role === user_1.ADMIN_ROLES.ADMIN || user.role === user_1.ADMIN_ROLES.SUPER_ADMIN) {
+        return appointment;
+    }
+    // Users can only access their own appointments
+    const isCustomer = appointment.customer._id.toString() === user.id;
+    const isProvider = appointment.provider._id.toString() === user.id;
+    if (!isCustomer && !isProvider) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.FORBIDDEN, "You are not authorized to view this appointment");
+    }
+    return appointment;
 };
 exports.getAppointmentById = getAppointmentById;
 const payWithWallet = async (appointmentId, userId) => {
@@ -296,23 +332,35 @@ const payWithWallet = async (appointmentId, userId) => {
     appointment.status = 'review_pending';
     await appointment.save();
     // Notify Provider
-    await notification_service_1.NotificationService.insertNotification({
-        title: "Payment Received",
-        message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
-        receiver: appointment.provider,
-        referenceId: appointment._id,
-        screen: "APPOINTMENT",
-        type: "USER"
-    });
+    console.log(`[AppointmentService] Triggering wallet payment notification for provider: ${appointment.provider}`);
+    try {
+        await notification_service_1.NotificationService.insertNotification({
+            title: "Payment Received",
+            message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
+            receiver: appointment.provider,
+            referenceId: appointment._id,
+            screen: "APPOINTMENT",
+            type: "USER"
+        });
+    }
+    catch (error) {
+        console.error(`[AppointmentService] Failed to notify provider:`, error);
+    }
     // Notify Customer
-    await notification_service_1.NotificationService.insertNotification({
-        title: "Payment Successful",
-        message: `Your wallet payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
-        receiver: appointment.customer,
-        referenceId: appointment._id,
-        screen: "APPOINTMENT",
-        type: "USER"
-    });
+    console.log(`[AppointmentService] Triggering wallet payment notification for customer: ${appointment.customer}`);
+    try {
+        await notification_service_1.NotificationService.insertNotification({
+            title: "Payment Successful",
+            message: `Your wallet payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
+            receiver: appointment.customer,
+            referenceId: appointment._id,
+            screen: "APPOINTMENT",
+            type: "USER"
+        });
+    }
+    catch (error) {
+        console.error(`[AppointmentService] Failed to notify customer:`, error);
+    }
     // also emit socket for real-time update
     //@ts-ignore
     const io = global.io;
@@ -330,7 +378,7 @@ const getMyAppointments = async (user, query) => {
     else if ((role === null || role === void 0 ? void 0 : role.toUpperCase()) === user_1.USER_ROLES.PROVIDER) {
         query.provider = id;
     }
-    const appointmentQuery = new QueryBuilder_1.default(appointment_model_1.Appointment.find().populate("customer provider"), query)
+    const appointmentQuery = new QueryBuilder_1.default(appointment_model_1.Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"), query)
         .filter()
         .sort(query.sort || "-updatedAt")
         .paginate();
@@ -339,7 +387,7 @@ const getMyAppointments = async (user, query) => {
     return { result, meta };
 };
 const getAllAppointmentsFromDB = async (query) => {
-    const appointmentQuery = new QueryBuilder_1.default(appointment_model_1.Appointment.find().populate("customer provider"), query)
+    const appointmentQuery = new QueryBuilder_1.default(appointment_model_1.Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"), query)
         .filter()
         .sort()
         .paginate();
@@ -370,8 +418,8 @@ const getCurrentAppointment = async (user) => {
         query.provider = id;
     }
     const result = await appointment_model_1.Appointment.findOne(query)
-        .populate("customer", "fullName email phone profilePicture")
-        .populate("provider", "fullName email phone profilePicture providerProfile")
+        .populate("customer", "fullName email phone profilePicture residentialAddress")
+        .populate("provider", "fullName email phone profilePicture providerProfile residentialAddress providerProfile")
         .sort("-updatedAt");
     return result;
 };
@@ -385,5 +433,6 @@ exports.AppointmentService = {
     updateAppointmentStatus: exports.updateAppointmentStatus,
     getMyAppointments,
     getAllAppointmentsFromDB,
-    getCurrentAppointment
+    getCurrentAppointment,
+    getAppointmentById: exports.getAppointmentById
 };

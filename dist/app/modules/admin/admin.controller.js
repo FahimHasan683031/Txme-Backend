@@ -107,6 +107,16 @@ const deleteUser = (0, catchAsync_1.default)(async (req, res) => {
         message: result.message,
     });
 });
+const getDashboardOverview = (0, catchAsync_1.default)(async (req, res) => {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const result = await admin_service_1.AdminService.getDashboardOverviewFromDB(year);
+    (0, sendResponse_1.default)(res, {
+        success: true,
+        statusCode: http_status_codes_1.StatusCodes.OK,
+        message: 'Dashboard overview fetched successfully.',
+        data: result,
+    });
+});
 exports.AdminController = {
     verifyEmail,
     loginAdmin,
@@ -116,5 +126,6 @@ exports.AdminController = {
     createAdmin,
     toggleUserStatus,
     deleteUser,
-    getAllAdmins
+    getAllAdmins,
+    getDashboardOverview
 };

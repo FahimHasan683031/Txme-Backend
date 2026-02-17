@@ -9,6 +9,7 @@ exports.createAppointmentZod = zod_1.z.object({
         service: zod_1.z.string().min(1, "Service is required"),
         date: zod_1.z.string().min(1, "Date is required"),
         paymentMethod: zod_1.z.enum(["wallet", "card", "cash"]).optional(),
+        note: zod_1.z.string().optional(),
     }),
 });
 // Update Appointment Status Validation

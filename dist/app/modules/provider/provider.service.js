@@ -88,7 +88,25 @@ const getPopularProvidersFromDB = async (query) => {
     return { data: result, pagination: meta };
 };
 exports.getPopularProvidersFromDB = getPopularProvidersFromDB;
+const getDashboardStats = async (providerId) => {
+    var _a, _b;
+    const provider = await user_model_1.User.findById(providerId);
+    if (!provider) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.NOT_FOUND, "Provider not found");
+    }
+    // Get Total Orders (Completed Appointments)
+    const totalOrders = await appointment_model_1.Appointment.countDocuments({
+        provider: providerId,
+        status: 'completed'
+    });
+    return {
+        averageRating: ((_a = provider.review) === null || _a === void 0 ? void 0 : _a.averageRating) || 0,
+        totalOrders,
+        experience: ((_b = provider.providerProfile) === null || _b === void 0 ? void 0 : _b.experience) || 0
+    };
+};
 exports.proveiderServices = {
     getProviderCalendar: exports.getProviderCalendar,
-    getPopularProvidersFromDB: exports.getPopularProvidersFromDB
+    getPopularProvidersFromDB: exports.getPopularProvidersFromDB,
+    getDashboardStats
 };

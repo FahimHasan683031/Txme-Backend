@@ -9,6 +9,6 @@ const user_1 = require("../../../enums/user");
 const auth_1 = __importDefault(require("../../middlewares/auth"));
 const setting_controller_1 = require("./setting.controller");
 const router = express_1.default.Router();
-router.get('/', (0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), setting_controller_1.SettingController.getSetting);
+router.get('/', (0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN, user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), setting_controller_1.SettingController.getSetting);
 router.patch('/', (0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), setting_controller_1.SettingController.updateSetting);
 exports.SettingRoutes = router;

@@ -23,11 +23,13 @@ router.post("/", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROL
     }
 }, chat_controller_1.ChatController.createChat);
 // Create admin support chat
-router.post("/admin-support", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), chat_controller_1.ChatController.createAdminSupport);
+router.post("/admin-support", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER, user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), chat_controller_1.ChatController.createAdminSupport);
 // Get all chats for current user
 router.get("/", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER, user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), chat_controller_1.ChatController.getChat);
 // Get all admin support chats (admin only)
 router.get("/admin-support/all", (0, auth_1.default)(user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), chat_controller_1.ChatController.getAdminSupportChats);
 // Delete a chat
 router.delete("/:id", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER, user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN), chat_controller_1.ChatController.deleteChat);
+// Check support availability
+router.get("/support-availability", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER, user_1.USER_ROLES.PROVIDER), chat_controller_1.ChatController.getSupportAvailability);
 exports.ChatRoutes = router;

@@ -14,7 +14,13 @@ const message_1 = require("../../../enums/message");
 const ApiErrors_1 = __importDefault(require("../../../errors/ApiErrors"));
 const http_status_codes_1 = require("http-status-codes");
 const checkSetting_1 = require("../../../helpers/checkSetting");
+const pushNotification_service_1 = require("../notification/pushNotification.service");
+const notification_service_1 = require("../notification/notification.service");
+const user_model_1 = require("../user/user.model");
+const user_1 = require("../../../enums/user");
+const admin_model_1 = require("../admin/admin.model");
 const sendMessageToDB = async (payload) => {
+    var _a, _b, _c;
     // Initialize readBy with sender's ID
     payload.readBy = [payload.sender];
     if (payload.type === message_1.MESSAGE.MoneyRequest) {
@@ -23,12 +29,16 @@ const sendMessageToDB = async (payload) => {
             throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount is required for money requests and must be greater than 0");
         }
         payload.moneyRequestStatus = 'pending';
+        if (await chat_model_1.Chat.findById(payload.chatId).isAdminSupport) {
+            throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "You can't send money request to admin support chat");
+        }
     }
     const isExistChat = await chat_model_1.Chat.findById(payload.chatId);
     if (!isExistChat) {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Chat doesn't exist!");
     }
-    if (!isExistChat.participants.includes(payload.sender)) {
+    const isExistAdmin = await admin_model_1.Admin.findById(payload.sender);
+    if (!isExistChat.participants.includes(payload.sender) && !isExistAdmin) {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "You are not a participant!");
     }
     // Save to DB
@@ -50,6 +60,63 @@ const sendMessageToDB = async (payload) => {
                 lastMessage: response,
             });
         });
+        // If it's an admin support chat, also notify ALL admins (for admin dashboard update)
+        if (isExistChat.isAdminSupport) {
+            console.log(`[Socket] Emitting adminChatListUpdate for chatId: ${payload.chatId}`);
+            io.emit('adminChatListUpdate', {
+                chatId: payload.chatId,
+                lastMessage: response,
+            });
+        }
+    }
+    // Send Push Notification
+    try {
+        const chatStatus = await chat_model_1.Chat.findById(payload.chatId);
+        if (!chatStatus)
+            return response;
+        // Fetch sender details for better title
+        const sender = await user_model_1.User.findById(payload.sender).select('fullName role');
+        const title = (sender === null || sender === void 0 ? void 0 : sender.fullName) || "New Message";
+        const body = payload.text ?
+            (payload.text.length > 50 ? payload.text.substring(0, 50) + "..." : payload.text) :
+            "Sent an attachment";
+        if (chatStatus.isAdminSupport) {
+            // For Admin Support, notify all admins except the sender (if sender is an admin)
+            // or all admins if sender is a user
+            const admins = await user_model_1.User.find({
+                role: { $in: [user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN] },
+                _id: { $ne: payload.sender }
+            }).select('fcmToken');
+            const adminTokens = admins.map(a => a.fcmToken).filter(Boolean);
+            // Send to each admin (Firebase Admin SDK .send() takes one token, or use .sendEachForMulticast)
+            if (adminTokens.length > 0) {
+                for (const token of adminTokens) {
+                    await pushNotification_service_1.PushNotificationService.sendPushNotification(token, `Support: ${title}`, body, { screen: "CHAT", chatId: (_a = payload.chatId) === null || _a === void 0 ? void 0 : _a.toString() });
+                }
+            }
+            // If the sender is an admin, notify the user as well
+            const isSenderAdmin = [user_1.ADMIN_ROLES.ADMIN, user_1.ADMIN_ROLES.SUPER_ADMIN].includes(sender === null || sender === void 0 ? void 0 : sender.role);
+            if (isSenderAdmin) {
+                const userParticipant = await user_model_1.User.findById(chatStatus.participants[0]).select('fcmToken');
+                if (userParticipant === null || userParticipant === void 0 ? void 0 : userParticipant.fcmToken) {
+                    await pushNotification_service_1.PushNotificationService.sendPushNotification(userParticipant.fcmToken, title, body, { screen: "CHAT", chatId: (_b = payload.chatId) === null || _b === void 0 ? void 0 : _b.toString() });
+                }
+            }
+        }
+        else {
+            // Normal Chat recipient
+            const recipientId = chatStatus.participants.find((p) => p.toString() !== payload.sender.toString());
+            if (recipientId) {
+                const recipient = await user_model_1.User.findById(recipientId).select('fcmToken');
+                if (recipient === null || recipient === void 0 ? void 0 : recipient.fcmToken) {
+                    await pushNotification_service_1.PushNotificationService.sendPushNotification(recipient.fcmToken, title, body, { screen: "CHAT", chatId: (_c = payload.chatId) === null || _c === void 0 ? void 0 : _c.toString() });
+                }
+            }
+        }
+    }
+    catch (error) {
+        console.error("Failed to send push notification:", error);
+        // Don't block the response if notification fails
     }
     return response;
 };
@@ -73,9 +140,10 @@ const getMessageFromDB = async (id, user, query) => {
     });
     const result = new QueryBuilder_1.default(message_model_1.Message.find({ chatId: id })
         .populate('sender', 'fullName profilePicture')
-        .sort({ createdAt: 1 }), query).paginate();
-    const messages = await result.modelQuery;
+        .sort({ createdAt: -1 }), query).paginate();
+    let messages = await result.modelQuery;
     const pagination = await result.getPaginationInfo();
+    messages = messages.reverse();
     const participant = await chat_model_1.Chat.findById(id).populate({
         path: 'participants',
         select: '-_id fullName profilePicture ',
@@ -97,6 +165,11 @@ const updateMessageToDB = async (messageId, userId, payload) => {
     }
     // Update the message
     const updatedMessage = await message_model_1.Message.findByIdAndUpdate(messageId, payload, { new: true });
+    //@ts-ignore
+    const io = global.io;
+    if (io && updatedMessage) {
+        io.emit(`getMessage::${updatedMessage.chatId}`, updatedMessage);
+    }
     return updatedMessage;
 };
 // Get unread message count for a specific chat
@@ -175,6 +248,24 @@ const updateMoneyRequestStatusToDB = async (messageId, user, status) => {
                 });
             });
         }
+    }
+    // --- Send Push Notification to Request Sender ---
+    try {
+        const title = status === 'accepted' ? "Money Request Accepted" : "Money Request Rejected";
+        const body = status === 'accepted'
+            ? `Your request for ${message.amount} has been accepted.`
+            : `Your request for ${message.amount} has been rejected.`;
+        await notification_service_1.NotificationService.insertNotification({
+            title,
+            message: body,
+            receiver: message.sender, // Notify the person who requested the money
+            referenceId: message.chatId, // Redirect to the chat
+            screen: "CHAT",
+            type: "USER"
+        });
+    }
+    catch (error) {
+        console.error(`[MessageService] Failed to send money request notification:`, error);
     }
     return message;
 };

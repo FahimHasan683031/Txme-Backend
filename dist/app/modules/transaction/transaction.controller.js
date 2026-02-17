@@ -26,7 +26,26 @@ const getMyTransactions = (0, catchAsync_1.default)(async (req, res) => {
         data: result,
     });
 });
+const getTransactionByReference = (0, catchAsync_1.default)(async (req, res) => {
+    const { referenceId } = req.params;
+    const result = await transaction_service_1.TransactionService.getTransactionByReference(referenceId);
+    (0, sendResponse_1.default)(res, {
+        statusCode: http_status_codes_1.StatusCodes.OK,
+        success: true,
+        message: "Transaction retrieved successfully",
+        data: result,
+    });
+});
+const downloadInvoice = (0, catchAsync_1.default)(async (req, res) => {
+    const { transactionId } = req.params;
+    const doc = await transaction_service_1.TransactionService.generateInvoicePDF(transactionId);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=invoice-${transactionId}.pdf`);
+    doc.pipe(res);
+});
 exports.TransactionController = {
     getAllTransactions,
     getMyTransactions,
+    getTransactionByReference,
+    downloadInvoice
 };

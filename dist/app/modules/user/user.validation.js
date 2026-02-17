@@ -31,7 +31,6 @@ exports.sendEmailOtpZod = zod_1.z.object({
 exports.sendPhoneOtpZod = zod_1.z.object({
     body: zod_1.z.object({
         phone: zod_1.z.string(),
-        id: zod_1.z.string(),
     }),
 });
 // Send OTP for password reset
@@ -43,7 +42,6 @@ exports.sendPasswordResetOtpZod = zod_1.z.object({
 // Send OTP for number change
 exports.sendNumberChangeOtpZod = zod_1.z.object({
     body: zod_1.z.object({
-        oldPhone: zod_1.z.string(),
         newPhone: zod_1.z.string(),
     }),
 });
@@ -90,12 +88,6 @@ exports.completeProfileZod = zod_1.z.object({
             longitude: zod_1.z.number().min(-180).max(180),
         }).optional(),
         postalAddress: zod_1.z.string().optional(),
-        identification: zod_1.z
-            .object({
-            type: zod_1.z.enum(["nid", "passport"]),
-            value: zod_1.z.string().min(1, "Identification value is required"),
-        })
-            .optional(),
         maritalStatus: zod_1.z.string().optional(),
         status: zod_1.z.enum([
             "pending",
@@ -122,6 +114,13 @@ exports.completeProfileZod = zod_1.z.object({
             experience: zod_1.z.number().min(0, "Experience cannot be negative").optional(),
             skills: zod_1.z.array(zod_1.z.string()).optional(),
             languages: zod_1.z.array(zod_1.z.enum(languages_1.PROVIDER_LANGUAGES)).optional(),
+            workLocation: zod_1.z.object({
+                postCode: zod_1.z.string().optional(),
+                radius: zod_1.z.number().optional(),
+                latitude: zod_1.z.number().optional(),
+                longitude: zod_1.z.number().optional(),
+                address: zod_1.z.string().optional(),
+            }).optional(),
         }).optional(),
     }).strict(),
 });

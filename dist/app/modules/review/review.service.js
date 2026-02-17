@@ -85,6 +85,13 @@ const createReview = async (payload, user) => {
         await appointment.save();
     }
     await recalculateUserRating(reviewee);
+    // also emit socket for real-time update
+    //@ts-ignore
+    const io = global.io;
+    if (io) {
+        io.emit(`appointmentUpdate::${appointment.customer.toString()}`, appointment);
+        io.emit(`appointmentUpdate::${appointment.provider.toString()}`, appointment);
+    }
     // Send Notification to the reviewee
     await notification_service_1.NotificationService.insertNotification({
         title: "New Review Received",
@@ -102,15 +109,15 @@ const getMyReviews = async (user, query) => {
         .filter()
         .sort()
         .paginate();
-    const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "name email profileImage");
+    const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "fullName email profilePicture");
     const paginateInfo = await reviewQeryBuilder.getPaginationInfo();
     return { data: result, pagination: paginateInfo };
 };
 // Get user reviews (all reviews for a specific user)
 const getUserReviews = async (userId, query) => {
     const reviewQueryBuilder = new QueryBuilder_1.default(review_model_1.Review.find({ reviewee: userId })
-        .populate("reviewer", "name email profileImage")
-        .populate("reviewee", "name email profileImage"), query)
+        .populate("reviewer", "fullName email profilePicture")
+        .populate("reviewee", "fullName email profilePicture"), query)
         .filter()
         .sort()
         .paginate();
