@@ -3,35 +3,42 @@ import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 
 const verifyApplePurchase = async (receiptData: string) => {
+    // 1. Check for JWS (Starts with eyJ)
+    if (receiptData.startsWith("eyJ")) {
+        try {
+            // Decoding the 2nd part of the JWS token (payload)
+            const payload = JSON.parse(Buffer.from(receiptData.split('.')[1], 'base64url').toString('utf8'));
+            return {
+                transactionId: payload.transactionId,
+                productId: payload.productId,
+                purchaseDate: new Date(payload.purchaseDate)
+            };
+        } catch (error) {
+            throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid JWS token format");
+        }
+    }
+
+    // 2. Legacy verifyReceipt Fallback
     const itunesUrl = "https://buy.itunes.apple.com/verifyReceipt";
     const sandboxUrl = "https://sandbox.itunes.apple.com/verifyReceipt";
 
     const verify = async (url: string) => {
         const response = await fetch(url, {
-            method: 'POST',
+            method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                'receipt-data': receiptData,
-                'password': config.iap.appleSharedSecret
-            })
+            body: JSON.stringify({ 'receipt-data': receiptData, 'password': config.iap.appleSharedSecret })
         });
         return await response.json() as any;
     };
 
     let data = await verify(itunesUrl);
-
-    // If sandbox receipt sent to production, retry on sandbox
-    if (data.status === 21007) {
-        data = await verify(sandboxUrl);
-    }
+    if (data.status === 21007) data = await verify(sandboxUrl);
 
     if (data.status !== 0) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, `Apple IAP verification failed with status: ${data.status}`);
+        throw new ApiError(StatusCodes.BAD_REQUEST, `Apple IAP failed: ${data.status}`);
     }
 
-    // Return the latest transaction info
     const latestReceipt = data.latest_receipt_info ? data.latest_receipt_info[data.latest_receipt_info.length - 1] : data.receipt.in_app[0];
-
     return {
         transactionId: latestReceipt.transaction_id,
         productId: latestReceipt.product_id,

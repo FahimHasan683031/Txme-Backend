@@ -35,6 +35,12 @@ const verifyPurchase = async (userId: string, payload: { productId: string, rece
         throw new ApiError(StatusCodes.BAD_REQUEST, "Product ID mismatch");
     }
 
+    // Check for duplicate transaction
+    const existingTransaction = await WalletTransaction.findOne({ reference: verifiedData.transactionId });
+    if (existingTransaction) {
+        throw new ApiError(StatusCodes.CONFLICT, "Transaction already processed");
+    }
+
     // 2. Fetch the package to get duration
     const pkg = await getPackageByProductId(productId);
 
