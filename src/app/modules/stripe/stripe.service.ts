@@ -25,7 +25,7 @@ const createTopUpPaymentIntent = async (
 
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amountInCents,
-            currency: 'usd',
+            currency: 'eur',
             metadata: {
                 userId,
                 type: 'wallet_topup',
@@ -224,7 +224,7 @@ const createAppointmentPaymentIntent = async (
 
         let paymentIntentParams: Stripe.PaymentIntentCreateParams = {
             amount: amountInCents,
-            currency: 'usd',
+            currency: 'eur',
             metadata: {
                 appointmentId: appointmentId.toString(),
                 type: 'appointment_payment',
