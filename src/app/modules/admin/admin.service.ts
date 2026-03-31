@@ -44,7 +44,7 @@ const loginAdminFromDB = async (payload: ILoginData) => {
   const { email, password } = payload
   const isExistUser = await Admin.findOne({ email }).select('+password')
   if (!isExistUser) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!")
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid credentials")
   }
 
   //check verified and status
@@ -80,7 +80,7 @@ const loginAdminFromDB = async (payload: ILoginData) => {
     password &&
     !(await Admin.isMatchPassword(password, isExistUser.password))
   ) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!')
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid credentials')
   }
 
   //create token
@@ -359,7 +359,7 @@ const getDashboardOverviewFromDB = async (year: number) => {
   // 1. Total Counts
   const totalCompletedJobs = await Appointment.countDocuments({ status: 'completed' });
   const totalUsers = await User.countDocuments({ status: { $ne: 'deleted' } });
-  const totalServices = await ServiceModel.countDocuments({ isActive: true });
+  const totalServices = await ServiceModel.countDocuments({ isActive: true, parent: { $ne: null } });
 
   // 2. Total Amount from completed jobs
   const totalAmountResult = await Appointment.aggregate([
