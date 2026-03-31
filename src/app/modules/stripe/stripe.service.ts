@@ -12,7 +12,6 @@ import { checkCardPaymentSetting, checkWalletSetting } from '../../../helpers/ch
 import { WalletTransaction } from '../transaction/transaction.model';
 import { IWalletTransaction } from '../transaction/transaction.interface';
 
-// --- Wallet Management (formerly wallet.stripe.service.ts) ---
 
 const createTopUpPaymentIntent = async (
     userId: string,
@@ -80,8 +79,6 @@ const verifyTopUpPayment = async (
         );
     }
 };
-
-// --- Connect Account Management (formerly stripe.connect.service.ts) ---
 
 const createExpressAccount = async (userId: string, email: string) => {
     const user = await User.findById(userId);
@@ -153,8 +150,6 @@ const createExpressAccount = async (userId: string, email: string) => {
     return account.id;
 };
 
-// function removed
-
 const getAccount = async (stripeAccountId: string) => {
     return await stripe.accounts.retrieve(stripeAccountId);
 };
@@ -190,7 +185,6 @@ const createPayout = async (amount: number, stripeAccountId: string) => {
     );
 };
 
-// --- Appointment Management (formerly appointment.stripe.service.ts) ---
 
 const createAppointmentPaymentIntent = async (
     appointmentId: string,
@@ -352,11 +346,9 @@ const getAccountStatus = async (userId: string) => {
 };
 
 export const StripeService = {
-    // Wallet topup
     createTopUpPaymentIntent,
     handleSuccessfulTopUpPayment,
     verifyTopUpPayment,
-    // Connect
     createExpressAccount,
     createAccountLink,
     getAccountStatus,
@@ -364,7 +356,6 @@ export const StripeService = {
     handleAccountUpdate,
     createTransfer,
     createPayout,
-    // Appointment
     createAppointmentPaymentIntent,
     handleSuccessfulAppointmentPayment
 };

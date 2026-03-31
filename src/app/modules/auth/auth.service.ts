@@ -251,6 +251,8 @@ const loginUserFromDB = async (payload: ILoginData) => {
     oneTimeCode: otp,
     expireAt: new Date(Date.now() + 5 * 60 * 1000),
   };
+
+  console.log("login: ", { email, otp })
   // Update user with OTP
   await User.updateOne({ _id: existingUser._id }, { $set: { authentication } });
 
