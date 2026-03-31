@@ -518,7 +518,7 @@ const resendOtp = async (identifier: unknown) => {
   const { purpose, channel } = user.authentication;
 
   const newOtp = generateOTP();
-
+  console.log("resend: ", { otp: newOtp })
 
   user.authentication.oneTimeCode = newOtp;
   user.authentication.expireAt = new Date(Date.now() + 5 * 60 * 1000);
