@@ -20,7 +20,7 @@ const getProviderCalendar = catchAsync(async (req: Request, res: Response) => {
 
 // get popular providers
 const getPopularProviders = catchAsync(async (req: Request, res: Response) => {
-  const result = await proveiderServices.getPopularProvidersFromDB(req.query);
+  const result = await proveiderServices.getPopularProvidersFromDB(req.user, req.query);
 
   sendResponse(res, {
     success: true,

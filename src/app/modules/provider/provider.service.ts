@@ -4,6 +4,8 @@ import { Appointment } from "../appointment/appointment.model";
 import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import QueryBuilder from "../../../helpers/QueryBuilder";
+import { JwtPayload } from "jsonwebtoken";
+import { geocodePostCode } from "../../../util/geocoding.util";
 
 export const getProviderCalendar = async (providerId: string, date: string) => {
     console.log(providerId, date);
@@ -81,13 +83,35 @@ function formatTime(time: any): string {
     return time;
 }
 
-export const getPopularProvidersFromDB = async (query: Record<string, unknown>) => {
-    // Set default sort by popularity if not specified
-    if (!query.sort) {
-        query.sort = '-review.averageRating -review.totalReviews';
+export const getPopularProvidersFromDB = async (user: JwtPayload, query: Record<string, unknown>) => {
+    // 1. Force Provider role and hardcoded 100km radius
+    query.role = "PROVIDER";
+    query.radius = 100;
+
+    // 2. Use user profile address for filtering
+    let searchPostCode = '';
+    if (user?.id) {
+        const currentUser = await User.findById(user.id).select("postalAddress");
+        if (currentUser?.postalAddress) {
+            searchPostCode = currentUser.postalAddress;
+        }
     }
 
-    const popularQuery = new QueryBuilder(User.find({ role: "PROVIDER" }), query)
+    if (searchPostCode) {
+        try {
+            const coords = await geocodePostCode(searchPostCode);
+            query.latitude = coords.latitude;
+            query.longitude = coords.longitude;
+        } catch (error) {
+            console.error("[ProviderService] Geocoding in getPopularProvidersFromDB failed:", error);
+        }
+    }
+
+    // 3. Set sort by popularity (Promoted -> Rating -> Total Reviews)
+    query.sort = `-isPromoted -review.averageRating -review.totalReviews -createdAt`;
+
+    const popularQuery = new QueryBuilder(User.find({ role: "PROVIDER", status: "active" }), query)
+        .geolocation()
         .filter()
         .sort()
         .paginate()
