@@ -17,7 +17,7 @@ const createTopUpPaymentIntent = async (
     userId: string,
     amount: number,
     userEmail: string
-): Promise<{ clientSecret: string; paymentIntentId: string }> => {
+): Promise<{ clientSecret: string; paymentIntentId: string; returnUrl: string }> => {
     await checkWalletSetting('topUp');
     try {
         const amountInCents = Math.round(amount * 100);
@@ -25,6 +25,7 @@ const createTopUpPaymentIntent = async (
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amountInCents,
             currency: 'eur',
+            automatic_payment_methods: { enabled: true },
             metadata: {
                 userId,
                 type: 'wallet_topup',
@@ -37,6 +38,7 @@ const createTopUpPaymentIntent = async (
         return {
             clientSecret: paymentIntent.client_secret as string,
             paymentIntentId: paymentIntent.id,
+            returnUrl: "txme://app/payment-status"
         };
     } catch (error: any) {
         throw new ApiError(
@@ -189,7 +191,7 @@ const createPayout = async (amount: number, stripeAccountId: string) => {
 const createAppointmentPaymentIntent = async (
     appointmentId: string,
     userEmail: string
-): Promise<{ clientSecret: string; paymentIntentId: string }> => {
+): Promise<{ clientSecret: string; paymentIntentId: string; returnUrl: string }> => {
     await checkCardPaymentSetting();
     try {
         const appointment = await Appointment.findById(appointmentId).populate('provider');
@@ -219,6 +221,7 @@ const createAppointmentPaymentIntent = async (
         let paymentIntentParams: Stripe.PaymentIntentCreateParams = {
             amount: amountInCents,
             currency: 'eur',
+            automatic_payment_methods: { enabled: true },
             metadata: {
                 appointmentId: appointmentId.toString(),
                 type: 'appointment_payment',
@@ -241,6 +244,7 @@ const createAppointmentPaymentIntent = async (
         return {
             clientSecret: paymentIntent.client_secret as string,
             paymentIntentId: paymentIntent.id,
+            returnUrl: "txme://app/payment-status"
         };
     } catch (error: any) {
         if (error instanceof ApiError) throw error;
