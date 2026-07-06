@@ -43,7 +43,7 @@ const loginAdminFromDB = async (payload) => {
     const { email, password } = payload;
     const isExistUser = await admin_model_1.Admin.findOne({ email }).select('+password');
     if (!isExistUser) {
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "User doesn't exist!");
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Invalid credentials");
     }
     //check verified and status
     if (!isExistUser.verified) {
@@ -62,7 +62,7 @@ const loginAdminFromDB = async (payload) => {
     //check match password
     if (password &&
         !(await admin_model_1.Admin.isMatchPassword(password, isExistUser.password))) {
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, 'Password is incorrect!');
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, 'Invalid credentials');
     }
     //create token
     const createToken = jwtHelper_1.jwtHelper.createToken({
@@ -250,7 +250,7 @@ const getDashboardOverviewFromDB = async (year) => {
     // 1. Total Counts
     const totalCompletedJobs = await appointment_model_1.Appointment.countDocuments({ status: 'completed' });
     const totalUsers = await user_model_1.User.countDocuments({ status: { $ne: 'deleted' } });
-    const totalServices = await service_model_1.ServiceModel.countDocuments({ isActive: true });
+    const totalServices = await service_model_1.ServiceModel.countDocuments({ isActive: true, parent: { $ne: null } });
     // 2. Total Amount from completed jobs
     const totalAmountResult = await appointment_model_1.Appointment.aggregate([
         { $match: { status: 'completed' } },

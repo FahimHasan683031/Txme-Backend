@@ -51,7 +51,7 @@ const generateInvoicePDF = (data: any, res: Response) => {
     doc
         .fontSize(16)
         // @ts-ignore - bold option is valid in recent pdfkit but types might be outdated or strict
-        .text(`Total Amount: $${data.amount}`, { align: 'right' });
+        .text(`Total Amount: €${data.amount}`, { align: 'right' });
 
     // Footer
     doc

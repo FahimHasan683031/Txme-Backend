@@ -13,6 +13,8 @@ const socket_io_1 = require("socket.io");
 const DB_1 = __importDefault(require("./DB"));
 const scheduleUnverifiedAccountCleanup_1 = require("./cronjob/scheduleUnverifiedAccountCleanup");
 const checkPromotionExpiry_1 = __importDefault(require("./cronjob/checkPromotionExpiry"));
+const node_dns_1 = __importDefault(require("node:dns"));
+node_dns_1.default.setServers(['8.8.8.8', '8.8.4.4']);
 //uncaught exception
 process.on('uncaughtException', error => {
     logger_1.errorLogger.error('uncaughtException Detected', error);

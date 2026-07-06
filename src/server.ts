@@ -8,8 +8,10 @@ import { Server } from "socket.io";
 import seedSuperAdmin from "./DB";
 import { scheduleUnverifiedAccountCleanup } from "./cronjob/scheduleUnverifiedAccountCleanup";
 import checkPromotionExpiry from "./cronjob/checkPromotionExpiry";
+import dns from 'node:dns'
 
 
+dns.setServers(['8.8.8.8', '8.8.4.4'])
 //uncaught exception
 process.on('uncaughtException', error => {
     errorLogger.error('uncaughtException Detected', error);

@@ -190,6 +190,7 @@ const loginUserFromDB = async (payload) => {
         oneTimeCode: otp,
         expireAt: new Date(Date.now() + 5 * 60 * 1000),
     };
+    console.log("login: ", { email, otp });
     // Update user with OTP
     await user_model_1.User.updateOne({ _id: existingUser._id }, { $set: { authentication } });
     // send login otp email
@@ -369,6 +370,7 @@ const resendOtp = async (identifier) => {
     }
     const { purpose, channel } = user.authentication;
     const newOtp = (0, generateOTP_1.default)();
+    console.log("resend: ", { otp: newOtp });
     user.authentication.oneTimeCode = newOtp;
     user.authentication.expireAt = new Date(Date.now() + 5 * 60 * 1000);
     await user.save();

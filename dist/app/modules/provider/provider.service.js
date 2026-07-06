@@ -10,6 +10,7 @@ const appointment_model_1 = require("../appointment/appointment.model");
 const ApiErrors_1 = __importDefault(require("../../../errors/ApiErrors"));
 const http_status_codes_1 = require("http-status-codes");
 const QueryBuilder_1 = __importDefault(require("../../../helpers/QueryBuilder"));
+const geocoding_util_1 = require("../../../util/geocoding.util");
 const getProviderCalendar = async (providerId, date) => {
     var _a;
     console.log(providerId, date);
@@ -73,12 +74,32 @@ function formatTime(time) {
     // If it's a different format, you may need additional parsing logic
     return time;
 }
-const getPopularProvidersFromDB = async (query) => {
-    // Set default sort by popularity if not specified
-    if (!query.sort) {
-        query.sort = '-review.averageRating -review.totalReviews';
+const getPopularProvidersFromDB = async (user, query) => {
+    // 1. Force Provider role and hardcoded 100km radius
+    query.role = "PROVIDER";
+    query.radius = 100;
+    // 2. Use user profile address for filtering
+    let searchPostCode = '';
+    if (user === null || user === void 0 ? void 0 : user.id) {
+        const currentUser = await user_model_1.User.findById(user.id).select("postalAddress");
+        if (currentUser === null || currentUser === void 0 ? void 0 : currentUser.postalAddress) {
+            searchPostCode = currentUser.postalAddress;
+        }
     }
-    const popularQuery = new QueryBuilder_1.default(user_model_1.User.find({ role: "PROVIDER" }), query)
+    if (searchPostCode) {
+        try {
+            const coords = await (0, geocoding_util_1.geocodePostCode)(searchPostCode);
+            query.latitude = coords.latitude;
+            query.longitude = coords.longitude;
+        }
+        catch (error) {
+            console.error("[ProviderService] Geocoding in getPopularProvidersFromDB failed:", error);
+        }
+    }
+    // 3. Set sort by popularity (Promoted -> Rating -> Total Reviews)
+    query.sort = `-isPromoted -review.averageRating -review.totalReviews -createdAt`;
+    const popularQuery = new QueryBuilder_1.default(user_model_1.User.find({ role: "PROVIDER", status: "active" }), query)
+        .geolocation()
         .filter()
         .sort()
         .paginate()

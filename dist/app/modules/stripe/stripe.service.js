@@ -13,14 +13,14 @@ const appointment_model_1 = require("../appointment/appointment.model");
 const notification_service_1 = require("../notification/notification.service");
 const checkSetting_1 = require("../../../helpers/checkSetting");
 const transaction_model_1 = require("../transaction/transaction.model");
-// --- Wallet Management (formerly wallet.stripe.service.ts) ---
 const createTopUpPaymentIntent = async (userId, amount, userEmail) => {
     await (0, checkSetting_1.checkWalletSetting)('topUp');
     try {
         const amountInCents = Math.round(amount * 100);
         const paymentIntent = await stripe_1.default.paymentIntents.create({
             amount: amountInCents,
-            currency: 'usd',
+            currency: 'eur',
+            automatic_payment_methods: { enabled: true },
             metadata: {
                 userId,
                 type: 'wallet_topup',
@@ -32,6 +32,7 @@ const createTopUpPaymentIntent = async (userId, amount, userEmail) => {
         return {
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: paymentIntent.id,
+            returnUrl: "txme://app/payment-status"
         };
     }
     catch (error) {
@@ -60,7 +61,6 @@ const verifyTopUpPayment = async (paymentIntentId) => {
         throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.INTERNAL_SERVER_ERROR, `Failed to verify payment: ${error.message}`);
     }
 };
-// --- Connect Account Management (formerly stripe.connect.service.ts) ---
 const createExpressAccount = async (userId, email) => {
     var _a;
     const user = await user_model_1.User.findById(userId);
@@ -123,7 +123,6 @@ const createExpressAccount = async (userId, email) => {
     await user.save();
     return account.id;
 };
-// function removed
 const getAccount = async (stripeAccountId) => {
     return await stripe_1.default.accounts.retrieve(stripeAccountId);
 };
@@ -139,7 +138,7 @@ const handleAccountUpdate = async (account) => {
 const createTransfer = async (amount, destinationAccountId, metadata) => {
     return await stripe_1.default.transfers.create({
         amount: Math.round(amount * 100),
-        currency: 'usd',
+        currency: 'eur',
         destination: destinationAccountId,
         metadata
     });
@@ -147,12 +146,11 @@ const createTransfer = async (amount, destinationAccountId, metadata) => {
 const createPayout = async (amount, stripeAccountId) => {
     return await stripe_1.default.payouts.create({
         amount: Math.round(amount * 100),
-        currency: 'usd',
+        currency: 'eur',
     }, {
         stripeAccount: stripeAccountId,
     });
 };
-// --- Appointment Management (formerly appointment.stripe.service.ts) ---
 const createAppointmentPaymentIntent = async (appointmentId, userEmail) => {
     await (0, checkSetting_1.checkCardPaymentSetting)();
     try {
@@ -176,7 +174,8 @@ const createAppointmentPaymentIntent = async (appointmentId, userEmail) => {
         const amountInCents = Math.round(appointment.totalCost * 100);
         let paymentIntentParams = {
             amount: amountInCents,
-            currency: 'usd',
+            currency: 'eur',
+            automatic_payment_methods: { enabled: true },
             metadata: {
                 appointmentId: appointmentId.toString(),
                 type: 'appointment_payment',
@@ -196,6 +195,7 @@ const createAppointmentPaymentIntent = async (appointmentId, userEmail) => {
         return {
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: paymentIntent.id,
+            returnUrl: "txme://app/payment-status"
         };
     }
     catch (error) {
@@ -284,11 +284,9 @@ const getAccountStatus = async (userId) => {
     };
 };
 exports.StripeService = {
-    // Wallet topup
     createTopUpPaymentIntent,
     handleSuccessfulTopUpPayment,
     verifyTopUpPayment,
-    // Connect
     createExpressAccount,
     createAccountLink,
     getAccountStatus,
@@ -296,7 +294,6 @@ exports.StripeService = {
     handleAccountUpdate,
     createTransfer,
     createPayout,
-    // Appointment
     createAppointmentPaymentIntent,
     handleSuccessfulAppointmentPayment
 };

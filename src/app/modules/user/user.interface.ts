@@ -55,12 +55,12 @@ export interface IUser extends Document {
   nationality?: string;
   profilePicture?: string;
   countryOfResidence?: string;
+  postalAddress?: string;
   residentialAddress?: {
     address: string;
     latitude: number;
     longitude: number;
   };
-  postalAddress?: string;
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
   maritalStatus?: string;

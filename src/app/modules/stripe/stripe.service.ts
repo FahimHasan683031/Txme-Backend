@@ -169,7 +169,7 @@ const handleAccountUpdate = async (account: Stripe.Account) => {
 const createTransfer = async (amount: number, destinationAccountId: string, metadata: any) => {
     return await stripe.transfers.create({
         amount: Math.round(amount * 100),
-        currency: 'usd',
+        currency: 'eur',
         destination: destinationAccountId,
         metadata
     });
@@ -179,7 +179,7 @@ const createPayout = async (amount: number, stripeAccountId: string) => {
     return await stripe.payouts.create(
         {
             amount: Math.round(amount * 100),
-            currency: 'usd',
+            currency: 'eur',
         },
         {
             stripeAccount: stripeAccountId,
