@@ -15,6 +15,19 @@ import { emailTemplate } from "../../../shared/emailTemplate";
 import { Wallet } from "../wallet/wallet.model";
 
 
+const checkUserStatus = (status?: string) => {
+  const statusMessages: Record<string, string> = {
+    'rejected': 'Your account has been rejected. Please contact support for more information.',
+    'suspended': 'Your account has been suspended. Please contact support.',
+    'blocked': 'Your account has been blocked. Please contact support.',
+    'deleted': 'Your account has been deleted.'
+  };
+
+  if (status && statusMessages[status]) {
+    throw new ApiError(StatusCodes.FORBIDDEN, statusMessages[status]);
+  }
+};
+
 // Send OTP for email verification
 const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
   const otp = generateOTP();
@@ -102,6 +115,8 @@ const verifyOtp = async (payload: {
   if (!user || !user.authentication) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User or OTP not found");
   }
+
+  checkUserStatus(user.status);
 
   const auth = user.authentication;
   if (!auth.purpose) {
@@ -243,6 +258,8 @@ const loginUserFromDB = async (payload: ILoginData) => {
     };
   }
 
+  checkUserStatus(existingUser.status);
+
   // Generate OTP for login
   const otp = generateOTP();
   const authentication = {
@@ -291,6 +308,8 @@ const biometricLogin = async (biometricToken: string) => {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "User not found");
   }
 
+  checkUserStatus(user.status);
+
   if (!user.biometricEnabled) {
     throw new ApiError(
       StatusCodes.FORBIDDEN,
@@ -333,6 +352,8 @@ const newAccessTokenToUser = async (token: string) => {
   if (!isExistUser) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Unauthorized access");
   }
+
+  checkUserStatus(isExistUser.status);
 
   // Create token
   const accessToken = await jwtHelper.createToken(
@@ -554,6 +575,8 @@ const enableBiometric = async (email: string) => {
   if (!isExistUser) {
     throw new ApiError(StatusCodes.NOT_FOUND, "You are not registered");
   }
+
+  checkUserStatus(isExistUser.status);
 
   if (!isExistUser.isEmailVerified) {
     throw new ApiError(
