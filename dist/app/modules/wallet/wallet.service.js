@@ -30,8 +30,8 @@ const getmyWallet = async (userId) => {
 };
 // TOP UP
 const topUp = async (userId, amount, reference = "topup") => {
-    if (amount <= 0) {
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
+    if (amount < 1.5) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount must be at least 1.5");
     }
     await (0, checkSetting_1.checkWalletSetting)('topUp');
     console.log(`[WalletService] topUp called. User: ${userId}, Amount: ${amount}`);
@@ -86,8 +86,8 @@ const topUp = async (userId, amount, reference = "topup") => {
 };
 // SEND MONEY
 const sendMoney = async (senderId, receiverIdentifier, amount) => {
-    if (amount <= 0) {
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
+    if (amount < 1.5) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount must be at least 1.5");
     }
     await (0, checkSetting_1.checkWalletSetting)('moneySend');
     console.log(`[WalletService] sendMoney: Sender: ${senderId}, Input: "${receiverIdentifier}", Amount: ${amount}`);
@@ -191,8 +191,8 @@ const sendMoney = async (senderId, receiverIdentifier, amount) => {
     }
 };
 const withdraw = async (userId, amount) => {
-    if (amount <= 0) {
-        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
+    if (amount < 1.5) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Amount must be at least 1.5");
     }
     await (0, checkSetting_1.checkWalletSetting)('withdraw');
     const user = await user_model_1.User.findById(userId);

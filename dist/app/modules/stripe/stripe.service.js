@@ -13,8 +13,11 @@ const appointment_model_1 = require("../appointment/appointment.model");
 const notification_service_1 = require("../notification/notification.service");
 const checkSetting_1 = require("../../../helpers/checkSetting");
 const transaction_model_1 = require("../transaction/transaction.model");
-const createTopUpPaymentIntent = async (userId, amount, userEmail) => {
+const createTopUpPaymentIntent = async (userId, amount, userEmail, successUrl, cancelUrl) => {
     await (0, checkSetting_1.checkWalletSetting)('topUp');
+    if (amount < 1.5) {
+        throw new ApiErrors_1.default(http_status_codes_1.StatusCodes.BAD_REQUEST, "Minimum top up amount is 1.5");
+    }
     try {
         const amountInCents = Math.round(amount * 100);
         const paymentIntent = await stripe_1.default.paymentIntents.create({
@@ -29,9 +32,12 @@ const createTopUpPaymentIntent = async (userId, amount, userEmail) => {
             receipt_email: userEmail,
             description: `Wallet Top Up - ${amount}`,
         });
+        // Construct hosted payment page URL pointing to our backend pay route
+        const paymentUrl = `${successUrl.replace(/\/payment-return$/, "/pay")}?clientSecret=${paymentIntent.client_secret}`;
         return {
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: paymentIntent.id,
+            paymentUrl: paymentUrl,
             returnUrl: "txme://app/payment-status"
         };
     }
@@ -151,7 +157,7 @@ const createPayout = async (amount, stripeAccountId) => {
         stripeAccount: stripeAccountId,
     });
 };
-const createAppointmentPaymentIntent = async (appointmentId, userEmail) => {
+const createAppointmentPaymentIntent = async (appointmentId, userEmail, successUrl, cancelUrl) => {
     await (0, checkSetting_1.checkCardPaymentSetting)();
     try {
         const appointment = await appointment_model_1.Appointment.findById(appointmentId).populate('provider');
@@ -192,9 +198,12 @@ const createAppointmentPaymentIntent = async (appointmentId, userEmail) => {
             };
         }
         const paymentIntent = await stripe_1.default.paymentIntents.create(paymentIntentParams);
+        // Construct hosted payment page URL pointing to our backend pay route
+        const paymentUrl = `${successUrl.replace(/\/payment-return$/, "/pay")}?clientSecret=${paymentIntent.client_secret}`;
         return {
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: paymentIntent.id,
+            paymentUrl: paymentUrl,
             returnUrl: "txme://app/payment-status"
         };
     }

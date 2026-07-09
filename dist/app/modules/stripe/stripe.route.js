@@ -14,4 +14,7 @@ router.get("/account-status", (0, auth_1.default)(user_1.USER_ROLES.PROVIDER, us
 router.post("/create-appointment-payment-intent/:appointmentId", (0, auth_1.default)(user_1.USER_ROLES.CUSTOMER), stripe_controller_1.StripeController.createAppointmentPaymentIntent);
 router.get("/return", stripe_controller_1.StripeController.handleConnectReturn);
 router.get("/refresh", stripe_controller_1.StripeController.handleConnectRefresh);
+router.get("/payment-return", stripe_controller_1.StripeController.handlePaymentReturn);
+router.get("/payment-refresh", stripe_controller_1.StripeController.handlePaymentRefresh);
+router.get("/pay", stripe_controller_1.StripeController.renderStripePaymentPage);
 exports.StripeRoutes = router;

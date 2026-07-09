@@ -32,7 +32,7 @@ const getAllUsers = async (user, query) => {
             query.latitude = coords.latitude;
             query.longitude = coords.longitude;
             if (!query.radius) {
-                query.radius = 0;
+                query.radius = 100;
             }
         }
         catch (error) {
@@ -51,7 +51,8 @@ const getAllUsers = async (user, query) => {
         const userSort = query.sort || '-createdAt';
         query.sort = `-isPromoted -review.averageRating ${userSort}`;
     }
-    const userQueryBuilder = new QueryBuilder_1.default(user_model_1.User.find({ status: { $ne: "deleted" } }), query)
+    const userQueryBuilder = new QueryBuilder_1.default(user_model_1.User.find({ status: { $ne: "deleted" } })
+        .select("fullName email profilePicture status review  role createdAt"), query)
         .geolocation()
         .providerFilter()
         .filter()

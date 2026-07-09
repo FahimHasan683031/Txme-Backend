@@ -109,10 +109,9 @@ class QueryBuilder {
         if (latitude != null && longitude != null) {
             const lat = Number(latitude);
             const lon = Number(longitude);
-            const searchRadius = radius ? Number(radius) : 0;
+            const searchRadius = radius ? Number(radius) : 100;
             // Bounding box optimization (1 degree latitude ≈ 111.32km)
-            const maxProviderRadius = 100;
-            const totalRadius = searchRadius + maxProviderRadius;
+            const totalRadius = searchRadius;
             const latDiff = totalRadius / 111.32;
             const lonDiff = totalRadius / (111.32 * Math.cos(lat * (Math.PI / 180)));
             // Primary filter using bounding box for performance (if indices exist)
@@ -141,11 +140,11 @@ class QueryBuilder {
                                     }
                                 },
                                 in: {
-                                    // ✅ Matches if distance is within PROVIDER service radius 
-                                    // AND provider has at least the requested capacity (searchRadius)
+                                    // Matches if distance is within PROVIDER service radius 
+                                    // AND distance is within CUSTOMER search radius
                                     $and: [
                                         { $lte: ["$$dist", { $ifNull: ["$providerProfile.workLocation.radius", 0] }] },
-                                        { $gte: [{ $ifNull: ["$providerProfile.workLocation.radius", 0] }, searchRadius] }
+                                        { $lte: ["$$dist", searchRadius] }
                                     ]
                                 }
                             }

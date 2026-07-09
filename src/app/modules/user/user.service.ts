@@ -39,7 +39,7 @@ const getAllUsers = async (
       query.latitude = coords.latitude;
       query.longitude = coords.longitude;
       if (!query.radius) {
-        query.radius = 0;
+        query.radius = 100;
       }
     } catch (error) {
       console.error("[UserService] Geocoding in getAllUsers failed:", error);
@@ -59,7 +59,11 @@ const getAllUsers = async (
     query.sort = `-isPromoted -review.averageRating ${userSort}`;
   }
 
-  const userQueryBuilder = new QueryBuilder(User.find({ status: { $ne: "deleted" } }), query)
+  const userQueryBuilder = new QueryBuilder(
+    User.find({ status: { $ne: "deleted" } })
+      .select("fullName email profilePicture status review  role createdAt"),
+    query
+  )
     .geolocation()
     .providerFilter()
     .filter()
