@@ -87,7 +87,20 @@ const createExpressAccount = async (userId: string, email: string) => {
     if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
     if (user.stripeAccountId) {
-        return user.stripeAccountId;
+        try {
+            await stripe.accounts.retrieve(user.stripeAccountId);
+            return user.stripeAccountId;
+        } catch (error: any) {
+            // If the account does not exist or belongs to another platform (not connected), clear it and create a new one
+            if (error.raw?.type === 'invalid_request_error' || error.statusCode === 400 || error.message?.includes('not connected') || error.message?.includes('does not exist')) {
+                console.log(`[StripeService] Saved stripeAccountId ${user.stripeAccountId} is invalid or not connected. Clearing and creating a new one.`);
+                user.stripeAccountId = undefined;
+                user.isStripeConnected = false;
+                await user.save();
+            } else {
+                throw error;
+            }
+        }
     }
 
     // Prepare pre-filled data for Stripe
@@ -331,22 +344,40 @@ const getAccountStatus = async (userId: string) => {
         };
     }
 
-    const account = await stripe.accounts.retrieve(user.stripeAccountId);
+    try {
+        const account = await stripe.accounts.retrieve(user.stripeAccountId);
 
-    // Sync local status with Stripe status
-    if (account.details_submitted && !user.isStripeConnected) {
-        user.isStripeConnected = true;
-        await user.save();
+        // Sync local status with Stripe status
+        if (account.details_submitted && !user.isStripeConnected) {
+            user.isStripeConnected = true;
+            await user.save();
+        }
+
+        return {
+            isConnected: user.isStripeConnected,
+            detailsSubmitted: account.details_submitted,
+            requirements: account.requirements?.currently_due || [],
+            stripeAccountId: user.stripeAccountId,
+            payoutsEnabled: account.payouts_enabled,
+            chargesEnabled: account.charges_enabled
+        };
+    } catch (error: any) {
+        // If the account does not exist or is not connected, clear it from the user document
+        if (error.raw?.type === 'invalid_request_error' || error.statusCode === 400 || error.message?.includes('not connected') || error.message?.includes('does not exist')) {
+            console.log(`[StripeService] Saved stripeAccountId ${user.stripeAccountId} is invalid in getAccountStatus. Clearing...`);
+            user.stripeAccountId = undefined;
+            user.isStripeConnected = false;
+            await user.save();
+            
+            return {
+                isConnected: false,
+                detailsSubmitted: false,
+                requirements: [],
+                stripeAccountId: null
+            };
+        }
+        throw error;
     }
-
-    return {
-        isConnected: user.isStripeConnected,
-        detailsSubmitted: account.details_submitted,
-        requirements: account.requirements?.currently_due || [],
-        stripeAccountId: user.stripeAccountId,
-        payoutsEnabled: account.payouts_enabled,
-        chargesEnabled: account.charges_enabled
-    };
 };
 
 export const StripeService = {
