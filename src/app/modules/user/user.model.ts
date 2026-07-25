@@ -60,6 +60,8 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: true,
       unique: true,
+      lowercase: true,
+      trim: true,
     },
     phone: {
       type: String,
@@ -304,7 +306,7 @@ userSchema.statics.isExistUserById = async (id: string) => {
 };
 
 userSchema.statics.isExistUserByEmail = async (email: string) => {
-  const isExist = await User.findOne({ email: email });
+  const isExist = await User.findOne({ email: email?.toLowerCase().trim() });
   return isExist;
 };
 
@@ -316,6 +318,9 @@ userSchema.statics.isMatchPassword = async (
 };
 
 userSchema.pre("save", async function (next) {
+  if (this.email) {
+    this.email = this.email.toLowerCase().trim();
+  }
   if (this.isNew) {
     const email = this.email;
 

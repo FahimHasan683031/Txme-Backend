@@ -16,6 +16,8 @@ const AdminSchema = new mongoose.Schema<IAdmin>(
       type: String,
       required: true,
       unique: true,
+      lowercase: true,
+      trim: true,
     },
     password: {
       type: String,
@@ -65,7 +67,7 @@ AdminSchema.statics.isExistUserById = async (id: string) => {
 };
 
 AdminSchema.statics.isExistUserByEmail = async (email: string) => {
-  const isExist = await Admin.findOne({ email });
+  const isExist = await Admin.findOne({ email: email?.toLowerCase().trim() });
   return isExist;
 };
 
@@ -79,10 +81,15 @@ AdminSchema.statics.isMatchPassword = async (
 
 //make password secure
 AdminSchema.pre("save", async function (next) {
-  //check user
-  const isExist = await Admin.findOne({ email: this.email });
-  if (isExist) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "A user already exist with this email!");
+  if (this.email) {
+    this.email = this.email.toLowerCase().trim();
+  }
+  if (this.isNew) {
+    //check user
+    const isExist = await Admin.findOne({ email: this.email });
+    if (isExist) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "A user already exist with this email!");
+    }
   }
 
   //password hash

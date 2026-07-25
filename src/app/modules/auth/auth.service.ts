@@ -30,12 +30,41 @@ const checkUserStatus = (status?: string) => {
 
 // Send OTP for email verification
 const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
+  const email = data.email?.toLowerCase().trim();
   const otp = generateOTP();
   const expireAt = new Date(Date.now() + 5 * 60 * 1000);
 
+  // Check if user already exists
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    if (existingUser.isEmailVerified) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Email is already registered!");
+    }
+    // Update existing unverified user with new OTP and role
+    existingUser.role = data.role;
+    existingUser.authentication = {
+      purpose: "email_verify",
+      channel: "email",
+      oneTimeCode: otp,
+      expireAt,
+    };
+    await existingUser.save();
+
+    const emailContent = emailTemplate.createAccount({
+      email,
+      otp,
+    });
+
+    setTimeout(() => {
+      emailHelper.sendEmail(emailContent);
+    }, 0);
+
+    return { userId: existingUser._id, email };
+  }
+
   // Simply create new user with OTP
   const user = await User.create({
-    email: data.email,
+    email,
     role: data.role,
     isEmailVerified: false,
     authentication: {
@@ -47,7 +76,7 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
   });
 
   const emailContent = emailTemplate.createAccount({
-    email: data.email,
+    email,
     otp,
   });
 
@@ -55,7 +84,7 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
     emailHelper.sendEmail(emailContent);
   }, 0);
 
-  return { userId: user._id, email: data.email };
+  return { userId: user._id, email };
 };
 
 // Send OTP to phone
@@ -96,6 +125,7 @@ const verifyOtp = async (payload: {
   oneTimeCode: number;
 }) => {
   const { purpose, channel, identifier, oneTimeCode } = payload;
+  const cleanIdentifier = channel === "email" ? identifier?.toLowerCase().trim() : identifier;
 
   let query;
   let user;
@@ -104,11 +134,11 @@ const verifyOtp = async (payload: {
   // which is stored in authentication.newPhone, not in the user.phone field yet
   if (purpose === "number_change" && channel === "phone") {
     user = await User.findOne({
-      "authentication.newPhone": identifier,
+      "authentication.newPhone": cleanIdentifier,
       "authentication.purpose": "number_change"
     }).select("+authentication");
   } else {
-    query = channel === "email" ? { email: identifier } : { phone: identifier };
+    query = channel === "email" ? { email: cleanIdentifier } : { phone: cleanIdentifier };
     user = await User.findOne(query).select("+authentication");
   }
 
@@ -229,7 +259,7 @@ const verifyOtp = async (payload: {
 
 // Login user from DB
 const loginUserFromDB = async (payload: ILoginData) => {
-  const { email } = payload;
+  const email = payload.email?.toLowerCase().trim();
 
   // Validate email
   if (!email) {
@@ -367,7 +397,8 @@ const newAccessTokenToUser = async (token: string) => {
 
 
 // Send password reset OTP
-const sendPasswordResetOtp = async (email: string) => {
+const sendPasswordResetOtp = async (rawEmail: string) => {
+  const email = rawEmail?.toLowerCase().trim();
   const user = await User.findOne({ email });
   if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
@@ -569,7 +600,8 @@ const resendOtp = async (identifier: unknown) => {
 };
 
 // Enable biometric login
-const enableBiometric = async (email: string) => {
+const enableBiometric = async (rawEmail: string) => {
+  const email = rawEmail?.toLowerCase().trim();
   const isExistUser = await User.findOne({ email });
 
   if (!isExistUser) {

@@ -114,9 +114,10 @@ const sendMoney = async (
   }
 
   if (!receiver) {
+    const cleanIdentifier = receiverIdentifier?.trim().toLowerCase();
     receiver = await User.findOne({
       $or: [
-        { email: receiverIdentifier },
+        { email: cleanIdentifier },
         { phone: receiverIdentifier }
       ]
     });

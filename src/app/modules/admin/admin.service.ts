@@ -21,6 +21,9 @@ import { ServiceModel } from '../service/service.model'
 
 // create admin
 const createAdminToDB = async (payload: IAdmin) => {
+  if (payload.email) {
+    payload.email = payload.email.toLowerCase().trim();
+  }
   const user = await Admin.create(payload)
   return user
 }
@@ -41,7 +44,8 @@ const getAllAdminsFromDB = async (query: Record<string, any>) => {
 
 //login
 const loginAdminFromDB = async (payload: ILoginData) => {
-  const { email, password } = payload
+  const email = payload.email?.toLowerCase().trim();
+  const password = payload.password;
   const isExistUser = await Admin.findOne({ email }).select('+password')
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid credentials")
@@ -114,7 +118,8 @@ const loginAdminFromDB = async (payload: ILoginData) => {
 }
 
 //forget password
-const forgetPasswordToDB = async (email: string) => {
+const forgetPasswordToDB = async (rawEmail: string) => {
+  const email = rawEmail?.toLowerCase().trim();
   const isExistUser = await Admin.isExistUserByEmail(email)
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!")
@@ -143,7 +148,8 @@ const forgetPasswordToDB = async (email: string) => {
 
 //verify email
 const verifyEmailToDB = async (payload: IVerifyEmail) => {
-  const { email, oneTimeCode } = payload
+  const email = payload.email?.toLowerCase().trim();
+  const oneTimeCode = payload.oneTimeCode;
   const isExistUser = await Admin.findOne({ email }).select('+authentication')
   if (!isExistUser) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "User doesn't exist!")
