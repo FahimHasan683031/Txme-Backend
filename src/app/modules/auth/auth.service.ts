@@ -281,11 +281,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
 
   // If user doesn't exist
   if (!existingUser) {
-    return {
-      register: true,
-      verify: false,
-      message: "User not found. Please register first.",
-    };
+   throw new ApiError(StatusCodes.NOT_FOUND, "User not found. Please register first.")
   }
 
   checkUserStatus(existingUser.status);
@@ -317,7 +313,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
     success: true,
     message: "Login OTP sent to your email",
     userId: existingUser._id,
-    token: null // Explicitly return token null to avoid confusion
+    token: null 
   };
 };
 
