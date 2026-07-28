@@ -17,6 +17,7 @@ import { Wallet } from "../wallet/wallet.model";
 
 const checkUserStatus = (status?: string) => {
   const statusMessages: Record<string, string> = {
+    'pending': 'Your account is pending verification or approval.',
     'rejected': 'Your account has been rejected. Please contact support for more information.',
     'suspended': 'Your account has been suspended. Please contact support.',
     'blocked': 'Your account has been blocked. Please contact support.',
@@ -146,7 +147,11 @@ const verifyOtp = async (payload: {
     throw new ApiError(StatusCodes.NOT_FOUND, "User or OTP not found");
   }
 
-  checkUserStatus(user.status);
+  // For onboarding registration (email_verify/phone_verify), allow pending status
+  const isRegistration = purpose === "email_verify" || purpose === "phone_verify";
+  if (!isRegistration || (user.status && user.status !== "pending")) {
+    checkUserStatus(user.status);
+  }
 
   const auth = user.authentication;
   if (!auth.purpose) {
@@ -398,6 +403,8 @@ const sendPasswordResetOtp = async (rawEmail: string) => {
   const user = await User.findOne({ email });
   if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
+  checkUserStatus(user.status);
+
   const otp = generateOTP();
   user.authentication = {
     purpose: "password_reset",
@@ -554,6 +561,12 @@ const resendOtp = async (identifier: unknown) => {
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  // Allow resend for email_verify/phone_verify if pending, otherwise enforce checkUserStatus
+  const isRegistrationResend = user.authentication?.purpose === "email_verify" || user.authentication?.purpose === "phone_verify";
+  if (!isRegistrationResend || (user.status && user.status !== "pending")) {
+    checkUserStatus(user.status);
   }
 
   if (!user.authentication) {
