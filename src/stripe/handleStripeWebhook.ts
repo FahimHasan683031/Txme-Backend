@@ -9,6 +9,7 @@ import stripe from '../config/stripe';
 import { StripeService } from '../app/modules/stripe/stripe.service';
 import catchAsync from '../shared/catchAsync';
 import { NotificationService } from '../app/modules/notification/notification.service';
+import { WalletService } from '../app/modules/wallet/wallet.service';
 import { Appointment } from '../app/modules/appointment/appointment.model';
 
 const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
@@ -39,18 +40,21 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
 
                 const sessionMetadata = session.metadata || {};
 
-                if (sessionMetadata.type === 'appointment_payment') {
-                    // Extract appointmentId from metadata
+                if (sessionMetadata.type === 'wallet_topup') {
+                    const userId = sessionMetadata.userId;
+                    const amount = sessionMetadata.amount;
+                    if (userId && amount) {
+                        await WalletService.topUp(userId, parseFloat(amount), session.id);
+                        logger.info(colors.bgGreen.bold(`Wallet top up via Checkout succeeded: ${session.id}`));
+                    }
+                } else if (sessionMetadata.type === 'appointment_payment') {
                     const appointmentId = sessionMetadata.appointmentId;
                     if (appointmentId) {
-                        // We can manually call a slim version of handleSuccessfulAppointmentPayment
-                        // Or fetch the payment intent. For simplicity, let's adapt a bit.
                         const appointment = await Appointment.findById(appointmentId);
                         if (appointment) {
                             appointment.status = 'review_pending';
                             await appointment.save();
 
-                            // Notify Provider
                             await NotificationService.insertNotification({
                                 title: "Payment Received (Checkout)",
                                 message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
@@ -60,7 +64,6 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
                                 type: "USER"
                             });
 
-                            // Notify Customer
                             await NotificationService.insertNotification({
                                 title: "Payment Successful",
                                 message: `Your checkout payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,

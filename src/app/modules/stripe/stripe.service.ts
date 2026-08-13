@@ -13,11 +13,20 @@ import { WalletTransaction } from '../transaction/transaction.model';
 import { IWalletTransaction } from '../transaction/transaction.interface';
 
 
+const getOrCreateStripeCustomer = async (email: string): Promise<string> => {
+    const existing = await stripe.customers.list({ email, limit: 1 });
+    if (existing.data.length > 0) {
+        return existing.data[0].id;
+    }
+    const customer = await stripe.customers.create({ email });
+    return customer.id;
+};
+
 const createTopUpPaymentIntent = async (
     userId: string,
     amount: number,
     userEmail: string
-): Promise<{ clientSecret: string; paymentIntentId: string; returnUrl: string }> => {
+): Promise<{ clientSecret: string; paymentIntentId: string; checkoutUrl: string; returnUrl: string }> => {
     await checkWalletSetting('topUp');
     try {
         const amountInCents = Math.round(amount * 100);
@@ -35,15 +44,44 @@ const createTopUpPaymentIntent = async (
             description: `Wallet Top Up - ${amount}`,
         });
 
+        const successUrl = config.stripe.paymentSuccess || "https://txme.app/payment-success";
+        const customerId = await getOrCreateStripeCustomer(userEmail);
+
+        const checkoutSession = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            mode: 'payment',
+            customer: customerId,
+            line_items: [
+                {
+                    price_data: {
+                        currency: 'eur',
+                        product_data: {
+                            name: 'Wallet Top Up',
+                        },
+                        unit_amount: amountInCents,
+                    },
+                    quantity: 1,
+                },
+            ],
+            metadata: {
+                userId,
+                type: 'wallet_topup',
+                amount: amount.toString(),
+            },
+            success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${successUrl}?canceled=true`,
+        });
+
         return {
             clientSecret: paymentIntent.client_secret as string,
             paymentIntentId: paymentIntent.id,
+            checkoutUrl: checkoutSession.url as string,
             returnUrl: "txme://app/payment-status"
         };
     } catch (error: any) {
         throw new ApiError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Stripe payment intent creation failed: ${error.message}`
+            `Stripe payment creation failed: ${error.message}`
         );
     }
 };
@@ -204,7 +242,7 @@ const createPayout = async (amount: number, stripeAccountId: string) => {
 const createAppointmentPaymentIntent = async (
     appointmentId: string,
     userEmail: string
-): Promise<{ clientSecret: string; paymentIntentId: string; returnUrl: string }> => {
+): Promise<{ clientSecret: string; paymentIntentId: string; checkoutUrl: string; returnUrl: string }> => {
     await checkCardPaymentSetting();
     try {
         const appointment = await Appointment.findById(appointmentId).populate('provider');
@@ -245,25 +283,64 @@ const createAppointmentPaymentIntent = async (
         };
 
         if (provider.isStripeConnected && provider.stripeAccountId) {
-            const providerShare = amountInCents;
             paymentIntentParams.transfer_data = {
                 destination: provider.stripeAccountId,
-                amount: providerShare
+                amount: amountInCents
             };
         }
 
         const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
+        const successUrl = config.stripe.paymentSuccess || "https://txme.app/payment-success";
+        const customerId = await getOrCreateStripeCustomer(userEmail);
+
+        let checkoutSessionParams: Stripe.Checkout.SessionCreateParams = {
+            payment_method_types: ['card'],
+            mode: 'payment',
+            customer: customerId,
+            line_items: [
+                {
+                    price_data: {
+                        currency: 'eur',
+                        product_data: {
+                            name: `Appointment Payment - ${appointmentId}`,
+                        },
+                        unit_amount: amountInCents,
+                    },
+                    quantity: 1,
+                },
+            ],
+            metadata: {
+                appointmentId: appointmentId.toString(),
+                type: 'appointment_payment',
+                totalCost: appointment.totalCost.toString(),
+            },
+            success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${successUrl}?canceled=true`,
+        };
+
+        if (provider.isStripeConnected && provider.stripeAccountId) {
+            checkoutSessionParams.payment_intent_data = {
+                transfer_data: {
+                    destination: provider.stripeAccountId,
+                    amount: amountInCents,
+                },
+            };
+        }
+
+        const checkoutSession = await stripe.checkout.sessions.create(checkoutSessionParams);
+
         return {
             clientSecret: paymentIntent.client_secret as string,
             paymentIntentId: paymentIntent.id,
+            checkoutUrl: checkoutSession.url as string,
             returnUrl: "txme://app/payment-status"
         };
     } catch (error: any) {
         if (error instanceof ApiError) throw error;
         throw new ApiError(
             StatusCodes.INTERNAL_SERVER_ERROR,
-            `Stripe payment intent creation failed: ${error.message}`
+            `Stripe payment creation failed: ${error.message}`
         );
     }
 };
