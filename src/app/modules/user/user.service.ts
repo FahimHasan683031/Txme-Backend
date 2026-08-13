@@ -24,31 +24,32 @@ const getAllUsers = async (
     query.role = "PROVIDER";
   }
 
-  // Use query postCode or fallback to user's postalAddress
+  // Use query postCode or user's residentialAddress.postCode
   let searchPostCode = query.postCode as string;
   if (!searchPostCode && user?.id) {
-    const currentUser = await User.findById(user.id).select("postalAddress");
-    if (currentUser?.postalAddress) {
-      searchPostCode = currentUser.postalAddress;
+    const currentUser = await User.findById(user.id).select("residentialAddress");
+    if (currentUser?.residentialAddress?.postCode) {
+      searchPostCode = currentUser.residentialAddress.postCode;
     }
   }
 
-  if (searchPostCode) {
-    try {
-      const coords = await geocodePostCode(searchPostCode);
-      query.latitude = coords.latitude;
-      query.longitude = coords.longitude;
-      if (!query.radius) {
-        query.radius = 100;
-      }
-    } catch (error) {
-      console.error("[UserService] Geocoding in getAllUsers failed:", error);
-      throw error;
+  if (!searchPostCode) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Postcode is required in your residential address to search providers"
+    );
+  }
+
+  try {
+    const coords = await geocodePostCode(searchPostCode);
+    query.latitude = coords.latitude;
+    query.longitude = coords.longitude;
+    if (!query.radius) {
+      query.radius = 100;
     }
-  } else {
-    delete query.latitude;
-    delete query.longitude;
-    delete query.radius;
+  } catch (error) {
+    console.error("[UserService] Geocoding in getAllUsers failed:", error);
+    throw error;
   }
 
   const totalUsers = await User.countDocuments({ status: { $ne: "deleted" } });
@@ -91,6 +92,19 @@ const updateProfileToDB = async (
   // ✅ Fix for profilePicture field name
   if (payload.profilePicture && isExistUser.profilePicture) {
     unlinkFile(isExistUser.profilePicture);
+  }
+
+  // Update residentialAddress subdocument properties
+  if (payload.residentialAddress) {
+    if (!isExistUser.residentialAddress) {
+      isExistUser.residentialAddress = payload.residentialAddress as any;
+    } else {
+      for (const [key, value] of Object.entries(payload.residentialAddress)) {
+        // @ts-ignore
+        isExistUser.residentialAddress[key] = value;
+      }
+    }
+    delete payload.residentialAddress;
   }
 
   // Update fields

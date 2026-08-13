@@ -38,6 +38,7 @@ interface IProviderProfile {
   languages?: IProviderLanguage[];
   workLocation?: {
     postCode?: string;
+    city?: string;
     radius?: number;
     latitude?: number;
     longitude?: number;
@@ -55,11 +56,12 @@ export interface IUser extends Document {
   nationality?: string;
   profilePicture?: string;
   countryOfResidence?: string;
-  postalAddress?: string;
   residentialAddress?: {
-    address: string;
-    latitude: number;
-    longitude: number;
+    address?: string;
+    city?: string;
+    postCode?: string;
+    latitude?: number;
+    longitude?: number;
   };
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;

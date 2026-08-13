@@ -89,11 +89,12 @@ export const completeProfileZod = z.object({
     countryOfResidence: z.string().optional(),
     profilePicture: z.string().optional(),
     residentialAddress: z.object({
-      address: z.string().min(1, "Address is required"),
-      latitude: z.number().min(-90).max(90),
-      longitude: z.number().min(-180).max(180),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      postCode: z.string().optional(),
+      latitude: z.number().min(-90).max(90).optional(),
+      longitude: z.number().min(-180).max(180).optional(),
     }).optional(),
-    postalAddress: z.string().optional(),
     maritalStatus: z.string().optional(),
     status: z.enum([
       "pending",
@@ -122,6 +123,7 @@ export const completeProfileZod = z.object({
       languages: z.array(z.enum(PROVIDER_LANGUAGES as unknown as [string, ...string[]])).optional(),
       workLocation: z.object({
         postCode: z.string().optional(),
+        city: z.string().optional(),
         radius: z.number().optional(),
         latitude: z.number().optional(),
         longitude: z.number().optional(),

@@ -89,22 +89,28 @@ export const getPopularProvidersFromDB = async (user: JwtPayload, query: Record<
     query.radius = 100;
 
     // 2. Use user profile address for filtering
-    let searchPostCode = '';
-    if (user?.id) {
-        const currentUser = await User.findById(user.id).select("postalAddress");
-        if (currentUser?.postalAddress) {
-            searchPostCode = currentUser.postalAddress;
+    let searchPostCode = query.postCode as string;
+    if (!searchPostCode && user?.id) {
+        const currentUser = await User.findById(user.id).select("residentialAddress");
+        if (currentUser?.residentialAddress?.postCode) {
+            searchPostCode = currentUser.residentialAddress.postCode;
         }
     }
 
-    if (searchPostCode) {
-        try {
-            const coords = await geocodePostCode(searchPostCode);
-            query.latitude = coords.latitude;
-            query.longitude = coords.longitude;
-        } catch (error) {
-            console.error("[ProviderService] Geocoding in getPopularProvidersFromDB failed:", error);
-        }
+    if (!searchPostCode) {
+        throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            "Postcode is required in your residential address to view popular providers"
+        );
+    }
+
+    try {
+        const coords = await geocodePostCode(searchPostCode);
+        query.latitude = coords.latitude;
+        query.longitude = coords.longitude;
+    } catch (error) {
+        console.error("[ProviderService] Geocoding in getPopularProvidersFromDB failed:", error);
+        throw error;
     }
 
     // 3. Set sort by popularity (Promoted -> Rating -> Total Reviews)

@@ -44,6 +44,7 @@ const providerProfileSchema = new Schema(
     }],
     workLocation: {
       postCode: { type: String },
+      city: { type: String },
       radius: { type: Number },
       latitude: { type: Number },
       longitude: { type: Number },
@@ -82,10 +83,11 @@ const userSchema = new Schema<IUser>(
     profilePicture: { type: String },
     residentialAddress: {
       address: { type: String, required: false },
+      city: { type: String, required: false },
+      postCode: { type: String, required: false },
       latitude: { type: Number, required: false },
       longitude: { type: Number, required: false },
     },
-    postalAddress: { type: String },
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
     maritalStatus: { type: String },
