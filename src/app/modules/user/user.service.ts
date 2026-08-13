@@ -49,7 +49,18 @@ const getAllUsers = async (
     }
   } catch (error) {
     console.error("[UserService] Geocoding in getAllUsers failed:", error);
-    throw error;
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
+    return {
+      data: [],
+      pagination: {
+        total: 0,
+        totalData: 0,
+        page,
+        limit,
+        totalPage: 0,
+      },
+    };
   }
 
   const totalUsers = await User.countDocuments({ status: { $ne: "deleted" } });

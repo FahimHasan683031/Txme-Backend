@@ -110,7 +110,18 @@ export const getPopularProvidersFromDB = async (user: JwtPayload, query: Record<
         query.longitude = coords.longitude;
     } catch (error) {
         console.error("[ProviderService] Geocoding in getPopularProvidersFromDB failed:", error);
-        throw error;
+        const page = Number(query.page) || 1;
+        const limit = Number(query.limit) || 10;
+        return {
+            data: [],
+            pagination: {
+                total: 0,
+                totalData: 0,
+                page,
+                limit,
+                totalPage: 0,
+            },
+        };
     }
 
     // 3. Set sort by popularity (Promoted -> Rating -> Total Reviews)
