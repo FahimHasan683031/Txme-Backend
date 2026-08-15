@@ -320,10 +320,13 @@ const loginUserFromDB = async (payload: ILoginData) => {
     }, 0);
 
     return {
+      statusCode: StatusCodes.ACCEPTED,
       success: false,
-      isEmailVerified: false,
       message: "Please verify your email. An OTP has been sent to your email.",
-      userId: existingUser._id,
+      data: {
+        isEmailVerified: false,
+        userId: existingUser._id,
+      },
     };
   }
 
@@ -351,11 +354,14 @@ const loginUserFromDB = async (payload: ILoginData) => {
   }, 0);
 
   return {
+    statusCode: StatusCodes.OK,
     success: true,
-    isEmailVerified: true,
     message: "Login OTP sent to your email",
-    userId: existingUser._id,
-    token: null,
+    data: {
+      isEmailVerified: true,
+      userId: existingUser._id,
+      token: null,
+    },
   };
 };
 
