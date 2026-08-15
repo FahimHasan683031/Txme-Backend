@@ -17,7 +17,6 @@ import { Wallet } from "../wallet/wallet.model";
 
 const checkUserStatus = (status?: string) => {
   const statusMessages: Record<string, string> = {
-    'pending': 'Your account is pending verification or approval.',
     'rejected': 'Your account has been rejected. Please contact support for more information.',
     'suspended': 'Your account has been suspended. Please contact support.',
     'blocked': 'Your account has been blocked. Please contact support.',
@@ -147,9 +146,9 @@ const verifyOtp = async (payload: {
     throw new ApiError(StatusCodes.NOT_FOUND, "User or OTP not found");
   }
 
-  // For onboarding registration (email_verify/phone_verify), allow pending status
-  const isRegistration = purpose === "email_verify" || purpose === "phone_verify";
-  if (!isRegistration || (user.status && user.status !== "pending")) {
+  // Check account status (only pending and active are allowed)
+  const allowedStatuses = ["pending", "active"];
+  if (user.status && !allowedStatuses.includes(user.status)) {
     checkUserStatus(user.status);
   }
 
