@@ -282,16 +282,53 @@ const loginUserFromDB = async (payload: ILoginData) => {
   // Find user by email
   const existingUser = await User.findOne({ email });
 
-
-
   // If user doesn't exist
   if (!existingUser) {
-   throw new ApiError(StatusCodes.NOT_FOUND, "User not found. Please register first.")
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "User not found. Please register first."
+    );
   }
 
-  checkUserStatus(existingUser.status);
+  // 1. Check account status first (only 'pending' and 'active' are allowed for login)
+  const allowedStatuses = ["pending", "active"];
+  if (existingUser.status && !allowedStatuses.includes(existingUser.status)) {
+    checkUserStatus(existingUser.status);
+  }
 
-  // Generate OTP for login
+  // 2. If email is not verified, send email verification OTP
+  if (!existingUser.isEmailVerified) {
+    const otp = generateOTP();
+    const authentication = {
+      purpose: "email_verify",
+      channel: "email",
+      oneTimeCode: otp,
+      expireAt: new Date(Date.now() + 5 * 60 * 1000),
+    };
+
+    await User.updateOne(
+      { _id: existingUser._id },
+      { $set: { authentication } }
+    );
+
+    const emailContent = emailTemplate.createAccount({
+      email,
+      otp,
+    });
+
+    setTimeout(() => {
+      emailHelper.sendEmail(emailContent);
+    }, 0);
+
+    return {
+      success: false,
+      isEmailVerified: false,
+      message: "Please verify your email. An OTP has been sent to your email.",
+      userId: existingUser._id,
+    };
+  }
+
+  // 3. Status is 'pending' or 'active' AND isEmailVerified is true -> proceed with login OTP
   const otp = generateOTP();
   const authentication = {
     purpose: "login_otp",
@@ -300,7 +337,7 @@ const loginUserFromDB = async (payload: ILoginData) => {
     expireAt: new Date(Date.now() + 5 * 60 * 1000),
   };
 
-  console.log("login: ", { email, otp })
+  console.log("login: ", { email, otp });
   // Update user with OTP
   await User.updateOne({ _id: existingUser._id }, { $set: { authentication } });
 
@@ -316,9 +353,10 @@ const loginUserFromDB = async (payload: ILoginData) => {
 
   return {
     success: true,
+    isEmailVerified: true,
     message: "Login OTP sent to your email",
     userId: existingUser._id,
-    token: null 
+    token: null,
   };
 };
 
