@@ -20,47 +20,67 @@ const getAllUsers = async (
   user: JwtPayload,
   query: Record<string, unknown>
 ) => {
+  const isAdminOrSuperAdmin =
+    user.role === ADMIN_ROLES.ADMIN || user.role === ADMIN_ROLES.SUPER_ADMIN;
+
   if (user.role === "CUSTOMER" || user.role === "PROVIDER") {
     query.role = "PROVIDER";
   }
 
-  // Use query postCode or user's residentialAddress.postCode
-  let searchPostCode = query.postCode as string;
-  if (!searchPostCode && user?.id) {
-    const currentUser = await User.findById(user.id).select("residentialAddress");
-    if (currentUser?.residentialAddress?.postCode) {
-      searchPostCode = currentUser.residentialAddress.postCode;
+  // Geolocation & Postcode check only for non-admin roles (CUSTOMER & PROVIDER)
+  if (!isAdminOrSuperAdmin) {
+    // Use query postCode or user's residentialAddress.postCode
+    let searchPostCode = query.postCode as string;
+    if (!searchPostCode && user?.id) {
+      const currentUser = await User.findById(user.id).select("residentialAddress");
+      if (currentUser?.residentialAddress?.postCode) {
+        searchPostCode = currentUser.residentialAddress.postCode;
+      }
     }
-  }
 
-  if (!searchPostCode) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "Postcode is required in your residential address to search providers"
-    );
-  }
-
-  try {
-    const coords = await geocodePostCode(searchPostCode);
-    query.latitude = coords.latitude;
-    query.longitude = coords.longitude;
-    if (!query.radius) {
-      query.radius = 100;
+    if (!searchPostCode) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Postcode is required in your residential address to search providers"
+      );
     }
-  } catch (error) {
-    console.error("[UserService] Geocoding in getAllUsers failed:", error);
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
-    return {
-      data: [],
-      pagination: {
-        total: 0,
-        totalData: 0,
-        page,
-        limit,
-        totalPage: 0,
-      },
-    };
+
+    try {
+      const coords = await geocodePostCode(searchPostCode);
+      query.latitude = coords.latitude;
+      query.longitude = coords.longitude;
+      if (!query.radius) {
+        query.radius = 100;
+      }
+    } catch (error) {
+      console.error("[UserService] Geocoding in getAllUsers failed:", error);
+      const page = Number(query.page) || 1;
+      const limit = Number(query.limit) || 10;
+      return {
+        data: [],
+        pagination: {
+          total: 0,
+          totalData: 0,
+          page,
+          limit,
+          totalPage: 0,
+        },
+      };
+    }
+  } else {
+    // If admin explicitly passes postCode in query string for filtering, geocode it optionally
+    if (query.postCode) {
+      try {
+        const coords = await geocodePostCode(query.postCode as string);
+        query.latitude = coords.latitude;
+        query.longitude = coords.longitude;
+        if (!query.radius) {
+          query.radius = 100;
+        }
+      } catch (error) {
+        console.error("[UserService] Admin optional geocoding failed:", error);
+      }
+    }
   }
 
   const totalUsers = await User.countDocuments({ status: { $ne: "deleted" } });
