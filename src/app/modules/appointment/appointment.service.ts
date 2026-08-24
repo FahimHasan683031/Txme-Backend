@@ -204,7 +204,7 @@ export const updateAppointmentStatus = async (
     if (activeAppointment) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,
-        "Complete your previous work first! You already have an active appointment."
+        "Please finalize prior job before initiating a new one"
       );
     }
 
@@ -390,7 +390,9 @@ const payWithWallet = async (appointmentId: string, userId: string) => {
   await WalletService.sendMoney(
     appointment.customer.toString(),
     appointment.provider.toString(),
-    appointment.totalCost
+    appointment.totalCost,
+    appointment._id.toString(),
+    "payment"
   );
 
   // Update appointment status

@@ -39,6 +39,15 @@ const topUp = async (userId: string, amount: number, reference: string = "topup"
     throw new ApiError(StatusCodes.FORBIDDEN, "User account is not active or not found");
   }
 
+  // Idempotency check for topUp webhook processing
+  if (reference && reference !== "topup") {
+    const existingTx = await WalletTransaction.findOne({ reference });
+    if (existingTx) {
+      console.log(`[WalletService] TopUp reference ${reference} already processed.`);
+      return existingTx;
+    }
+  }
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -96,7 +105,9 @@ const topUp = async (userId: string, amount: number, reference: string = "topup"
 const sendMoney = async (
   senderId: string,
   receiverIdentifier: string,
-  amount: number
+  amount: number,
+  reference?: string,
+  type: "send" | "payment" = "send"
 ) => {
   if (amount <= 0) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
@@ -172,20 +183,22 @@ const sendMoney = async (
         {
           wallet: senderWallet._id,
           amount,
-          type: "send",
+          type,
           direction: "debit",
           status: "success",
           from: senderId,
           to: receiverId,
+          reference: reference || undefined,
         },
         {
           wallet: receiverWallet._id,
           amount,
-          type: "send",
+          type,
           direction: "credit",
           status: "success",
           from: senderId,
           to: receiverId,
+          reference: reference || undefined,
         },
       ],
       { session, ordered: true }

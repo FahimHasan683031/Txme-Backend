@@ -362,6 +362,40 @@ const handleSuccessfulAppointmentPayment = async (
     appointment.status = 'review_pending';
     await appointment.save();
 
+    // Create transaction records for history and invoice tracking
+    const existingTransaction = await WalletTransaction.findOne({
+        reference: appointment._id.toString(),
+        type: "payment"
+    });
+
+    if (!existingTransaction) {
+        const customerWallet = await WalletService.getOrCreateWallet(appointment.customer.toString());
+        const providerWallet = await WalletService.getOrCreateWallet(appointment.provider.toString());
+
+        await WalletTransaction.create([
+            {
+                wallet: customerWallet._id,
+                amount: appointment.totalCost,
+                type: "payment",
+                direction: "debit",
+                status: "success",
+                from: appointment.customer,
+                to: appointment.provider,
+                reference: appointment._id.toString()
+            },
+            {
+                wallet: providerWallet._id,
+                amount: appointment.totalCost,
+                type: "payment",
+                direction: "credit",
+                status: "success",
+                from: appointment.customer,
+                to: appointment.provider,
+                reference: appointment._id.toString()
+            }
+        ]);
+    }
+
     // Notify Provider
     console.log(`[StripeService] Triggering appointment payment notification (Provider): ${appointment.provider}`);
     try {

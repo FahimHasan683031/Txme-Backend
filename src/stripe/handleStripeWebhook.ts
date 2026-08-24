@@ -50,30 +50,10 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
                 } else if (sessionMetadata.type === 'appointment_payment') {
                     const appointmentId = sessionMetadata.appointmentId;
                     if (appointmentId) {
-                        const appointment = await Appointment.findById(appointmentId);
-                        if (appointment) {
-                            appointment.status = 'review_pending';
-                            await appointment.save();
-
-                            await NotificationService.insertNotification({
-                                title: "Payment Received (Checkout)",
-                                message: `Payment received for appointment ${appointmentId}. Amount: ${appointment.totalCost}`,
-                                receiver: appointment.provider,
-                                referenceId: appointment._id,
-                                screen: "APPOINTMENT",
-                                type: "USER"
-                            });
-
-                            await NotificationService.insertNotification({
-                                title: "Payment Successful",
-                                message: `Your checkout payment of ${appointment.totalCost} for appointment ${appointmentId} was successful.`,
-                                receiver: appointment.customer,
-                                referenceId: appointment._id,
-                                screen: "APPOINTMENT",
-                                type: "USER"
-                            });
-                            logger.info(colors.bgGreen.bold(`Appointment payment via Checkout succeeded: ${session.id}`));
-                        }
+                        await StripeService.handleSuccessfulAppointmentPayment({
+                            metadata: { appointmentId }
+                        } as any);
+                        logger.info(colors.bgGreen.bold(`Appointment payment via Checkout succeeded: ${session.id}`));
                     }
                 }
                 break;

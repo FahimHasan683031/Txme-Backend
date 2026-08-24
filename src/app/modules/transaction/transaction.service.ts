@@ -6,6 +6,8 @@ import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import PDFDocument from "pdfkit";
 
+import { WalletService } from "../wallet/wallet.service";
+
 const getAllTransactionsFromDB = async (query: Record<string, any>) => {
     const transactionQuery = new QueryBuilder(
         WalletTransaction.find()
@@ -28,11 +30,8 @@ const getAllTransactionsFromDB = async (query: Record<string, any>) => {
 const getMyTransactionsFromDB = async (user: JwtPayload, query: Record<string, any>) => {
     const { id } = user;
 
-    // Find user's wallet
-    const wallet = await Wallet.findOne({ user: id });
-    if (!wallet) {
-        throw new ApiError(StatusCodes.NOT_FOUND, "Wallet not found for this user");
-    }
+    // Find or create user's wallet
+    const wallet = await WalletService.getOrCreateWallet(id);
 
     // Filter by user's wallet ID
     query.wallet = wallet._id.toString();
@@ -127,7 +126,7 @@ const generateInvoicePDF = async (transactionId: string): Promise<PDFKit.PDFDocu
 
     // Amount Table Content
     doc.fillColor("#000000").text(`Wallet Transaction - ${transaction.type}`, 60, tableTop + 30);
-    doc.text(`$${transaction.amount.toFixed(2)}`, 450, tableTop + 30, { width: 90, align: "right" });
+    doc.text(`€${transaction.amount.toFixed(2)}`, 450, tableTop + 30, { width: 90, align: "right" });
 
     // Footer
     doc.fontSize(10)

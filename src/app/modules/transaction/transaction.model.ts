@@ -11,7 +11,7 @@ const transactionSchema = new Schema<IWalletTransaction>(
     amount: { type: Number, required: true },
     type: {
       type: String,
-      enum: ["topup", "withdraw", "send", "promotion"],
+      enum: ["topup", "withdraw", "send", "promotion", "payment"],
       required: true,
     },
     direction: {
