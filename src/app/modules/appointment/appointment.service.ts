@@ -120,8 +120,8 @@ export const updateAppointmentStatus = async (
   if (!appointment) throw new ApiError(StatusCodes.NOT_FOUND, "Appointment not found");
 
   // 1. Permission Check
-  const isCustomer = userRole?.toUpperCase() === USER_ROLES.CUSTOMER && appointment.customer.toString() === userId.toString();
-  const isProvider = userRole?.toUpperCase() === USER_ROLES.PROVIDER && appointment.provider.toString() === userId.toString();
+  const isCustomer = userRole?.toUpperCase() === USER_ROLES.CUSTOMER && appointment.customer?.toString() === userId?.toString();
+  const isProvider = userRole?.toUpperCase() === USER_ROLES.PROVIDER && appointment.provider?.toString() === userId?.toString();
 
   if (!isCustomer && !isProvider) {
     throw new ApiError(StatusCodes.FORBIDDEN, "Permission denied! Only the assigned user can update this.");
@@ -353,8 +353,11 @@ export const getAppointmentById = async (appointmentId: string, user: JwtPayload
   }
 
   // Users can only access their own appointments
-  const isCustomer = appointment.customer._id.toString() === user.id;
-  const isProvider = appointment.provider._id.toString() === user.id;
+  const customerId = (appointment.customer as any)?._id?.toString() || appointment.customer?.toString();
+  const providerId = (appointment.provider as any)?._id?.toString() || appointment.provider?.toString();
+
+  const isCustomer = Boolean(customerId && customerId === user.id);
+  const isProvider = Boolean(providerId && providerId === user.id);
 
   if (!isCustomer && !isProvider) {
     throw new ApiError(StatusCodes.FORBIDDEN, "You are not authorized to view this appointment");
