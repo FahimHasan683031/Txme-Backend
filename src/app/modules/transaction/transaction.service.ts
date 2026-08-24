@@ -13,7 +13,8 @@ const getAllTransactionsFromDB = async (query: Record<string, any>) => {
         WalletTransaction.find()
             .populate("wallet", "balance")
             .populate("from", "fullName profilePicture email")
-            .populate("to", "fullName profilePicture email"),
+            .populate("to", "fullName profilePicture email")
+            .populate("appointment"),
         query
     )
         .filter()
@@ -40,7 +41,8 @@ const getMyTransactionsFromDB = async (user: JwtPayload, query: Record<string, a
         WalletTransaction.find()
             .populate("wallet", "balance")
             .populate("from", "fullName profilePicture email")
-            .populate("to", "fullName profilePicture email"),
+            .populate("to", "fullName profilePicture email")
+            .populate("appointment"),
         query
     )
         .filter()
@@ -58,7 +60,8 @@ const getTransactionByReference = async (referenceId: string) => {
     const result = await WalletTransaction.findOne({ reference: referenceId })
         .populate("wallet", "balance")
         .populate("from", "fullName profilePicture email")
-        .populate("to", "fullName profilePicture email");
+        .populate("to", "fullName profilePicture email")
+        .populate("appointment");
 
     if (!result) {
         throw new ApiError(StatusCodes.NOT_FOUND, "Transaction not found");

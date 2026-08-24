@@ -178,6 +178,8 @@ const sendMoney = async (
     await senderWallet.save({ session });
     await receiverWallet.save({ session });
 
+    const appointmentObjectId = reference && Types.ObjectId.isValid(reference) ? new Types.ObjectId(reference) : undefined;
+
     const tx = await WalletTransaction.create(
       [
         {
@@ -189,6 +191,7 @@ const sendMoney = async (
           from: senderId,
           to: receiverId,
           reference: reference || undefined,
+          appointment: appointmentObjectId,
         },
         {
           wallet: receiverWallet._id,
@@ -199,6 +202,7 @@ const sendMoney = async (
           from: senderId,
           to: receiverId,
           reference: reference || undefined,
+          appointment: appointmentObjectId,
         },
       ],
       { session, ordered: true }

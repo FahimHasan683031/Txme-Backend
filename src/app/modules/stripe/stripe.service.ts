@@ -381,7 +381,8 @@ const handleSuccessfulAppointmentPayment = async (
                 status: "success",
                 from: appointment.customer,
                 to: appointment.provider,
-                reference: appointment._id.toString()
+                reference: appointment._id.toString(),
+                appointment: appointment._id
             },
             {
                 wallet: providerWallet._id,
@@ -391,7 +392,8 @@ const handleSuccessfulAppointmentPayment = async (
                 status: "success",
                 from: appointment.customer,
                 to: appointment.provider,
-                reference: appointment._id.toString()
+                reference: appointment._id.toString(),
+                appointment: appointment._id
             }
         ]);
     }

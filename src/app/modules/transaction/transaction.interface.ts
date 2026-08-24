@@ -10,6 +10,7 @@ export interface IWalletTransaction {
   reference?: string;
   from?: Types.ObjectId;
   to?: Types.ObjectId;
+  appointment?: Types.ObjectId;
   platform?: "ios" | "android";
   productId?: string;
 }

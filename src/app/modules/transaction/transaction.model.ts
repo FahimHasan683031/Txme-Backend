@@ -27,6 +27,7 @@ const transactionSchema = new Schema<IWalletTransaction>(
     reference: String,
     from: { type: Schema.Types.ObjectId, ref: "User" },
     to: { type: Schema.Types.ObjectId, ref: "User" },
+    appointment: { type: Schema.Types.ObjectId, ref: "Appointment" },
     platform: { type: String, enum: ["ios", "android"] },
     productId: { type: String },
   },
