@@ -44,7 +44,7 @@ export const buildProfessionalInvoicePDF = async (payload: IInvoicePDFPayload, r
     const logoBuffer = await fetchLogoBuffer();
 
     const doc = new PDFDocument({
-        margin: 45,
+        margin: 40,
         size: 'A4',
         info: {
             Title: `Invoice #${payload.invoiceNumber}`,
@@ -59,124 +59,124 @@ export const buildProfessionalInvoicePDF = async (payload: IInvoicePDFPayload, r
         doc.pipe(res);
     }
 
-    const brandColor = '#FF5A36';       // Txme Coral Accent
-    const darkHeaderBg = '#1E293B';     // Slate 900
-    const darkTextColor = '#0F172A';    // Slate 900 Text
-    const grayTextColor = '#475569';    // Slate 600 Text
-    const lightBgColor = '#F8FAFC';     // Slate 50 Light Background
-    const borderColor = '#E2E8F0';      // Slate 200 Border
+    // Pure Black & White Color Palette
+    const blackTextColor = '#000000';
+    const darkGrayTextColor = '#333333';
+    const lightGrayTextColor = '#555555';
+    const tableHeaderBg = '#111111';
+    const cardBgColor = '#F9F9F9';
+    const borderColor = '#D1D5DB';
 
     const pageWidth = 595.28;
-    const pageMargin = 45;
-    const contentWidth = pageWidth - (pageMargin * 2); // 505.28 pt
+    const pageMargin = 40;
+    const contentWidth = pageWidth - (pageMargin * 2); // 515.28 pt
 
-    // 1. Top Decorative Brand Bar
-    doc.rect(0, 0, pageWidth, 5).fill(brandColor);
+    // 1. Top Black Accent Line
+    doc.rect(0, 0, pageWidth, 4).fill(blackTextColor);
 
     // 2. Logo & Header Section
-    const headerY = 32;
+    const headerY = 28;
     if (logoBuffer) {
         try {
-            doc.image(logoBuffer, pageMargin, headerY, { height: 42 });
+            doc.image(logoBuffer, pageMargin, headerY, { height: 40 });
         } catch (e) {
-            doc.fillColor(brandColor).fontSize(24).text('Txme', pageMargin, headerY + 5);
+            doc.fillColor(blackTextColor).fontSize(24).text('Txme', pageMargin, headerY + 4);
         }
     } else {
-        doc.fillColor(brandColor).fontSize(26).text('Txme', pageMargin, headerY + 5);
+        doc.fillColor(blackTextColor).fontSize(24).text('Txme', pageMargin, headerY + 4);
     }
 
     // Invoice Meta (Top Right)
     const formattedInvoiceNo = payload.invoiceNumber.toString().slice(-8).toUpperCase();
     const formattedDate = new Date(payload.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
-    doc.fillColor(darkTextColor).fontSize(22).text('INVOICE', pageMargin, headerY, { align: 'right', width: contentWidth });
-    doc.fillColor(grayTextColor).fontSize(9)
-        .text(`INVOICE NO: #${formattedInvoiceNo}`, pageMargin, headerY + 28, { align: 'right', width: contentWidth })
-        .text(`DATE OF ISSUE: ${formattedDate}`, pageMargin, headerY + 41, { align: 'right', width: contentWidth });
+    doc.fillColor(blackTextColor).fontSize(20).text('INVOICE', pageMargin, headerY, { align: 'right', width: contentWidth });
+    doc.fillColor(lightGrayTextColor).fontSize(9)
+        .text(`INVOICE NO: #${formattedInvoiceNo}`, pageMargin, headerY + 25, { align: 'right', width: contentWidth })
+        .text(`DATE OF ISSUE: ${formattedDate}`, pageMargin, headerY + 37, { align: 'right', width: contentWidth });
 
-    // Divider Line
-    const dividerY = headerY + 62;
+    // Header Divider Line
+    const dividerY = headerY + 54;
     doc.moveTo(pageMargin, dividerY).lineTo(pageWidth - pageMargin, dividerY).strokeColor(borderColor).lineWidth(1).stroke();
 
     // 3. Issued By & Issued To Grid (Side-by-side)
-    const cardY = dividerY + 16;
-    const cardWidth = (contentWidth - 16) / 2; // 244.64 pt
-    const cardHeight = 85;
+    const cardY = dividerY + 12;
+    const cardWidth = (contentWidth - 14) / 2; // 250.64 pt
+    const cardHeight = 74;
 
     // Left Card (ISSUED BY)
-    doc.roundedRect(pageMargin, cardY, cardWidth, cardHeight, 6).fillAndStroke(lightBgColor, borderColor);
-    doc.fillColor(brandColor).fontSize(8).text('ISSUED BY', pageMargin + 14, cardY + 12);
-    doc.fillColor(darkTextColor).fontSize(10).text(payload.billedFrom?.name || 'Txme Platform Services', pageMargin + 14, cardY + 24);
-    doc.fillColor(grayTextColor).fontSize(9)
-        .text(`Email: ${payload.billedFrom?.email || 'support@txme.app'}`, pageMargin + 14, cardY + 38)
-        .text(`Role: ${payload.billedFrom?.role || 'Service Platform'}`, pageMargin + 14, cardY + 51)
-        .text('Web: https://txme.app', pageMargin + 14, cardY + 64);
+    doc.roundedRect(pageMargin, cardY, cardWidth, cardHeight, 4).fillAndStroke(cardBgColor, borderColor);
+    doc.fillColor(blackTextColor).fontSize(8).text('ISSUED BY', pageMargin + 12, cardY + 10);
+    doc.fillColor(blackTextColor).fontSize(10).text(payload.billedFrom?.name || 'Txme Platform Services', pageMargin + 12, cardY + 21);
+    doc.fillColor(darkGrayTextColor).fontSize(8.5)
+        .text(`Email: ${payload.billedFrom?.email || 'support@txme.app'}`, pageMargin + 12, cardY + 34)
+        .text(`Role: ${payload.billedFrom?.role || 'Service Platform'}`, pageMargin + 12, cardY + 46)
+        .text('Web: https://txme.app', pageMargin + 12, cardY + 58);
 
     // Right Card (ISSUED TO)
-    const rightCardX = pageMargin + cardWidth + 16;
-    doc.roundedRect(rightCardX, cardY, cardWidth, cardHeight, 6).fillAndStroke(lightBgColor, borderColor);
-    doc.fillColor(brandColor).fontSize(8).text('ISSUED TO', rightCardX + 14, cardY + 12);
-    doc.fillColor(darkTextColor).fontSize(10).text(payload.billedTo?.name || 'Valued Customer', rightCardX + 14, cardY + 24);
-    doc.fillColor(grayTextColor).fontSize(9)
-        .text(`Email: ${payload.billedTo?.email || 'N/A'}`, rightCardX + 14, cardY + 38)
-        .text(`Phone: ${payload.billedTo?.phone || 'N/A'}`, rightCardX + 14, cardY + 51)
-        .text(`Address: ${payload.billedTo?.address || 'Provided in App'}`, rightCardX + 14, cardY + 64);
+    const rightCardX = pageMargin + cardWidth + 14;
+    doc.roundedRect(rightCardX, cardY, cardWidth, cardHeight, 4).fillAndStroke(cardBgColor, borderColor);
+    doc.fillColor(blackTextColor).fontSize(8).text('ISSUED TO', rightCardX + 12, cardY + 10);
+    doc.fillColor(blackTextColor).fontSize(10).text(payload.billedTo?.name || 'Valued Customer', rightCardX + 12, cardY + 21);
+    doc.fillColor(darkGrayTextColor).fontSize(8.5)
+        .text(`Email: ${payload.billedTo?.email || 'N/A'}`, rightCardX + 12, cardY + 34)
+        .text(`Phone: ${payload.billedTo?.phone || 'N/A'}`, rightCardX + 12, cardY + 46)
+        .text(`Address: ${payload.billedTo?.address || 'Provided in App'}`, rightCardX + 12, cardY + 58);
 
     // 4. Structured Itemized Table
-    let tableY = cardY + cardHeight + 22;
-    const tableHeaderHeight = 24;
+    let tableY = cardY + cardHeight + 18;
+    const tableHeaderHeight = 22;
 
-    // Table Header Bar (Dark Slate Background)
-    doc.roundedRect(pageMargin, tableY, contentWidth, tableHeaderHeight, 4).fill(darkHeaderBg);
-    doc.fillColor('#FFFFFF').fontSize(9)
-        .text('DESCRIPTION / ATTRIBUTE', pageMargin + 14, tableY + 7)
-        .text('VALUE / DETAILS', pageMargin + 200, tableY + 7, { width: contentWidth - 214, align: 'right' });
+    // Table Header Bar (Black Background)
+    doc.roundedRect(pageMargin, tableY, contentWidth, tableHeaderHeight, 3).fill(tableHeaderBg);
+    doc.fillColor('#FFFFFF').fontSize(8.5)
+        .text('DESCRIPTION / ATTRIBUTE', pageMargin + 12, tableY + 6)
+        .text('VALUE / DETAILS', pageMargin + 200, tableY + 6, { width: contentWidth - 212, align: 'right' });
 
     tableY += tableHeaderHeight;
 
     // Table Rows
     const detailEntries = Object.entries(payload.details);
-    const rowHeight = 22;
+    const rowHeight = 20;
 
     detailEntries.forEach(([key, val], index) => {
-        const rowBg = index % 2 === 0 ? '#FFFFFF' : lightBgColor;
+        const rowBg = index % 2 === 0 ? '#FFFFFF' : cardBgColor;
         doc.rect(pageMargin, tableY, contentWidth, rowHeight).fillAndStroke(rowBg, borderColor);
 
-        doc.fillColor(darkTextColor).fontSize(9)
-            .text(key, pageMargin + 14, tableY + 6)
-            .fillColor(grayTextColor)
-            .text(String(val), pageMargin + 200, tableY + 6, { width: contentWidth - 214, align: 'right' });
+        doc.fillColor(blackTextColor).fontSize(8.5)
+            .text(key, pageMargin + 12, tableY + 5)
+            .fillColor(darkGrayTextColor)
+            .text(String(val), pageMargin + 200, tableY + 5, { width: contentWidth - 212, align: 'right' });
 
         tableY += rowHeight;
     });
 
     // 5. Total Financial Summary Box (Right-aligned)
-    tableY += 16;
-    const totalBoxWidth = 210;
+    tableY += 14;
+    const totalBoxWidth = 200;
     const totalBoxX = pageWidth - pageMargin - totalBoxWidth;
-    const totalBoxHeight = 54;
+    const totalBoxHeight = 48;
 
-    doc.roundedRect(totalBoxX, tableY, totalBoxWidth, totalBoxHeight, 6).fillAndStroke('#FFF1EC', brandColor);
+    doc.roundedRect(totalBoxX, tableY, totalBoxWidth, totalBoxHeight, 4).fillAndStroke(cardBgColor, blackTextColor);
 
-    doc.fillColor(grayTextColor).fontSize(9).text('SUBTOTAL:', totalBoxX + 14, tableY + 9);
-    doc.fillColor(darkTextColor).fontSize(9).text(`€${Number(payload.amount).toFixed(2)}`, totalBoxX + 100, tableY + 9, { width: 96, align: 'right' });
+    doc.fillColor(darkGrayTextColor).fontSize(8.5).text('SUBTOTAL:', totalBoxX + 12, tableY + 8);
+    doc.fillColor(blackTextColor).fontSize(8.5).text(`€${Number(payload.amount).toFixed(2)}`, totalBoxX + 90, tableY + 8, { width: 98, align: 'right' });
 
-    doc.fillColor(grayTextColor).fontSize(9).text('TAX / FEES:', totalBoxX + 14, tableY + 21);
-    doc.fillColor(darkTextColor).fontSize(9).text('€0.00', totalBoxX + 100, tableY + 21, { width: 96, align: 'right' });
+    doc.fillColor(darkGrayTextColor).fontSize(8.5).text('TAX / FEES:', totalBoxX + 12, tableY + 19);
+    doc.fillColor(blackTextColor).fontSize(8.5).text('€0.00', totalBoxX + 90, tableY + 19, { width: 98, align: 'right' });
 
     // Inner Line inside Total Box
-    doc.moveTo(totalBoxX + 14, tableY + 33).lineTo(totalBoxX + totalBoxWidth - 14, tableY + 33).strokeColor(brandColor).lineWidth(0.5).stroke();
+    doc.moveTo(totalBoxX + 12, tableY + 30).lineTo(totalBoxX + totalBoxWidth - 12, tableY + 30).strokeColor(blackTextColor).lineWidth(0.5).stroke();
 
-    doc.fillColor(brandColor).fontSize(10).text('TOTAL AMOUNT:', totalBoxX + 14, tableY + 37);
-    doc.fillColor(brandColor).fontSize(11).text(`€${Number(payload.amount).toFixed(2)}`, totalBoxX + 100, tableY + 36, { width: 96, align: 'right' });
+    doc.fillColor(blackTextColor).fontSize(9.5).text('TOTAL AMOUNT:', totalBoxX + 12, tableY + 33);
+    doc.fillColor(blackTextColor).fontSize(10.5).text(`€${Number(payload.amount).toFixed(2)}`, totalBoxX + 90, tableY + 32, { width: 98, align: 'right' });
 
-    // 6. Professional Footer
-    const footerY = 780;
-    doc.moveTo(pageMargin, footerY - 14).lineTo(pageWidth - pageMargin, footerY - 14).strokeColor(borderColor).lineWidth(1).stroke();
+    // 6. Professional Short Footer (Strict Single Page Fit)
+    const footerY = 775;
+    doc.moveTo(pageMargin, footerY - 10).lineTo(pageWidth - pageMargin, footerY - 10).strokeColor(borderColor).lineWidth(1).stroke();
 
-    doc.fillColor(grayTextColor).fontSize(8)
-        .text('Thank you for using Txme! For questions regarding this invoice, please contact support@txme.app', pageMargin, footerY, { align: 'center', width: contentWidth })
-        .text('This is an official system-generated electronic receipt valid without signature.', pageMargin, footerY + 12, { align: 'center', width: contentWidth });
+    doc.fillColor(lightGrayTextColor).fontSize(8)
+        .text('Thank you for choosing Txme! Support: support@txme.app | System-generated receipt.', pageMargin, footerY, { align: 'center', width: contentWidth });
 
     doc.end();
     return doc;
