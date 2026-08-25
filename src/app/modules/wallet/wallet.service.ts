@@ -11,6 +11,8 @@ import { logger } from "../../../shared/logger";
 import { Types } from "mongoose";
 import { checkWalletSetting } from "../../../helpers/checkSetting";
 
+import { delCache, getCache, setCache } from "../../../helpers/redisHelper";
+
 const getOrCreateWallet = async (userId: string, session?: mongoose.ClientSession) => {
   let wallet = await Wallet.findOne({ user: userId }).session(session || null);
   if (!wallet) {
@@ -21,8 +23,16 @@ const getOrCreateWallet = async (userId: string, session?: mongoose.ClientSessio
 };
 
 const getmyWallet = async (userId: string) => {
+  const cacheKey = `cache:wallet:${userId}`;
+  const cachedWallet = await getCache<any>(cacheKey);
+  if (cachedWallet) {
+    return cachedWallet;
+  }
+
   const wallet = await getOrCreateWallet(userId);
-  return wallet;
+  const result = wallet.toObject ? wallet.toObject() : wallet;
+  await setCache(cacheKey, result, 300); 
+  return result;
 };
 
 // TOP UP
@@ -91,6 +101,8 @@ const topUp = async (userId: string, amount: number, reference: string = "topup"
     } catch (notificationError) {
       console.error('[WalletService] Failed to insert top-up notification:', notificationError);
     }
+
+    await delCache(`cache:wallet:${userId}`);
 
     return tx[0];
   } catch (e) {
@@ -233,6 +245,8 @@ const sendMoney = async (
       console.error('[WalletService] Notification error:', notifError);
     }
 
+    await delCache([`cache:wallet:${senderId}`, `cache:wallet:${receiverId.toString()}`]);
+
     return tx[0];
   } catch (e) {
     await session.abortTransaction();
@@ -315,6 +329,8 @@ const withdraw = async (userId: string, amount: number) => {
     } catch (notifError) {
       console.error(`[WalletService] Withdrawal notification failed:`, notifError);
     }
+
+    await delCache(`cache:wallet:${userId}`);
 
     return tx[0];
   } catch (error) {

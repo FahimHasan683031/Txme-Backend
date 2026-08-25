@@ -431,6 +431,11 @@ const handleSuccessfulAppointmentPayment = async (
     } catch (error) {
         console.error(`[StripeService] Failed to notify customer:`, error);
     }
+
+    await delCache([
+        `cache:wallet:${appointment.customer.toString()}`,
+        `cache:wallet:${appointment.provider.toString()}`
+    ]);
 };
 
 const createAccountLink = async (
