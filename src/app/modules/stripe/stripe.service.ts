@@ -199,6 +199,8 @@ const createExpressAccount = async (userId: string, email: string) => {
 
     user.stripeAccountId = account.id;
     await user.save();
+    await delCache(`cache:stripe:status:${userId}`);
+    await delCache(`cache:user:profile:${userId}`);
 
     return account.id;
 };
@@ -213,6 +215,8 @@ const handleAccountUpdate = async (account: Stripe.Account) => {
         if (user) {
             user.isStripeConnected = true;
             await user.save();
+            await delCache(`cache:stripe:status:${user._id.toString()}`);
+            await delCache(`cache:user:profile:${user._id.toString()}`);
         }
     }
 };
@@ -444,17 +448,27 @@ const createAccountLink = async (
     return accountLink.url;
 };
 
+import { delCache, getCache, setCache } from '../../../helpers/redisHelper';
+
 const getAccountStatus = async (userId: string) => {
+    const cacheKey = `cache:stripe:status:${userId}`;
+    const cachedStatus = await getCache<any>(cacheKey);
+    if (cachedStatus) {
+        return cachedStatus;
+    }
+
     const user = await User.findById(userId);
     if (!user) throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
 
     if (!user.stripeAccountId) {
-        return {
+        const result = {
             isConnected: false,
             detailsSubmitted: false,
             requirements: [],
             stripeAccountId: null
         };
+        await setCache(cacheKey, result, 180);
+        return result;
     }
 
     try {
@@ -464,9 +478,10 @@ const getAccountStatus = async (userId: string) => {
         if (account.details_submitted && !user.isStripeConnected) {
             user.isStripeConnected = true;
             await user.save();
+            await delCache(`cache:user:profile:${userId}`);
         }
 
-        return {
+        const result = {
             isConnected: user.isStripeConnected,
             detailsSubmitted: account.details_submitted,
             requirements: account.requirements?.currently_due || [],
@@ -474,6 +489,9 @@ const getAccountStatus = async (userId: string) => {
             payoutsEnabled: account.payouts_enabled,
             chargesEnabled: account.charges_enabled
         };
+
+        await setCache(cacheKey, result, 180); // 3 Mins TTL
+        return result;
     } catch (error: any) {
         // If the account does not exist or is not connected, clear it from the user document
         if (error.raw?.type === 'invalid_request_error' || error.statusCode === 400 || error.message?.includes('not connected') || error.message?.includes('does not exist')) {
@@ -481,13 +499,16 @@ const getAccountStatus = async (userId: string) => {
             user.stripeAccountId = undefined;
             user.isStripeConnected = false;
             await user.save();
+            await delCache(`cache:user:profile:${userId}`);
             
-            return {
+            const result = {
                 isConnected: false,
                 detailsSubmitted: false,
                 requirements: [],
                 stripeAccountId: null
             };
+            await setCache(cacheKey, result, 180);
+            return result;
         }
         throw error;
     }
