@@ -31,7 +31,6 @@ const getInvoiceForTransaction = async (transactionId: string, userId: string): 
     const details: Record<string, any> = {
         'Transaction ID': transaction._id.toString(),
         'Transaction Type': transaction.type.toUpperCase(),
-        'Payment Platform': transaction.platform || 'System Wallet',
     };
 
     if (transaction.reference) {
@@ -42,8 +41,6 @@ const getInvoiceForTransaction = async (transactionId: string, userId: string): 
         invoiceNumber: transaction._id.toString(),
         date: transaction.createdAt,
         amount: transaction.amount,
-        status: transaction.status,
-        paymentMethod: transaction.platform || 'Wallet',
         billedFrom: {
             name: transaction.from?.fullName || 'Txme Platform System',
             email: transaction.from?.email || 'system@txme.app',
@@ -83,7 +80,6 @@ const getInvoiceForAppointment = async (appointmentId: string, userId: string): 
         'Booked Service': appointment.service,
         'Service Provider': appointment.provider?.fullName || 'Txme Provider',
         'Customer Name': appointment.customer?.fullName || 'Txme Customer',
-        'Payment Method': appointment.paymentMethod?.toUpperCase() || 'N/A',
         'Service Duration': appointment.totalWorkedTime ? `${appointment.totalWorkedTime} Hours` : 'Fixed Service',
         'Hourly Rate': appointment.provider?.providerProfile?.hourlyRate ? `€${appointment.provider.providerProfile.hourlyRate}/hr` : 'Standard'
     };
@@ -92,8 +88,6 @@ const getInvoiceForAppointment = async (appointmentId: string, userId: string): 
         invoiceNumber: appointment._id.toString(),
         date: appointment.updatedAt || appointment.createdAt,
         amount: appointment.totalCost || appointment.price || 0,
-        status: appointment.status,
-        paymentMethod: appointment.paymentMethod,
         billedFrom: {
             name: appointment.provider?.fullName || 'Txme Provider Service',
             email: appointment.provider?.email || 'provider@txme.app',

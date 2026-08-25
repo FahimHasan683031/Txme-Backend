@@ -16,7 +16,6 @@ const generateInvoicePDF = async (reference: string) => {
     const details: Record<string, any> = {
         'Transaction ID': transaction._id.toString(),
         'Transaction Type': transaction.type.toUpperCase(),
-        'Platform / Gateway': transaction.platform || 'System Wallet',
     };
 
     if (transaction.reference) {
@@ -28,8 +27,6 @@ const generateInvoicePDF = async (reference: string) => {
         // @ts-ignore
         date: transaction.createdAt,
         amount: transaction.amount,
-        status: transaction.status,
-        paymentMethod: transaction.platform || 'Wallet',
         billedFrom: {
             name: (transaction.from as any)?.fullName || 'Txme System Platform',
             email: (transaction.from as any)?.email || 'system@txme.app',

@@ -4,7 +4,7 @@ import { AdminModel, IAdmin } from "./admin.interface";
 import ApiError from "../../../errors/ApiErrors";
 import { StatusCodes } from "http-status-codes";
 import config from "../../../config";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 
 const AdminSchema = new mongoose.Schema<IAdmin>(
   {
