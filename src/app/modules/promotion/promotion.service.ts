@@ -6,13 +6,14 @@ import { IapService } from "./iap.service";
 import { User } from "../user/user.model";
 import { WalletTransaction } from "../transaction/transaction.model";
 import { Wallet } from "../wallet/wallet.model";
+import { delCache } from "../../../helpers/redisHelper";
 
 const getAllPackages = async () => {
-    return await PromotionPackage.find({ isActive: true });
+    return await PromotionPackage.find({ isActive: true }).lean();
 };
 
 const getPackageByProductId = async (productId: string) => {
-    const pkg = await PromotionPackage.findOne({ productId, isActive: true });
+    const pkg = await PromotionPackage.findOne({ productId, isActive: true }).lean();
     if (!pkg) {
         throw new ApiError(StatusCodes.NOT_FOUND, "Promotion package not found");
     }
@@ -61,6 +62,7 @@ const verifyPurchase = async (userId: string, payload: { productId: string, rece
     user.isPromoted = true;
     user.promotionExpiry = newExpiry;
     await user.save();
+    await delCache(`cache:user:profile:${userId}`);
 
     // 4. Log Transaction in unified History
     const userWallet = await Wallet.findOne({ user: userId });

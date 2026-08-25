@@ -63,5 +63,11 @@ export default {
         googlePlayPublicKey: process.env.GOOGLE_PLAY_PUBLIC_KEY,
         packageName: process.env.PACKAGE_NAME
     },
-    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+    redis: {
+        host: process.env.REDIS_HOST || "127.0.0.1",
+        port: Number(process.env.REDIS_PORT) || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
+        url: process.env.REDIS_URL || undefined,
+    }
 }

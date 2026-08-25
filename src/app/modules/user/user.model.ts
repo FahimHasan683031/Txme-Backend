@@ -164,6 +164,11 @@ const userSchema = new Schema<IUser>(
   }
 );
 
+// Indexes for high performance querying
+userSchema.index({ role: 1, status: 1 });
+userSchema.index({ "providerProfile.serviceCategory": 1 });
+userSchema.index({ "providerProfile.workLocation.latitude": 1, "providerProfile.workLocation.longitude": 1 });
+
 // pre save hook
 userSchema.pre("save", async function (next) {
   const user = this as IUser & { isModified: (path: string) => boolean };

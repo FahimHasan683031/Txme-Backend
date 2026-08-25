@@ -73,11 +73,14 @@ const AppointmentSchema = new Schema<IAppointment>(
   }
 );
 
-// Prevent double Appointments
+// Indexes for high performance querying
 AppointmentSchema.index(
   { provider: 1, date: 1, startTime: 1, endTime: 1 },
   { unique: true }
 );
+AppointmentSchema.index({ customer: 1, status: 1 });
+AppointmentSchema.index({ provider: 1, status: 1 });
+AppointmentSchema.index({ status: 1, createdAt: -1 });
 
 AppointmentSchema.post('save', function (doc) {
   const { emitAppointmentUpdate } = require('../../../util/appointment.util');

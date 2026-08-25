@@ -13,6 +13,8 @@ import { USER_ROLES } from "../../../enums/user";
 import { emailHelper } from "../../../helpers/emailHelper";
 import { emailTemplate } from "../../../shared/emailTemplate";
 import { Wallet } from "../wallet/wallet.model";
+import { delCache } from "../../../helpers/redisHelper";
+import { addEmailJob } from "../../queues/email.queue";
 
 
 const checkUserStatus = (status?: string) => {
@@ -55,9 +57,7 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
       otp,
     });
 
-    setTimeout(() => {
-      emailHelper.sendEmail(emailContent);
-    }, 0);
+    await addEmailJob(emailContent);
 
     return { userId: existingUser._id, email };
   }
@@ -80,9 +80,7 @@ const sendEmailOtp = async (data: { email: string; role: USER_ROLES }) => {
     otp,
   });
 
-  setTimeout(() => {
-    emailHelper.sendEmail(emailContent);
-  }, 0);
+  await addEmailJob(emailContent);
 
   return { userId: user._id, email };
 };
@@ -184,6 +182,7 @@ const verifyOtp = async (payload: {
   user.authentication = undefined as any;
 
   await user.save();
+  await delCache(`cache:user:profile:${user._id.toString()}`);
 
   // ✅ Generate tokens
   let tokens = null;
@@ -630,15 +629,13 @@ const resendOtp = async (identifier: unknown) => {
   await user.save();
 
   if (channel === "email") {
-    setTimeout(() => {
-      emailHelper.sendEmail(
-        emailTemplate.resendOtpEmail({
-          email: user.email!,
-          otp: newOtp,
-          purpose,
-        })
-      );
-    }, 0);
+    await addEmailJob(
+      emailTemplate.resendOtpEmail({
+        email: user.email!,
+        otp: newOtp,
+        purpose,
+      })
+    );
   } else {
     await sendSMS(numericValue, `Your Txme phone verification OTP is ${newOtp}. It is valid for 5 minutes.`);
   }

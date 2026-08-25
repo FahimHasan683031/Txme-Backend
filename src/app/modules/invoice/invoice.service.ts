@@ -1,70 +1,18 @@
-import PDFDocument from 'pdfkit';
 import { Response } from 'express';
 import { WalletTransaction } from '../transaction/transaction.model';
 import { Appointment } from '../appointment/appointment.model';
 import ApiError from '../../../errors/ApiErrors';
 import { StatusCodes } from 'http-status-codes';
-import { User } from '../user/user.model';
+import { buildProfessionalInvoicePDF, IInvoicePDFPayload } from '../../../helpers/pdfInvoiceGenerator';
 
-const generateInvoicePDF = (data: any, res: Response) => {
-    const doc = new PDFDocument({ margin: 50 });
-
-    const filename = `invoice-${data.invoiceNumber}.pdf`;
-
-    res.setHeader('Content-disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-type', 'application/pdf');
-
-    doc.pipe(res);
-
-    // Header
-    doc
-        .fontSize(20)
-        .text('Txme Invoice', { align: 'center' })
-        .moveDown();
-
-    doc
-        .fontSize(12)
-        .text(`Invoice Number: ${data.invoiceNumber}`)
-        .text(`Date: ${new Date(data.date).toLocaleDateString()}`)
-        .moveDown();
-
-    // Divider
-    doc
-        .moveTo(50, doc.y)
-        .lineTo(550, doc.y)
-        .stroke()
-        .moveDown();
-
-    // Details
-    doc.fontSize(14).text('Details', { underline: true }).moveDown();
-
-    Object.keys(data.details).forEach((key) => {
-        doc
-            .fontSize(12)
-            .text(`${key}:`, { continued: true })
-            .text(` ${data.details[key]}`, { align: 'right' });
-    });
-
-    doc.moveDown();
-
-    // Total Amount Section
-    doc
-        .fontSize(16)
-        // @ts-ignore - bold option is valid in recent pdfkit but types might be outdated or strict
-        .text(`Total Amount: €${data.amount}`, { align: 'right' });
-
-    // Footer
-    doc
-        .fontSize(10)
-        .text('Thank you for using Txme.', 50, 700, { align: 'center', width: 500 });
-
-    doc.end();
+const generateInvoicePDF = async (data: IInvoicePDFPayload, res: Response) => {
+    await buildProfessionalInvoicePDF(data, res);
 };
 
-const getInvoiceForTransaction = async (transactionId: string, userId: string) => {
+const getInvoiceForTransaction = async (transactionId: string, userId: string): Promise<IInvoicePDFPayload> => {
     const transaction = await WalletTransaction.findById(transactionId)
-        .populate('from', 'fullName email')
-        .populate('to', 'fullName email') as any;
+        .populate('from', 'fullName email phone role')
+        .populate('to', 'fullName email phone role') as any;
 
     if (!transaction) {
         throw new ApiError(StatusCodes.NOT_FOUND, 'Transaction not found');
@@ -72,42 +20,48 @@ const getInvoiceForTransaction = async (transactionId: string, userId: string) =
 
     // Authorization check (Sender or Receiver)
     const isAuthorized =
-        transaction.from?._id.toString() === userId ||
-        transaction.to?._id.toString() === userId ||
+        transaction.from?._id?.toString() === userId ||
+        transaction.to?._id?.toString() === userId ||
         transaction.wallet?.toString() === userId;
 
     if (!isAuthorized) {
         throw new ApiError(StatusCodes.FORBIDDEN, 'You are not authorized to download this invoice');
     }
 
-    const details: any = {
+    const details: Record<string, any> = {
+        'Transaction ID': transaction._id.toString(),
         'Transaction Type': transaction.type.toUpperCase(),
-        'Status': transaction.status.toUpperCase(),
-        'Platform': transaction.platform || 'N/A',
+        'Payment Platform': transaction.platform || 'System Wallet',
     };
 
-    if (transaction.from) {
-        details['Sender'] = transaction.from.fullName || transaction.from.email;
-    }
-    if (transaction.to) {
-        details['Receiver'] = transaction.to.fullName || transaction.to.email;
-    }
     if (transaction.reference) {
-        details['Reference'] = transaction.reference;
+        details['Reference / TxID'] = transaction.reference;
     }
 
     return {
-        invoiceNumber: transaction._id,
+        invoiceNumber: transaction._id.toString(),
         date: transaction.createdAt,
         amount: transaction.amount,
+        status: transaction.status,
+        paymentMethod: transaction.platform || 'Wallet',
+        billedFrom: {
+            name: transaction.from?.fullName || 'Txme Platform System',
+            email: transaction.from?.email || 'system@txme.app',
+            role: transaction.from?.role || 'SYSTEM'
+        },
+        billedTo: {
+            name: transaction.to?.fullName || 'Valued User',
+            email: transaction.to?.email || 'N/A',
+            phone: transaction.to?.phone || 'N/A'
+        },
         details
     };
 };
 
-const getInvoiceForAppointment = async (appointmentId: string, userId: string) => {
+const getInvoiceForAppointment = async (appointmentId: string, userId: string): Promise<IInvoicePDFPayload> => {
     const appointment = await Appointment.findById(appointmentId)
         .populate('customer', 'fullName email phone residentialAddress')
-        .populate('provider', 'fullName email phone residentialAddress');
+        .populate('provider', 'fullName email phone residentialAddress providerProfile') as any;
 
     if (!appointment) {
         throw new ApiError(StatusCodes.NOT_FOUND, 'Appointment not found');
@@ -121,29 +75,39 @@ const getInvoiceForAppointment = async (appointmentId: string, userId: string) =
         throw new ApiError(StatusCodes.FORBIDDEN, 'You are not authorized to download this invoice');
     }
 
-    // Removed invalid 'ticket' check
-    if (appointment.status !== 'work_completed' && appointment.status !== 'review_pending') {
-        // You might want to allow it, but usually invoice is for completed/paid work.
-    }
+    const customerAddress = appointment.customer?.residentialAddress?.address ||
+        `${appointment.customer?.residentialAddress?.city || ''} ${appointment.customer?.residentialAddress?.postCode || ''}`.trim() ||
+        'Provided in App';
 
-    const details = {
-        'Service': appointment.service,
-        // @ts-ignore
-        'Provider': appointment.provider.fullName,
-        // @ts-ignore
-        'Customer': appointment.customer.fullName,
+    const details: Record<string, any> = {
+        'Booked Service': appointment.service,
+        'Service Provider': appointment.provider?.fullName || 'Txme Provider',
+        'Customer Name': appointment.customer?.fullName || 'Txme Customer',
         'Payment Method': appointment.paymentMethod?.toUpperCase() || 'N/A',
-        'Total Hours': appointment.totalWorkedTime || 0,
-        'Status': appointment.status.toUpperCase()
+        'Service Duration': appointment.totalWorkedTime ? `${appointment.totalWorkedTime} Hours` : 'Fixed Service',
+        'Hourly Rate': appointment.provider?.providerProfile?.hourlyRate ? `€${appointment.provider.providerProfile.hourlyRate}/hr` : 'Standard'
     };
+
     return {
-        invoiceNumber: appointment._id,
-        date: appointment.updatedAt, // Use completion date roughly
-        amount: appointment.totalCost,
+        invoiceNumber: appointment._id.toString(),
+        date: appointment.updatedAt || appointment.createdAt,
+        amount: appointment.totalCost || appointment.price || 0,
+        status: appointment.status,
+        paymentMethod: appointment.paymentMethod,
+        billedFrom: {
+            name: appointment.provider?.fullName || 'Txme Provider Service',
+            email: appointment.provider?.email || 'provider@txme.app',
+            role: 'Verified Service Provider'
+        },
+        billedTo: {
+            name: appointment.customer?.fullName || 'Txme Customer',
+            email: appointment.customer?.email || 'N/A',
+            phone: appointment.customer?.phone || 'N/A',
+            address: customerAddress
+        },
         details
     };
 };
-
 
 export const InvoiceService = {
     generateInvoicePDF,

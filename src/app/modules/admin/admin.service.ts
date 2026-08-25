@@ -16,6 +16,8 @@ import { ADMIN_ROLES, USER_ROLES } from '../../../enums/user'
 import QueryBuilder from '../../../helpers/QueryBuilder'
 import { Appointment } from '../appointment/appointment.model'
 import { ServiceModel } from '../service/service.model'
+import { delCachePattern, getCache, setCache } from '../../../helpers/redisHelper'
+import { addEmailJob } from '../../queues/email.queue'
 
 
 
@@ -30,17 +32,21 @@ const createAdminToDB = async (payload: IAdmin) => {
 
 // Get all admins
 const getAllAdminsFromDB = async (query: Record<string, any>) => {
-  const totalAdmins = await Admin.countDocuments({ status: { $ne: "deleted" } });
-  const totalInactiveAdmins = await Admin.countDocuments({ status: "inactive" });
-  const totalActiveAdmins = await Admin.countDocuments({ status: "active" });
   const adninQuery = new QueryBuilder(Admin.find({ status: { $ne: "deleted" } }), query)
     .filter()
     .sort()
-    .paginate()
-  const admins = await adninQuery.modelQuery;
-  const meta = await adninQuery.getPaginationInfo();
-  return { admins, meta, totalAdmins, totalInactiveAdmins, totalActiveAdmins }
-}
+    .paginate();
+
+  const [totalAdmins, totalInactiveAdmins, totalActiveAdmins, admins, meta] = await Promise.all([
+    Admin.countDocuments({ status: { $ne: "deleted" } }),
+    Admin.countDocuments({ status: "inactive" }),
+    Admin.countDocuments({ status: "active" }),
+    adninQuery.modelQuery.lean(),
+    adninQuery.getPaginationInfo()
+  ]);
+
+  return { admins, meta, totalAdmins, totalInactiveAdmins, totalActiveAdmins };
+};
 
 //login
 const loginAdminFromDB = async (payload: ILoginData) => {
@@ -132,10 +138,8 @@ const forgetPasswordToDB = async (rawEmail: string) => {
     otp: otp,
     email: isExistUser.email as string,
   }
-  setTimeout(() => {
-    const forgetPassword = emailTemplate.resetPassword(value)
-    emailHelper.sendEmail(forgetPassword)
-  }, 0)
+  const forgetPassword = emailTemplate.resetPassword(value);
+  await addEmailJob(forgetPassword);
 
   //save to DB
   const authentication = {
@@ -336,6 +340,8 @@ const toggleUserStatusInDB = async (userId: string) => {
     { new: true }
   ).select('-authentication')
 
+  await delCachePattern("cache:admin:dashboard:*");
+
   return updatedUser
 }
 
@@ -355,86 +361,97 @@ const deleteUserFromDB = async (userId: string) => {
     { new: true }
   )
 
+  await delCachePattern("cache:admin:dashboard:*");
+
   return { message: 'User deleted successfully' }
 }
 
 // get dashboard overview
 const getDashboardOverviewFromDB = async (year: number) => {
   const currentYear = year || new Date().getFullYear();
+  const cacheKey = `cache:admin:dashboard:overview:${currentYear}`;
 
-  // 1. Total Counts
-  const totalCompletedJobs = await Appointment.countDocuments({ status: 'completed' });
-  const totalUsers = await User.countDocuments({ status: { $ne: 'deleted' } });
-  const totalServices = await ServiceModel.countDocuments({ isActive: true, parent: { $ne: null } });
+  const cachedOverview = await getCache<any>(cacheKey);
+  if (cachedOverview) {
+    return cachedOverview;
+  }
 
-  // 2. Total Amount from completed jobs
-  const totalAmountResult = await Appointment.aggregate([
-    { $match: { status: 'completed' } },
-    { $group: { _id: null, total: { $sum: '$totalCost' } } }
+  // Execute all 7 queries in parallel
+  const [
+    totalCompletedJobs,
+    totalUsers,
+    totalServices,
+    totalAmountResult,
+    monthlyProviders,
+    monthlyCustomers,
+    monthlyJobs
+  ] = await Promise.all([
+    Appointment.countDocuments({ status: 'completed' }),
+    User.countDocuments({ status: { $ne: 'deleted' } }),
+    ServiceModel.countDocuments({ isActive: true, parent: { $ne: null } }),
+    Appointment.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$totalCost' } } }
+    ]),
+    User.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: new Date(`${currentYear}-01-01`),
+            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+          },
+          status: { $ne: 'deleted' },
+          role: USER_ROLES.PROVIDER
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$createdAt' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]),
+    User.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: new Date(`${currentYear}-01-01`),
+            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+          },
+          status: { $ne: 'deleted' },
+          role: USER_ROLES.CUSTOMER
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$createdAt' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]),
+    Appointment.aggregate([
+      {
+        $match: {
+          createdAt: {
+            $gte: new Date(`${currentYear}-01-01`),
+            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
+          },
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$createdAt' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ])
   ]);
+
   const totalAmount = totalAmountResult.length > 0 ? totalAmountResult[0].total : 0;
-
-  // 3. Monthly Providers Overview
-  const monthlyProviders = await User.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $gte: new Date(`${currentYear}-01-01`),
-          $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
-        },
-        status: { $ne: 'deleted' },
-        role: USER_ROLES.PROVIDER
-      }
-    },
-    {
-      $group: {
-        _id: { $month: '$createdAt' },
-        count: { $sum: 1 }
-      }
-    },
-    { $sort: { '_id': 1 } }
-  ]);
-
-  // 4. Monthly Customers Overview
-  const monthlyCustomers = await User.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $gte: new Date(`${currentYear}-01-01`),
-          $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
-        },
-        status: { $ne: 'deleted' },
-        role: USER_ROLES.CUSTOMER
-      }
-    },
-    {
-      $group: {
-        _id: { $month: '$createdAt' },
-        count: { $sum: 1 }
-      }
-    },
-    { $sort: { '_id': 1 } }
-  ]);
-
-  // 5. Monthly Completed Jobs Overview
-  const monthlyJobs = await Appointment.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $gte: new Date(`${currentYear}-01-01`),
-          $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`)
-        },
-        status: 'completed'
-      }
-    },
-    {
-      $group: {
-        _id: { $month: '$createdAt' },
-        count: { $sum: 1 }
-      }
-    },
-    { $sort: { '_id': 1 } }
-  ]);
 
   // Format charts to include all 12 months
   const months = [
@@ -460,7 +477,7 @@ const getDashboardOverviewFromDB = async (year: number) => {
     };
   });
 
-  return {
+  const responseData = {
     totalCompletedJobs,
     totalUsers,
     totalServices,
@@ -468,6 +485,10 @@ const getDashboardOverviewFromDB = async (year: number) => {
     userOverview,
     jobOverview
   };
+
+  await setCache(cacheKey, responseData, 300); // 5 mins TTL
+
+  return responseData;
 }
 
 export const AdminService = {

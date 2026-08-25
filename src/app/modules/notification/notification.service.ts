@@ -6,53 +6,45 @@ import QueryBuilder from '../../../helpers/QueryBuilder';
 
 import { PushNotificationService } from './pushNotification.service';
 import { User } from '../user/user.model';
+import { addNotificationJob } from '../../queues/notification.queue';
 
 // insert notification
 const insertNotification = async (payload: Partial<INotification>): Promise<INotification> => {
     const result = await Notification.create(payload);
 
-    // --- PUSH NOTIFICATION ---
+    // --- PUSH NOTIFICATION (BullMQ Queue) ---
     if (result.title && result.message) {
-        console.log(`[NotificationService] Processing push for: ${result.title}. Type: ${result.type}`);
+        console.log(`[NotificationService] Enqueuing push job for: ${result.title}. Type: ${result.type}`);
 
         if (result.type === 'ADMIN') {
             const admins = await User.find({
                 role: { $in: ['ADMIN', 'SUPER_ADMIN'] }
-            }).select('fcmToken');
+            }).select('fcmToken').lean();
 
             const adminTokens = admins.map(a => a.fcmToken).filter(Boolean);
-            console.log(`[NotificationService] Found ${adminTokens.length} admin tokens`);
 
             if (adminTokens.length > 0) {
                 for (const token of adminTokens) {
-                    await PushNotificationService.sendPushNotification(
-                        token!,
-                        `Admin: ${result.title}`,
-                        result.message,
-                        { referenceId: result.referenceId, screen: result.screen }
-                    );
+                    await addNotificationJob({
+                        token: token!,
+                        title: `Admin: ${result.title}`,
+                        message: result.message,
+                        data: { referenceId: result.referenceId, screen: result.screen }
+                    });
                 }
             }
         } else if (result.receiver) {
             const receiverId = result.receiver.toString();
-            console.log(`[NotificationService] Fetching token for receiver: ${receiverId}`);
 
-            const receiverUser = await User.findById(receiverId).select('fcmToken fullName');
+            const receiverUser = await User.findById(receiverId).select('fcmToken fullName').lean();
 
-            if (receiverUser) {
-                if (receiverUser.fcmToken) {
-                    console.log(`[NotificationService] Sending push to ${receiverUser.fullName || 'User'} (Token found)`);
-                    await PushNotificationService.sendPushNotification(
-                        receiverUser.fcmToken,
-                        result.title,
-                        result.message,
-                        { referenceId: result.referenceId, screen: result.screen }
-                    );
-                } else {
-                    console.warn(`[NotificationService] Push skipped: No fcmToken found for user ${receiverId}`);
-                }
-            } else {
-                console.error(`[NotificationService] Push error: Receiver user not found in DB: ${receiverId}`);
+            if (receiverUser && receiverUser.fcmToken) {
+                await addNotificationJob({
+                    token: receiverUser.fcmToken,
+                    title: result.title,
+                    message: result.message,
+                    data: { referenceId: result.referenceId, screen: result.screen }
+                });
             }
         }
     }
@@ -74,13 +66,15 @@ const insertNotification = async (payload: Partial<INotification>): Promise<INot
 // get notifications
 const getNotificationFromDB = async (user: JwtPayload, query: FilterQuery<any>): Promise<Object> => {
     const result = new QueryBuilder(Notification.find({ receiver: user.id }), query).paginate().sort();
-    const notifications = await result.modelQuery;
-    const pagination = await result.getPaginationInfo();
-
-    const unreadCount = await Notification.countDocuments({
-        receiver: user.id,
-        read: false,
-    });
+    
+    const [notifications, pagination, unreadCount] = await Promise.all([
+        result.modelQuery.lean(),
+        result.getPaginationInfo(),
+        Notification.countDocuments({
+            receiver: user.id,
+            read: false,
+        })
+    ]);
 
     // Mark all unread notifications for this user as read
     await Notification.updateMany(
@@ -109,13 +103,15 @@ const getUnreadCountFromDB = async (user: JwtPayload): Promise<number> => {
 // get notifications for admin
 const adminNotificationFromDB = async (query: FilterQuery<any>): Promise<{ notifications: INotification[], pagination: any, unreadCount: number }> => {
     const result = new QueryBuilder(Notification.find({ type: "ADMIN" }), query).paginate().sort();
-    const notifications = await result.modelQuery;
-    const pagination = await result.getPaginationInfo();
-
-    const unreadCount = await Notification.countDocuments({
-        type: 'ADMIN',
-        read: false,
-    });
+    
+    const [notifications, pagination, unreadCount] = await Promise.all([
+        result.modelQuery.lean() as unknown as INotification[],
+        result.getPaginationInfo(),
+        Notification.countDocuments({
+            type: 'ADMIN',
+            read: false,
+        })
+    ]);
 
     // Mark all unread admin notifications as read
     await Notification.updateMany(

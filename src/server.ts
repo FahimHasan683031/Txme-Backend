@@ -6,8 +6,7 @@ import colors from 'colors';
 import { socketHelper } from "./helpers/socketHelper";
 import { Server } from "socket.io";
 import seedSuperAdmin from "./DB";
-import { scheduleUnverifiedAccountCleanup } from "./cronjob/scheduleUnverifiedAccountCleanup";
-import checkPromotionExpiry from "./cronjob/checkPromotionExpiry";
+import { initRepeatableCronJobs } from "./app/queues/cron.queue";
 import dns from 'node:dns'
 
 
@@ -24,13 +23,15 @@ let server: any;
 async function main() {
     try {
 
-        mongoose.connect(config.database_url as string);
+        await mongoose.connect(config.database_url as string, {
+            maxPoolSize: 10,
+            minPoolSize: 2,
+        });
         logger.info(colors.green('🚀 Database connected successfully'));
 
         // create super admin
         await seedSuperAdmin();
-        scheduleUnverifiedAccountCleanup();
-        checkPromotionExpiry();
+        initRepeatableCronJobs();
 
         const port = typeof config.port === 'number' ? config.port : Number(config.port);
 

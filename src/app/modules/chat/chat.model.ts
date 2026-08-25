@@ -31,4 +31,7 @@ const chatSchema = new Schema<IChat, ChatModel>(
     }
 )
 
+// Indexes for high performance querying
+chatSchema.index({ participants: 1 });
+
 export const Chat = model<IChat, ChatModel>('Chat', chatSchema);

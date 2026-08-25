@@ -34,6 +34,11 @@ const transactionSchema = new Schema<IWalletTransaction>(
   { timestamps: true }
 );
 
+// Indexes for high performance querying
+transactionSchema.index({ wallet: 1, createdAt: -1 });
+transactionSchema.index({ reference: 1 });
+transactionSchema.index({ from: 1, to: 1 });
+
 export const WalletTransaction = model<IWalletTransaction>(
   "WalletTransaction",
   transactionSchema

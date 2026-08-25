@@ -12,6 +12,7 @@ import { StatusCodes } from 'http-status-codes';
 import { checkWalletSetting } from '../../../helpers/checkSetting';
 import { PushNotificationService } from '../notification/pushNotification.service';
 import { NotificationService } from '../notification/notification.service';
+import { addNotificationJob } from '../../queues/notification.queue';
 import { User } from '../user/user.model';
 import { ADMIN_ROLES } from '../../../enums/user';
 import { Admin } from '../admin/admin.model';
@@ -101,26 +102,26 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
       // Send to each admin (Firebase Admin SDK .send() takes one token, or use .sendEachForMulticast)
       if (adminTokens.length > 0) {
         for (const token of adminTokens) {
-          await PushNotificationService.sendPushNotification(
-            token!,
-            `Support: ${title}`,
-            body,
-            { screen: "CHAT", chatId: payload.chatId?.toString() }
-          );
+          await addNotificationJob({
+            token: token!,
+            title: `Support: ${title}`,
+            message: body,
+            data: { screen: "CHAT", chatId: payload.chatId?.toString() }
+          });
         }
       }
 
       // If the sender is an admin, notify the user as well
       const isSenderAdmin = [ADMIN_ROLES.ADMIN, ADMIN_ROLES.SUPER_ADMIN].includes(sender?.role as any);
       if (isSenderAdmin) {
-        const userParticipant = await User.findById(chatStatus.participants[0]).select('fcmToken');
+        const userParticipant = await User.findById(chatStatus.participants[0]).select('fcmToken').lean();
         if (userParticipant?.fcmToken) {
-          await PushNotificationService.sendPushNotification(
-            userParticipant.fcmToken,
+          await addNotificationJob({
+            token: userParticipant.fcmToken,
             title,
-            body,
-            { screen: "CHAT", chatId: payload.chatId?.toString() }
-          );
+            message: body,
+            data: { screen: "CHAT", chatId: payload.chatId?.toString() }
+          });
         }
       }
     } else {
@@ -130,14 +131,14 @@ const sendMessageToDB = async (payload: any): Promise<IMessage> => {
       );
 
       if (recipientId) {
-        const recipient = await User.findById(recipientId).select('fcmToken');
+        const recipient = await User.findById(recipientId).select('fcmToken').lean();
         if (recipient?.fcmToken) {
-          await PushNotificationService.sendPushNotification(
-            recipient.fcmToken,
+          await addNotificationJob({
+            token: recipient.fcmToken,
             title,
-            body,
-            { screen: "CHAT", chatId: payload.chatId?.toString() }
-          );
+            message: body,
+            data: { screen: "CHAT", chatId: payload.chatId?.toString() }
+          });
         }
       }
     }
@@ -185,19 +186,23 @@ const getMessageFromDB = async (
     query
   ).paginate();
 
-  let messages = await result.modelQuery;
-  const pagination = await result.getPaginationInfo();
-  messages = messages.reverse();
+  const [rawMessages, pagination, participant] = await Promise.all([
+    result.modelQuery.lean() as unknown as IMessage[],
+    result.getPaginationInfo(),
+    Chat.findById(id)
+      .populate({
+        path: 'participants',
+        select: '-_id fullName profilePicture ',
+        match: {
+          _id: { $ne: new mongoose.Types.ObjectId(user.id) }
+        }
+      })
+      .lean()
+  ]);
 
-  const participant = await Chat.findById(id).populate({
-    path: 'participants',
-    select: '-_id fullName profilePicture ',
-    match: {
-      _id: { $ne: new mongoose.Types.ObjectId(user.id) }
-    }
-  });
+  const messages = [...rawMessages].reverse();
 
-  return { messages, pagination, participant: participant?.participants[0] };
+  return { messages, pagination, participant: (participant as any)?.participants[0] };
 };
 
 

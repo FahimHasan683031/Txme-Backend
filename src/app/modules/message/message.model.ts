@@ -49,4 +49,7 @@ const messageSchema = new Schema<IMessage, MessageModel>(
   }
 );
 
+// Indexes for high performance querying
+messageSchema.index({ chatId: 1, createdAt: -1 });
+
 export const Message = model<IMessage, MessageModel>('Message', messageSchema);

@@ -8,6 +8,7 @@ import { IReview } from "./review.interface";
 import { JwtPayload } from "jsonwebtoken";
 import QueryBuilder from "../../../helpers/QueryBuilder";
 import { NotificationService } from "../notification/notification.service";
+import { delCache } from "../../../helpers/redisHelper";
 
 
 const recalculateUserRating = async (userId: Types.ObjectId) => {
@@ -30,6 +31,8 @@ const recalculateUserRating = async (userId: Types.ObjectId) => {
       "review.totalReviews": data.totalReviews,
     },
   });
+
+  await delCache(`cache:user:profile:${userId.toString()}`);
 };
 
 // Create review
@@ -125,7 +128,10 @@ const getMyReviews = async (user: JwtPayload, query: Record<string, unknown>) =>
     .sort()
     .paginate()
 
-  const result = await reviewQeryBuilder.modelQuery.populate("reviewee", "fullName email profilePicture");
+  const result = await reviewQeryBuilder.modelQuery
+    .populate("reviewer", "fullName email profilePicture")
+    .populate("reviewee", "fullName email profilePicture")
+    .lean();
   const paginateInfo = await reviewQeryBuilder.getPaginationInfo();
   return { data: result, pagination: paginateInfo };
 };
@@ -142,7 +148,7 @@ const getUserReviews = async (userId: string, query: Record<string, unknown>) =>
     .sort()
     .paginate();
 
-  const result = await reviewQueryBuilder.modelQuery;
+  const result = await reviewQueryBuilder.modelQuery.lean();
   const paginateInfo = await reviewQueryBuilder.getPaginationInfo();
 
   return { data: result, pagination: paginateInfo };

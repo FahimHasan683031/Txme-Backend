@@ -2,12 +2,19 @@ import { Types } from 'mongoose';
 import { ISetting } from './setting.interface';
 import { Setting } from './setting.model';
 import { AuditLogService } from '../auditLog/auditLog.service';
+import { delCache, getCache, setCache } from '../../../helpers/redisHelper';
 
 const getSetting = async (): Promise<ISetting> => {
-    let setting = await Setting.findOne();
+    const cacheKey = "cache:settings:all";
+    const cachedSetting = await getCache<ISetting>(cacheKey);
+    if (cachedSetting) {
+        return cachedSetting;
+    }
+
+    let setting = await Setting.findOne().lean();
     if (!setting) {
         // Create default settings if not exists
-        setting = await Setting.create({
+        const created = await Setting.create({
             profilePromotion: { enabled: false, adminControlled: true },
             cardPayment: { enabled: false, adminControlled: true },
             sendInMessage: { enabled: false, adminControlled: true },
@@ -27,8 +34,11 @@ const getSetting = async (): Promise<ISetting> => {
                 }
             }
         });
+        setting = created.toObject();
     }
-    return setting;
+
+    await setCache(cacheKey, setting, 86400); // 24 Hours TTL
+    return setting as ISetting;
 };
 
 const updateSetting = async (payload: Partial<ISetting>, userId: string): Promise<ISetting | null> => {
@@ -47,6 +57,8 @@ const updateSetting = async (payload: Partial<ISetting>, userId: string): Promis
             action: 'UPDATE_SETTING',
             details: `Settings updated by Admin (ID: ${userId})`
         });
+        // Invalidate settings cache instantly
+        await delCache("cache:settings:all");
     }
 
     return result;

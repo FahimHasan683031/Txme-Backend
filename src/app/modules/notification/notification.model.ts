@@ -39,6 +39,9 @@ const notificationSchema = new Schema<INotification, NotificationModel>(
     }
 );
 
+// Indexes for high performance querying
+notificationSchema.index({ receiver: 1, createdAt: -1 });
+
 export const Notification = model<INotification, NotificationModel>(
     'Notification',
     notificationSchema

@@ -9,6 +9,7 @@ import { WalletService } from "../wallet/wallet.service";
 import { NotificationService } from "../notification/notification.service";
 import { JwtPayload } from "jsonwebtoken";
 import QueryBuilder from "../../../helpers/QueryBuilder";
+import { delCache } from "../../../helpers/redisHelper";
 
 
 export const createAppointment = async (customerId: string, data: any) => {
@@ -97,12 +98,8 @@ export const createAppointment = async (customerId: string, data: any) => {
     console.error(`[AppointmentService] Failed to insert new appointment notification:`, error);
   }
 
-  // Socket notification for real-time update in UI list (sorting)
-  //@ts-ignore
-  const io = global.io;
-  if (io) {
-    io.emit(`appointmentUpdate::${provider}`, appointment);
-  }
+  // Invalidate customer and provider profile caches for real-time stats update
+  await delCache([`cache:user:profile:${customerId}`, `cache:user:profile:${provider}`]);
 
   return appointment;
 };
@@ -249,6 +246,12 @@ export const updateAppointmentStatus = async (
     io.emit(`appointmentUpdate::${appointment.provider.toString()}`, appointment);
   }
 
+  // Invalidate profile cache for both customer and provider
+  await delCache([
+    `cache:user:profile:${appointment.customer.toString()}`,
+    `cache:user:profile:${appointment.provider.toString()}`
+  ]);
+
   return appointment;
 };
 
@@ -341,7 +344,8 @@ async function sendStatusNotification(appointment: any, status: string, isCustom
 export const getAppointmentById = async (appointmentId: string, user: JwtPayload) => {
   const appointment = await Appointment.findById(appointmentId)
     .populate("customer", "fullName email phone residentialAddress")
-    .populate("provider", "fullName email phone providerProfile residentialAddress providerProfile");
+    .populate("provider", "fullName email phone providerProfile residentialAddress providerProfile")
+    .lean();
 
   if (!appointment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Appointment not found");
@@ -453,14 +457,16 @@ const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) =
   }
 
   const appointmentQuery = new QueryBuilder(
-    Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"),
+    Appointment.find()
+      .populate("customer", "fullName email phone profilePicture residentialAddress")
+      .populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"),
     query
   )
     .filter()
     .sort((query.sort as string) || "-updatedAt")
     .paginate();
 
-  const result = await appointmentQuery.modelQuery;
+  const result = await appointmentQuery.modelQuery.lean();
   const meta = await appointmentQuery.getPaginationInfo();
 
   return { result, meta };
@@ -468,14 +474,16 @@ const getMyAppointments = async (user: JwtPayload, query: Record<string, any>) =
 
 const getAllAppointmentsFromDB = async (query: Record<string, any>) => {
   const appointmentQuery = new QueryBuilder(
-    Appointment.find().populate("customer", "fullName email phone profilePicture residentialAddress").populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"),
+    Appointment.find()
+      .populate("customer", "fullName email phone profilePicture residentialAddress")
+      .populate("provider", "fullName email phone profilePicture residentialAddress providerProfile"),
     query
   )
     .filter()
     .sort()
     .paginate();
 
-  const result = await appointmentQuery.modelQuery;
+  const result = await appointmentQuery.modelQuery.lean();
   const meta = await appointmentQuery.getPaginationInfo();
 
   return { result, meta };
@@ -507,7 +515,8 @@ const getCurrentAppointment = async (user: JwtPayload) => {
   const result = await Appointment.findOne(query)
     .populate("customer", "fullName email phone profilePicture residentialAddress")
     .populate("provider", "fullName email phone profilePicture providerProfile residentialAddress providerProfile")
-    .sort("-updatedAt");
+    .sort("-updatedAt")
+    .lean();
 
   return result;
 };

@@ -13,7 +13,7 @@ import { Appointment } from "../appointment/appointment.model";
 import { Review } from "../review/review.model";
 import { Types } from "mongoose";
 import { geocodePostCode } from "../../../util/geocoding.util";
-
+import { delCache, getCache, setCache } from "../../../helpers/redisHelper";
 
 // get all users
 const getAllUsers = async (
@@ -32,7 +32,7 @@ const getAllUsers = async (
     // Use query postCode or user's residentialAddress.postCode
     let searchPostCode = query.postCode as string;
     if (!searchPostCode && user?.id) {
-      const currentUser = await User.findById(user.id).select("residentialAddress");
+      const currentUser = await User.findById(user.id).select("residentialAddress").lean();
       if (currentUser?.residentialAddress?.postCode) {
         searchPostCode = currentUser.residentialAddress.postCode;
       }
@@ -83,17 +83,19 @@ const getAllUsers = async (
     }
   }
 
-  const totalUsers = await User.countDocuments({ status: { $ne: "deleted" } });
-
   // ✅ Force sort by isPromoted first, then Rating, then user preference
-  if (query.role === "PROVIDER") {
+  const isProviderSearch = query.role === "PROVIDER";
+  if (isProviderSearch) {
     const userSort = (query.sort as string) || '-createdAt';
     query.sort = `-isPromoted -review.averageRating ${userSort}`;
   }
 
+  const selectedFields = isProviderSearch
+    ? "fullName email phone profilePicture status review role providerProfile isPromoted createdAt"
+    : "fullName email phone profilePicture status review role createdAt";
+
   const userQueryBuilder = new QueryBuilder(
-    User.find({ status: { $ne: "deleted" } })
-      .select("fullName email profilePicture status review  role createdAt"),
+    User.find({ status: { $ne: "deleted" } }).select(selectedFields),
     query
   )
     .geolocation()
@@ -103,8 +105,12 @@ const getAllUsers = async (
     .sort()
     .paginate();
 
-  const users = await userQueryBuilder.modelQuery;
-  const paginateInfo = await userQueryBuilder.getPaginationInfo();
+  // Execute user query, pagination count, and overall total count in parallel
+  const [users, paginateInfo, totalUsers] = await Promise.all([
+    userQueryBuilder.modelQuery.lean(),
+    userQueryBuilder.getPaginationInfo(),
+    User.countDocuments({ status: { $ne: "deleted" } })
+  ]);
 
   return { data: users, pagination: { ...paginateInfo, totalData: totalUsers } };
 };
@@ -161,31 +167,52 @@ const updateProfileToDB = async (
   // Save triggers the pre-save hook for validation
   const updatedUser = await isExistUser.save();
 
+  // Invalidate profile cache
+  await delCache(`cache:user:profile:${id}`);
+
   return updatedUser;
 };
 
 const getSingleUser = async (id: string): Promise<any> => {
+  const cacheKey = `cache:user:profile:${id}`;
+  const cachedProfile = await getCache<any>(cacheKey);
+  if (cachedProfile) {
+    return cachedProfile;
+  }
+
   const user = await User.findById(id).select("-authentication");
   if (!user) return null;
 
   const stats = await getUserStats(user);
-  return {
+  const responseData = {
     ...user.toObject(),
     ...stats
   };
-}
+
+  await setCache(cacheKey, responseData, 900); // 15 mins TTL
+  return responseData;
+};
 
 const getmyProfile = async (user: JwtPayload): Promise<any> => {
   const { id } = user;
+  const cacheKey = `cache:user:profile:${id}`;
+  const cachedProfile = await getCache<any>(cacheKey);
+  if (cachedProfile) {
+    return cachedProfile;
+  }
+
   const result = await User.findById(id).select("-authentication");
   if (!result) return null;
 
   const stats = await getUserStats(result);
-  return {
+  const responseData = {
     ...result.toObject(),
     ...stats
   };
-}
+
+  await setCache(cacheKey, responseData, 900); // 15 mins TTL
+  return responseData;
+};
 
 /**
  * Helper to calculate user statistics
@@ -200,40 +227,41 @@ async function getUserStats(user: any) {
   const paidStatuses = ["review_pending", "provider_review_pending", "customer_review_pending", "completed"];
 
   if (role === "PROVIDER") {
-    // 1. Total Appointments
-    const totalAppointments = await Appointment.countDocuments({ provider: userId });
-
-    // 2. Total Appointments This Month
-    const totalAppointmentsThisMonth = await Appointment.countDocuments({
-      provider: userId,
-      createdAt: { $gte: startOfMonth }
-    });
-
-    // 3. Total Earning
-    const earningResult = await Appointment.aggregate([
-      { $match: { provider: new Types.ObjectId(userId), status: { $in: paidStatuses } } },
-      { $group: { _id: null, total: { $sum: "$totalCost" } } }
+    const [
+      totalAppointments,
+      totalAppointmentsThisMonth,
+      earningResult,
+      monthlyEarningResult,
+      last10Reviews
+    ] = await Promise.all([
+      Appointment.countDocuments({ provider: userId }),
+      Appointment.countDocuments({
+        provider: userId,
+        createdAt: { $gte: startOfMonth }
+      }),
+      Appointment.aggregate([
+        { $match: { provider: new Types.ObjectId(userId), status: { $in: paidStatuses } } },
+        { $group: { _id: null, total: { $sum: "$totalCost" } } }
+      ]),
+      Appointment.aggregate([
+        {
+          $match: {
+            provider: new Types.ObjectId(userId),
+            status: { $in: paidStatuses },
+            createdAt: { $gte: startOfMonth }
+          }
+        },
+        { $group: { _id: null, total: { $sum: "$totalCost" } } }
+      ]),
+      Review.find({ reviewee: userId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate("reviewer", "fullName profilePicture")
+        .lean()
     ]);
+
     const totalEarning = earningResult.length > 0 ? earningResult[0].total : 0;
-
-    // 4. Total Earn This Month
-    const monthlyEarningResult = await Appointment.aggregate([
-      {
-        $match: {
-          provider: new Types.ObjectId(userId),
-          status: { $in: paidStatuses },
-          createdAt: { $gte: startOfMonth }
-        }
-      },
-      { $group: { _id: null, total: { $sum: "$totalCost" } } }
-    ]);
     const totalEarnThisMonth = monthlyEarningResult.length > 0 ? monthlyEarningResult[0].total : 0;
-
-    // 5. Last 10 Reviews
-    const last10Reviews = await Review.find({ reviewee: userId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .populate("reviewer", "fullName profilePicture");
 
     return {
       totalAppointments,
@@ -243,40 +271,41 @@ async function getUserStats(user: any) {
       last10Reviews
     };
   } else if (role === "CUSTOMER") {
-    // 1. Total Appointments Booked
-    const totalAppointmentsBooked = await Appointment.countDocuments({ customer: userId });
-
-    // 2. Total Appointment This Month
-    const totalAppointmentsThisMonth = await Appointment.countDocuments({
-      customer: userId,
-      createdAt: { $gte: startOfMonth }
-    });
-
-    // 3. Total Spend
-    const spendResult = await Appointment.aggregate([
-      { $match: { customer: new Types.ObjectId(userId), status: { $in: paidStatuses } } },
-      { $group: { _id: null, total: { $sum: "$totalCost" } } }
+    const [
+      totalAppointmentsBooked,
+      totalAppointmentsThisMonth,
+      spendResult,
+      monthlySpendResult,
+      last10Reviews
+    ] = await Promise.all([
+      Appointment.countDocuments({ customer: userId }),
+      Appointment.countDocuments({
+        customer: userId,
+        createdAt: { $gte: startOfMonth }
+      }),
+      Appointment.aggregate([
+        { $match: { customer: new Types.ObjectId(userId), status: { $in: paidStatuses } } },
+        { $group: { _id: null, total: { $sum: "$totalCost" } } }
+      ]),
+      Appointment.aggregate([
+        {
+          $match: {
+            customer: new Types.ObjectId(userId),
+            status: { $in: paidStatuses },
+            createdAt: { $gte: startOfMonth }
+          }
+        },
+        { $group: { _id: null, total: { $sum: "$totalCost" } } }
+      ]),
+      Review.find({ reviewee: userId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate("reviewer", "fullName profilePicture")
+        .lean()
     ]);
+
     const totalSpend = spendResult.length > 0 ? spendResult[0].total : 0;
-
-    // 4. Total Spend This Month
-    const monthlySpendResult = await Appointment.aggregate([
-      {
-        $match: {
-          customer: new Types.ObjectId(userId),
-          status: { $in: paidStatuses },
-          createdAt: { $gte: startOfMonth }
-        }
-      },
-      { $group: { _id: null, total: { $sum: "$totalCost" } } }
-    ]);
     const totalSpendThisMonth = monthlySpendResult.length > 0 ? monthlySpendResult[0].total : 0;
-
-    // 5. Last 10 Reviews
-    const last10Reviews = await Review.find({ reviewee: userId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .populate("reviewer", "fullName profilePicture");
 
     return {
       totalAppointmentsBooked,
@@ -309,6 +338,8 @@ const updateUserStatusInDB = async (userId: string, status: string) => {
     { new: true }
   ).select('-authentication');
 
+  await delCache(`cache:user:profile:${userId}`);
+
   return updatedUser;
 };
 
@@ -328,6 +359,8 @@ const deleteUserFromDB = async (userId: string) => {
     { status: 'deleted' },
     { new: true }
   );
+
+  await delCache(`cache:user:profile:${userId}`);
 
   return { message: 'User deleted successfully' };
 };
