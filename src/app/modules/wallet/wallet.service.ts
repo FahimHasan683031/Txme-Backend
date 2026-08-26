@@ -257,8 +257,8 @@ const sendMoney = async (
 };
 
 const withdraw = async (userId: string, amount: number) => {
-  if (amount <= 0) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Amount must be greater than zero");
+  if (amount <= 5) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Amount must be greater than or equal to 5");
   }
 
   await checkWalletSetting('withdraw');
