@@ -32,7 +32,7 @@ const limiter = rateLimit({
 
 // Stripe webhook route
 app.use('/webhook',
-    express.raw({ type: 'application/json' }),
+    express.raw({ type: '*/*' }),
     handleStripeWebhook
 );
 

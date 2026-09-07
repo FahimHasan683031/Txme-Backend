@@ -23,6 +23,7 @@ const fetchLogoBuffer = (): Promise<Buffer | null> => {
 };
 
 export interface IInvoicePDFPayload {
+    title?: string;
     invoiceNumber: string;
     date: Date | string;
     amount: number;
@@ -86,13 +87,18 @@ export const buildProfessionalInvoicePDF = async (payload: IInvoicePDFPayload, r
         doc.fillColor(blackTextColor).fontSize(24).text('Txme', pageMargin, headerY + 4);
     }
 
-    // Invoice Meta (Top Right)
+    // Invoice / Record Meta (Top Right)
+    const documentTitle = (payload.title || 'INVOICE').toUpperCase();
+    const isInvoice = documentTitle === 'INVOICE';
+    const numberLabel = isInvoice ? 'INVOICE NO:' : 'REF NO:';
+    const titleFontSize = documentTitle.length > 20 ? 14 : (documentTitle.length > 12 ? 16 : 20);
+
     const formattedInvoiceNo = payload.invoiceNumber.toString().slice(-8).toUpperCase();
     const formattedDate = new Date(payload.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
-    doc.fillColor(blackTextColor).fontSize(20).text('INVOICE', pageMargin, headerY, { align: 'right', width: contentWidth });
+    doc.fillColor(blackTextColor).fontSize(titleFontSize).text(documentTitle, pageMargin, headerY, { align: 'right', width: contentWidth });
     doc.fillColor(lightGrayTextColor).fontSize(9)
-        .text(`INVOICE NO: #${formattedInvoiceNo}`, pageMargin, headerY + 25, { align: 'right', width: contentWidth })
+        .text(`${numberLabel} #${formattedInvoiceNo}`, pageMargin, headerY + 25, { align: 'right', width: contentWidth })
         .text(`DATE OF ISSUE: ${formattedDate}`, pageMargin, headerY + 37, { align: 'right', width: contentWidth });
 
     // Header Divider Line

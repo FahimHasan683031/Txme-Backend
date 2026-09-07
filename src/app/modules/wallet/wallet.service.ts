@@ -309,8 +309,8 @@ const withdraw = async (userId: string, amount: number) => {
     // 4. Trigger Stripe Payout (Provider Account -> Card/Bank)
     try {
       await StripeService.createPayout(amount, user.stripeAccountId);
-    } catch (payoutError) {
-      logger.error(`Automatic payout failed for user ${userId}: ${payoutError}. The transfer was still successful.`);
+    } catch (payoutError: any) {
+      logger.info(`[WalletService] Immediate payout deferred for user ${userId}: ${payoutError?.message || payoutError}. Funds transferred to connected account and will follow standard payout schedule.`);
     }
 
     await session.commitTransaction();

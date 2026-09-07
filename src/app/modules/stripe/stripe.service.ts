@@ -11,6 +11,7 @@ import { emitAppointmentUpdate } from '../../../util/appointment.util';
 import { checkCardPaymentSetting, checkWalletSetting } from '../../../helpers/checkSetting';
 import { WalletTransaction } from '../transaction/transaction.model';
 import { IWalletTransaction } from '../transaction/transaction.interface';
+import { delCache, getCache, setCache } from '../../../helpers/redisHelper';
 
 
 const getOrCreateStripeCustomer = async (email: string): Promise<string> => {
@@ -91,11 +92,34 @@ const handleSuccessfulTopUpPayment = async (
 ): Promise<void> => {
     const { userId, amount } = paymentIntent.metadata;
 
-    if (!userId || !amount) {
+    if (!userId) {
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid payment metadata');
     }
 
-    await WalletService.topUp(userId, parseFloat(amount), paymentIntent.id);
+    let creditAmount = parseFloat(amount || '0');
+
+    try {
+        if (paymentIntent.latest_charge) {
+            const chargeId = typeof paymentIntent.latest_charge === 'string'
+                ? paymentIntent.latest_charge
+                : paymentIntent.latest_charge.id;
+
+            const charge = await stripe.charges.retrieve(chargeId, {
+                expand: ['balance_transaction']
+            });
+
+            if (charge.balance_transaction && typeof charge.balance_transaction !== 'string') {
+                const balanceTx = charge.balance_transaction as Stripe.BalanceTransaction;
+                if (typeof balanceTx.net === 'number') {
+                    creditAmount = balanceTx.net / 100;
+                }
+            }
+        }
+    } catch (error: any) {
+        console.error(`[StripeService] Failed to retrieve balance_transaction for ${paymentIntent.id}:`, error?.message);
+    }
+
+    await WalletService.topUp(userId, creditAmount, paymentIntent.id);
 };
 
 const verifyTopUpPayment = async (
@@ -109,7 +133,7 @@ const verifyTopUpPayment = async (
 
         return {
             status: paymentIntent.status,
-            amount: paymentIntent.amount / 100,
+            amount: transaction ? transaction.amount : paymentIntent.amount / 100,
             transaction: transaction || null
         };
     } catch (error: any) {
@@ -286,13 +310,6 @@ const createAppointmentPaymentIntent = async (
             description: `Appointment Payment - ${appointmentId}`,
         };
 
-        if (provider.isStripeConnected && provider.stripeAccountId) {
-            paymentIntentParams.transfer_data = {
-                destination: provider.stripeAccountId,
-                amount: amountInCents
-            };
-        }
-
         const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
         const successUrl = config.stripe.paymentSuccess || "https://txme.app/payment-success";
@@ -322,15 +339,6 @@ const createAppointmentPaymentIntent = async (
             success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${successUrl}?canceled=true`,
         };
-
-        if (provider.isStripeConnected && provider.stripeAccountId) {
-            checkoutSessionParams.payment_intent_data = {
-                transfer_data: {
-                    destination: provider.stripeAccountId,
-                    amount: amountInCents,
-                },
-            };
-        }
 
         const checkoutSession = await stripe.checkout.sessions.create(checkoutSessionParams);
 
@@ -366,6 +374,43 @@ const handleSuccessfulAppointmentPayment = async (
     appointment.status = 'review_pending';
     await appointment.save();
 
+    // Calculate exact net amount after Stripe fees & taxes
+    let netAmount: number = appointment.totalCost || 0;
+    try {
+        if (paymentIntent.latest_charge) {
+            const chargeId = typeof paymentIntent.latest_charge === 'string'
+                ? paymentIntent.latest_charge
+                : paymentIntent.latest_charge.id;
+
+            const charge = await stripe.charges.retrieve(chargeId, {
+                expand: ['balance_transaction']
+            });
+
+            if (charge.balance_transaction && typeof charge.balance_transaction !== 'string') {
+                const balanceTx = charge.balance_transaction as Stripe.BalanceTransaction;
+                if (typeof balanceTx.net === 'number') {
+                    netAmount = balanceTx.net / 100;
+                }
+            }
+        }
+    } catch (err: any) {
+        console.error(`[StripeService] Failed to retrieve balance_transaction for appointment ${appointmentId}:`, err?.message);
+    }
+
+    // Perform Stripe Transfer of exact net amount to Provider's Connected Account
+    const provider = await User.findById(appointment.provider);
+    if (provider && provider.isStripeConnected && provider.stripeAccountId) {
+        try {
+            await createTransfer(netAmount, provider.stripeAccountId, {
+                type: 'appointment_payment',
+                appointmentId: appointmentId.toString()
+            });
+            console.log(`[StripeService] Transferred net amount ${netAmount} to provider ${provider.stripeAccountId}`);
+        } catch (transferErr: any) {
+            console.error(`[StripeService] Transfer to provider failed for appointment ${appointmentId}:`, transferErr?.message);
+        }
+    }
+
     // Create transaction records for history and invoice tracking
     const existingTransaction = await WalletTransaction.findOne({
         reference: appointment._id.toString(),
@@ -390,7 +435,7 @@ const handleSuccessfulAppointmentPayment = async (
             },
             {
                 wallet: providerWallet._id,
-                amount: appointment.totalCost,
+                amount: netAmount,
                 type: "payment",
                 direction: "credit",
                 status: "success",
@@ -453,7 +498,6 @@ const createAccountLink = async (
     return accountLink.url;
 };
 
-import { delCache, getCache, setCache } from '../../../helpers/redisHelper';
 
 const getAccountStatus = async (userId: string) => {
     const cacheKey = `cache:stripe:status:${userId}`;

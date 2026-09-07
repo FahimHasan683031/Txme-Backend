@@ -22,7 +22,21 @@ const generateInvoicePDF = async (reference: string) => {
         details['Reference / TxID'] = transaction.reference;
     }
 
+    let documentTitle = 'Wallet Transaction Record';
+    if (transaction.type === 'topup') {
+        documentTitle = 'Record of Wallet Top Up';
+    } else if (transaction.type === 'withdraw') {
+        documentTitle = 'Record of Wallet Withdraw';
+    } else if (transaction.type === 'send') {
+        documentTitle = 'Record of Wallet Send Money';
+    } else if (transaction.type === 'promotion') {
+        documentTitle = 'Record of Wallet Promotion';
+    } else if (transaction.type === 'payment') {
+        documentTitle = 'Record of Wallet Payment';
+    }
+
     const doc = await buildProfessionalInvoicePDF({
+        title: documentTitle,
         invoiceNumber: transaction._id.toString(),
         // @ts-ignore
         date: transaction.createdAt,
