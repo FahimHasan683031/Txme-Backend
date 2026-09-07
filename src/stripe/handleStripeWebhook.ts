@@ -48,6 +48,10 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
 
                     if (paymentIntentId) {
                         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+                        paymentIntent.metadata = {
+                            ...sessionMetadata,
+                            ...(paymentIntent.metadata || {})
+                        };
                         await StripeService.handleSuccessfulTopUpPayment(paymentIntent);
                         logger.info(colors.bgGreen.bold(`Wallet top up via Checkout succeeded: ${session.id}`));
                     } else {

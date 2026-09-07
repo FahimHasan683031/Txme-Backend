@@ -69,6 +69,13 @@ const createTopUpPaymentIntent = async (
                 type: 'wallet_topup',
                 amount: amount.toString(),
             },
+            payment_intent_data: {
+                metadata: {
+                    userId,
+                    type: 'wallet_topup',
+                    amount: amount.toString(),
+                },
+            },
             success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${successUrl}?canceled=true`,
         });
@@ -90,13 +97,17 @@ const createTopUpPaymentIntent = async (
 const handleSuccessfulTopUpPayment = async (
     paymentIntent: Stripe.PaymentIntent
 ): Promise<void> => {
-    const { userId, amount } = paymentIntent.metadata;
+    const metadata = paymentIntent.metadata || {};
+    const userId = metadata.userId;
 
     if (!userId) {
-        throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid payment metadata');
+        throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid payment metadata: userId missing');
     }
 
-    let creditAmount = parseFloat(amount || '0');
+    let creditAmount = parseFloat(metadata.amount || '0');
+    if (!creditAmount || creditAmount <= 0) {
+        creditAmount = (paymentIntent.amount || 0) / 100;
+    }
 
     try {
         if (paymentIntent.latest_charge) {

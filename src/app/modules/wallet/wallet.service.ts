@@ -102,7 +102,7 @@ const topUp = async (userId: string, amount: number, reference: string = "topup"
       console.error('[WalletService] Failed to insert top-up notification:', notificationError);
     }
 
-    await delCache(`cache:wallet:${userId}`);
+    await delCache([`cache:wallet:${userId.toString()}`, `cache:user:profile:${userId.toString()}`]);
 
     return tx[0];
   } catch (e) {
